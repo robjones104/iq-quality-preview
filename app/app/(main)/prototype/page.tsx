@@ -250,7 +250,7 @@ export default function PrototypePage() {
 
   const orderStats = useMemo(() => {
     const open     = orders.filter(o => o.orderStatus === 'Open').length;
-    const approved = orders.filter(o => o.orderStatus === 'Approved').length;
+    const approved = orders.filter(o => o.approved).length;
     const closed   = orders.filter(o => o.orderStatus === 'Closed').length;
     return [
       { value: open,     sub: 'open' },
