@@ -273,7 +273,7 @@ export default function DashboardPage() {
   const orderStats = useMemo(() => {
     const total    = filteredOrders.length;
     const open     = filteredOrders.filter(o => o.orderStatus === 'Open').length;
-    const approved = filteredOrders.filter(o => o.orderStatus === 'Approved').length;
+    const approved = filteredOrders.filter(o => o.approved).length;
     const closed   = filteredOrders.filter(o => o.orderStatus === 'Closed').length;
     const pct      = total > 0 ? Math.round((closed / total) * 100) : 0;
     return {
