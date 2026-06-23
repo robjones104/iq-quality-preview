@@ -41,7 +41,7 @@ export default function LoginPage() {
     }}>
       <Card style={{ width: 360 }} variant="outlined">
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <img src="/logo.png" alt="iQ Quality" style={{ width: 72, height: 72, marginBottom: 12, borderRadius: 8 }} />
+          <img src="/logo.png" alt="iQ Quality" style={{ width: 72, height: 72, marginBottom: 12, mixBlendMode: 'screen' }} />
           <Title level={4} style={{ margin: '0 0 4px' }}>iQ Quality Preview</Title>
           <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Enter the access code to continue</Text>
         </div>
