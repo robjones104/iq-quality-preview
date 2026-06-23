@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Card, Col, Row, Typography, theme } from 'antd';
+import { Bar } from '@ant-design/plots';
 import { HourglassFilled } from '@ant-design/icons';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -117,6 +118,29 @@ export function TriageReview({ events }: { events: QualityEvent[] }) {
       .sort((a, b) => ageDays(b.date) - ageDays(a.date)),
     [events]
   );
+
+  const rootCauseCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const e of events) {
+      if (e.rootCause) counts[e.rootCause] = (counts[e.rootCause] ?? 0) + 1;
+    }
+    return Object.entries(counts)
+      .map(([cause, count]) => ({ cause, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [events]);
+
+  const isDark = token.colorBgBase === '#000000';
+  const plotTheme = isDark ? 'classicDark' : 'classic';
+  const axisStyle = {
+    labelFill:     token.colorText,
+    labelFontSize: token.fontSizeSM,
+    gridStroke:    token.colorBorderSecondary,
+    gridLineWidth: 1,
+    lineStroke:    token.colorBorderSecondary,
+    lineLineWidth: 1,
+    tickStroke:    token.colorBorderSecondary,
+    tickLineWidth: 1,
+  };
 
   const [showAllWaiting, setShowAllWaiting] = useState(false);
   const WAITING_PREVIEW = 3;
@@ -239,16 +263,37 @@ export function TriageReview({ events }: { events: QualityEvent[] }) {
           </Card>
         </Col>
 
-        {/* TBD — third triage card */}
+        {/* Root Cause Breakdown */}
         <Col xs={24} lg={8}>
           <Card
             size="small"
-            title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Coming Soon</span>}
-            styles={{ body: { minHeight: 320 } }}
+            title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Root Cause</span>}
+            extra={<span style={{ fontSize: token.fontSizeSM, color: token.colorTextQuaternary }}>{rootCauseCounts.reduce((s, d) => s + d.count, 0)} validated</span>}
+            styles={{ body: { minHeight: 320, padding: rootCauseCounts.length === 0 ? undefined : '8px 12px' } }}
           >
-            <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Third triage card — TBD</Text>
-            </div>
+            {rootCauseCounts.length === 0 ? (
+              <EmptyState icon={<HourglassFilled />} message="No validated events yet" />
+            ) : (
+              <Bar
+                key={plotTheme}
+                data={rootCauseCounts}
+                xField="count"
+                yField="cause"
+                height={300}
+                theme={plotTheme}
+                scale={{ color: { range: ['#4096ff'] } }}
+                label={false}
+                animate={{ enter: { type: 'growInX', duration: 600 } }}
+                interaction={{ elementHighlight: true }}
+                state={{ active: { opacity: 1 }, inactive: { opacity: 0.15 } }}
+                axis={{
+                  x: { ...axisStyle, tickCount: 4 },
+                  y: { ...axisStyle },
+                }}
+                legend={false}
+                tooltip={{ title: (d: { cause: string }) => d.cause, items: [{ field: 'count', name: 'Events' }] }}
+              />
+            )}
           </Card>
         </Col>
 

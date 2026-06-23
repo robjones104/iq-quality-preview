@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import dayjs from 'dayjs';
 import { Table, Button, Select, Space, Tag, Typography, Tooltip, notification, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { MoreOutlined, CloseOutlined, SearchOutlined, ArrowLeftOutlined } from '@ant-design/icons';
+import { MoreOutlined, CloseOutlined, SearchOutlined, ArrowLeftOutlined, ExportOutlined } from '@ant-design/icons';
 import { CopyableValue } from '@/components/CopyableValue';
 import Link from 'next/link';
 import { events } from '@/data/events';
@@ -69,6 +69,18 @@ export default function EventsPage() {
   const [batchEscId, setBatchEscId]               = useState<string | undefined>();
   const [createEscOpen, setCreateEscOpen]         = useState(false);
   const [notifApi, notifContextHolder]            = notification.useNotification();
+
+  const handleExportEvents = () => {
+    const selected = filtered.filter(e => selectedEventKeys.includes(e.id));
+    const headers = ['Event ID', 'Job No.', 'Status', 'Discrepancy', 'Door', 'Product', 'Reported By', 'Branch', 'Plant', 'Date'];
+    const rows = selected.map(e => [e.id, e.jobNo, e.status, e.discrepancy, e.door, e.product, e.reportedBy, e.branch, e.plant, e.date]);
+    const lines = [headers, ...rows].map(r => r.map(cell => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','));
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `events-export-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const handleApplyTag = (tagId: string) => {
     const tag = DEFAULT_TAGS.find(t => t.id === tagId);
@@ -137,26 +149,20 @@ export default function EventsPage() {
 
   const columns: ColumnsType<QualityEvent> = [
     {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      sorter: (a, b) => a.status.localeCompare(b.status),
-      width: 160,
-      render: (_: EventStatus, record) => (
-        <StatusTag
-          status={record.status}
-          hasOrder={eventOrderIds.has(record.id)}
-          additionalInfoRequested={record.additionalInfoRequested}
-        />
-      ),
-    },
-    {
       title: 'Event ID',
       dataIndex: 'id',
       key: 'id',
       sorter: (a, b) => a.id.localeCompare(b.id),
       render: (id: string) => <Link href={`/events/${id}`}>{id}</Link>,
       width: 92,
+    },
+    {
+      title: 'Job No.',
+      dataIndex: 'jobNo',
+      key: 'jobNo',
+      sorter: (a, b) => a.jobNo.localeCompare(b.jobNo),
+      width: 148,
+      render: (jobNo: string) => <CopyableValue value={jobNo} />,
     },
     {
       title: 'Discrepancy',
@@ -201,14 +207,6 @@ export default function EventsPage() {
       width: 148,
     },
     {
-      title: 'Job No.',
-      dataIndex: 'jobNo',
-      key: 'jobNo',
-      sorter: (a, b) => a.jobNo.localeCompare(b.jobNo),
-      width: 148,
-      render: (jobNo: string) => <CopyableValue value={jobNo} />,
-    },
-    {
       title: 'Reported By',
       dataIndex: 'reportedBy',
       key: 'reportedBy',
@@ -231,6 +229,20 @@ export default function EventsPage() {
       sorter: (a, b) => a.plant.localeCompare(b.plant),
       render: (plant: string) => plant.split(' ')[0],
       width: 64,
+    },
+    {
+      title: 'Status',
+      dataIndex: 'status',
+      key: 'status',
+      sorter: (a, b) => a.status.localeCompare(b.status),
+      width: 160,
+      render: (_: EventStatus, record) => (
+        <StatusTag
+          status={record.status}
+          hasOrder={eventOrderIds.has(record.id)}
+          additionalInfoRequested={record.additionalInfoRequested}
+        />
+      ),
     },
     {
       title: '',
@@ -333,6 +345,9 @@ export default function EventsPage() {
                 options={ESCALATION_TYPE_OPTIONS}
                 style={{ width: 260 }}
               />
+              <Button size="small" icon={<ExportOutlined />} onClick={handleExportEvents}>
+                Export
+              </Button>
             </div>
           </div>
         )}
