@@ -112,14 +112,14 @@ export function OrderFulfillment({ events }: { events: QualityEvent[] }) {
   // Order status counts (static — orders not yet date-filtered)
   const orderCounts = useMemo(() => ({
     open:     orders.filter(o => o.orderStatus === 'Open').length,
-    approved: orders.filter(o => o.orderStatus === 'Approved').length,
+    approved: orders.filter(o => o.approved).length,
     closed:   orders.filter(o => o.orderStatus === 'Closed').length,
   }), []);
 
   // Avg days from event date to order resolution (Approved or Closed only)
   const avgDaysToClose = useMemo(() => {
     const diffs = orders
-      .filter(o => o.orderStatus === 'Approved' || o.orderStatus === 'Closed')
+      .filter(o => o.approved || o.orderStatus === 'Closed')
       .map(o => {
         const ev = EVENT_MAP.get(o.eventId);
         if (!ev) return null;
