@@ -9,7 +9,7 @@ type ThemeStore = {
 export const useThemeStore = create<ThemeStore>()(
   persist(
     (set) => ({
-      darkMode: false,
+      darkMode: true,
       toggle: () => set((s) => ({ darkMode: !s.darkMode })),
     }),
     { name: 'iq-theme' }
