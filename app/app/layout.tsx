@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Montserrat } from 'next/font/google';
+import { AntdRegistry } from '@ant-design/nextjs-registry';
 import { AntdProvider } from '@/components/AntdProvider';
 import './globals.css';
 
@@ -23,7 +24,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
       </head>
       <body style={{ height: '100%', fontFamily: 'var(--font-montserrat), sans-serif' }}>
-        <AntdProvider>{children}</AntdProvider>
+        <AntdRegistry><AntdProvider>{children}</AntdProvider></AntdRegistry>
       </body>
     </html>
   );
