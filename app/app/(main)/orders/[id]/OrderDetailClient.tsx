@@ -297,10 +297,10 @@ export function OrderDetailClient({ order, event }: Props) {
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
       {status === 'Open' && !approved && (
         <>
-          <Button size="small" icon={<CloseOutlined />} onClick={() => setDeclineOpen(true)}>
+          <Button icon={<CloseOutlined />} onClick={() => setDeclineOpen(true)}>
             Decline
           </Button>
-          <Button type="primary" size="small" icon={<CheckOutlined />} onClick={handleApprove}>
+          <Button type="primary" icon={<CheckOutlined />} onClick={handleApprove}>
             Approve
           </Button>
         </>
@@ -308,17 +308,17 @@ export function OrderDetailClient({ order, event }: Props) {
       {status === 'Open' && approved && (
         <>
           {!assignedToProcurement && (
-            <Button size="small" icon={<SendOutlined />} onClick={() => setProcurementOpen(true)}>
+            <Button icon={<SendOutlined />} onClick={() => setProcurementOpen(true)}>
               Assign to Procurement
             </Button>
           )}
-          <Button type="primary" size="small" icon={<CheckOutlined />} onClick={() => setCloseOpen(true)}>
+          <Button type="primary" icon={<CheckOutlined />} onClick={() => setCloseOpen(true)}>
             Close Order
           </Button>
         </>
       )}
       {status === 'Closed' && (
-        <Button size="small" icon={<RollbackOutlined />} onClick={() => setReopenOpen(true)}>
+        <Button icon={<RollbackOutlined />} onClick={() => setReopenOpen(true)}>
           Reopen
         </Button>
       )}
@@ -480,11 +480,7 @@ export function OrderDetailClient({ order, event }: Props) {
                       </div>
                       <div style={{ width: 1, background: token.colorBorderSecondary, alignSelf: 'stretch', margin: '0 4px' }} />
                       {/* Section 2: Location */}
-                      <div style={{ flex: 1.5, padding: '0 20px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', gap: 12 }}>
-                        <div style={{ display: 'flex', gap: 20 }}>
-                          {displayField('Config ID', part.configId, true)}
-                          {displayField('DFO', String(part.dfoLineItem), true)}
-                        </div>
+                      <div style={{ flex: 1, padding: '0 20px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', gap: 12 }}>
                         {displayField('Door Type', part.door)}
                       </div>
                       <div style={{ width: 1, background: token.colorBorderSecondary, alignSelf: 'stretch', margin: '0 4px' }} />

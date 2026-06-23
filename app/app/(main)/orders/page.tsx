@@ -9,7 +9,7 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import type { MenuProps } from 'antd';
 import {
-  CheckOutlined, CloseOutlined, MoreOutlined, RollbackOutlined,
+  CheckOutlined, CloseOutlined, ExportOutlined, MoreOutlined, RollbackOutlined,
   SearchOutlined, SendOutlined,
 } from '@ant-design/icons';
 import { CopyableValue } from '@/components/CopyableValue';
@@ -151,6 +151,18 @@ export default function OrdersPage() {
   const [reopenReason, setReopenReason] = useState('');
 
   const [notifApi, notifContextHolder] = notification.useNotification();
+
+  const handleExportOrders = () => {
+    const selected = filtered.filter(o => selectedOrderKeys.includes(o.id));
+    const headers = ['Order ID', 'Job No.', 'Order Status', 'Discrepancy', 'Product', 'Door Type', 'Reported By', 'Branch', 'Plant', 'Last Updated'];
+    const rows = selected.map(o => [o.id, o.jobNo, effectiveStatus(o), o.discrepancy, o.product, o.door, o.reportedBy, o.branch, o.plant, o.lastUpdated]);
+    const lines = [headers, ...rows].map(r => r.map(cell => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','));
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `orders-export-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const resetApprove = () => {
     setApproveAssign(false);
@@ -577,14 +589,19 @@ export default function OrdersPage() {
                 Clear
               </Button>
             </div>
-            <Button
-              size="small"
-              icon={<CheckOutlined />}
-              disabled={openCount === 0}
-              onClick={() => setBatchCloseOpen(true)}
-            >
-              Close Orders{openCount > 0 ? ` (${openCount})` : ''}
-            </Button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Button size="small" icon={<ExportOutlined />} onClick={handleExportOrders}>
+                Export
+              </Button>
+              <Button
+                size="small"
+                icon={<CheckOutlined />}
+                disabled={openCount === 0}
+                onClick={() => setBatchCloseOpen(true)}
+              >
+                Close Orders{openCount > 0 ? ` (${openCount})` : ''}
+              </Button>
+            </div>
           </div>
         )}
 
