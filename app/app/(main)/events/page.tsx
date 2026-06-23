@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import dayjs from 'dayjs';
 import { Table, Button, Select, Space, Tag, Typography, Tooltip, notification, theme } from 'antd';
@@ -29,7 +29,7 @@ import type { DateRange } from '@/components/DateRangeFilter';
 import type { QualityEvent, EventStatus } from '@/data/types';
 const { Text } = Typography;
 
-export default function EventsPage() {
+function EventsPageContent() {
   const searchParams = useSearchParams();
   const flagParam   = searchParams.get('flag');
   const statusParam = searchParams.get('status');
@@ -371,5 +371,13 @@ export default function EventsPage() {
         />
       </div>
     </>
+  );
+}
+
+export default function EventsPage() {
+  return (
+    <Suspense>
+      <EventsPageContent />
+    </Suspense>
   );
 }
