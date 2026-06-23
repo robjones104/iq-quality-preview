@@ -1,0 +1,11 @@
+{
+  "name": "allegion-iq-quality",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Allegion SAT iQ Quality L4 redesign — research, requirements, and design doctrine.",
+  "packageManager": "pnpm@10.33.4",
+  "engines": {
+    "node": "24.x",
+    "pnpm": ">=10.0.0"
+  }
+}

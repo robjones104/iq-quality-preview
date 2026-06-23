@@ -1,0 +1,39 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+/* Table header cells never wrap */
+.ant-table-thead th.ant-table-cell {
+  white-space: nowrap;
+}
+
+/* Small card body padding fallback — bodyPaddingSM token may be hardcoded at 12px in this AntD version */
+.ant-card-small > .ant-card-body {
+  padding: 20px;
+}
+
+/* Hide desktop sidebar on mobile — PageHeader provides hamburger nav instead */
+@media (max-width: 767px) {
+  .sidebar-desktop {
+    display: none !important;
+  }
+}
+
+/* Scrollbars */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d9d9d9; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #bfbfbf; }
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb { background: #303030; }
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: #434343; }
+
+* { scrollbar-width: thin; scrollbar-color: #d9d9d9 transparent; }
+[data-theme="dark"] * { scrollbar-color: #303030 transparent; }
