@@ -1,0 +1,16 @@
+.DS_Store
+node_modules/
+.env
+.env.local
+.env.*.local
+
+# Build output
+app/.next/
+app/tsconfig.tsbuildinfo
+
+# Local tooling
+.claude/
+app/.agents/
+
+# Research artifacts (local only)
+BACKLOG.md
