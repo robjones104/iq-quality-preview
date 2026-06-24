@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [feature/github-pages]
+    branches: [kunal/github-pages]
   workflow_dispatch:
 
 permissions:
