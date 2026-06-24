@@ -72,7 +72,7 @@ function generateBulkEvents(): QualityEvent[] {
   const r = makePrng(0xdeadbeef);
   const out: QualityEvent[] = [];
 
-  for (let i = 0; i < 300; i++) {
+  for (let i = 0; i < 575; i++) {
     const date       = genDate(r());
     const h          = 7 + Math.floor(r() * 10);
     const m          = Math.floor(r() * 60);
@@ -112,7 +112,7 @@ function generateBulkEvents(): QualityEvent[] {
     }] : undefined;
 
     out.push({
-      id:           `QE_${2001 + i}`,
+      id:           `QE_${i < 300 ? (2001 + i) : (2403 + (i - 300))}`,
       date, jobNo, dfo, ...(elLine != null ? { elLine } : {}), status, rootCause,
       branch, plant, product, discrepancy: disc, door,
       issueDescription: `${disc} identified on ${product}. ${branch} branch reported issue with ${door} installation.`,

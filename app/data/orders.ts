@@ -75,9 +75,10 @@ function generateBulkOrders(): Order[] {
   const used = new Set<number>();
   let attempts = 0;
 
-  while (out.length < 80 && attempts < 2000) {
+  while (out.length < 358 && attempts < 5000) {
     attempts++;
-    const eventNum = 2001 + Math.floor(r() * 300);
+    const bulkIdx  = Math.floor(r() * 575);
+    const eventNum = bulkIdx < 300 ? (2001 + bulkIdx) : (2403 + (bulkIdx - 300));
     if (used.has(eventNum)) continue;
     used.add(eventNum);
 
