@@ -56,6 +56,7 @@ function KpiCard({
   icon: React.ReactNode;
 }) {
   const { token } = theme.useToken();
+  const [hovered, setHovered] = useState(false);
   const diff = prior !== null ? count - prior : null;
   const pct  = (diff !== null && prior !== null && prior > 0)
     ? Math.round((Math.abs(diff) / prior) * 100) : null;
@@ -76,9 +77,15 @@ function KpiCard({
   const card = (
     <Card
       size="small"
-      hoverable={!!href}
       title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>{title}</span>}
-      style={{ cursor: href ? 'pointer' : 'default' }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        cursor: href ? 'pointer' : 'default',
+        transition: 'transform 0.18s, box-shadow 0.18s',
+        transform: href && hovered ? 'translateY(-2px)' : 'translateY(0)',
+        boxShadow: href && hovered ? `0 8px 24px ${token.colorPrimary}33` : undefined,
+      }}
       styles={{ header: { padding: '0 16px', minHeight: 32 }, body: { padding: '8px 16px' } }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -113,6 +120,7 @@ function SectionHeader({
   progress?: { pct: number; color?: string; resolved?: number; total?: number };
 }) {
   const { token } = theme.useToken();
+  const [hovered, setHovered] = useState(false);
   const ChevronIcon = active ? CaretDownFilled : CaretRightFilled;
   const divider = (
     <div style={{
@@ -123,20 +131,25 @@ function SectionHeader({
       flexShrink: 0,
     }} />
   );
+  const borderColor = active
+    ? token.colorPrimary
+    : hovered ? `${token.colorPrimary}66` : token.colorBorderSecondary;
   return (
     <Card
       size="small"
-      hoverable
       onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>{label}</span>}
       extra={
-        <ChevronIcon style={{ fontSize: token.fontSizeSM, color: active ? token.colorPrimary : token.colorTextTertiary, transition: 'color 0.2s' }} />
+        <ChevronIcon style={{ fontSize: token.fontSizeSM, color: active ? token.colorPrimary : hovered ? `${token.colorPrimary}99` : token.colorTextTertiary, transition: 'color 0.2s' }} />
       }
       style={{
         cursor: 'pointer',
         height: '100%',
-        borderLeft: `3px solid ${active ? token.colorPrimary : token.colorBorderSecondary}`,
-        transition: 'border-color 0.2s',
+        borderLeft: `3px solid ${borderColor}`,
+        transition: 'border-color 0.2s, box-shadow 0.18s',
+        boxShadow: !active && hovered ? `0 4px 16px ${token.colorPrimary}22` : undefined,
       }}
     >
       <Flex align="center" style={{ flexWrap: 'nowrap' }}>
