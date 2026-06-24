@@ -3,8 +3,8 @@
 import { useState, useEffect, Suspense } from 'react';
 import dayjs from 'dayjs';
 import {
-  Dropdown, Form, Input, Modal, Select, Space,
-  Switch, Table, Tabs, Button, Tag, Tooltip, Typography, theme,
+  Dropdown, Form, Input, Modal, Select,
+  Switch, Table, Tabs, Button, Tag, Tooltip, Typography, theme, Grid, Pagination,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { MenuProps } from 'antd';
@@ -23,6 +23,7 @@ import { DateRangeFilter, type DateRange } from '@/components/DateRangeFilter';
 import { EVENT_FILTER_CATEGORIES } from '@/data/filterOptions';
 import { useFilterStore } from '@/store/filterStore';
 import { useOrderStore } from '@/store/orderStore';
+import { OrderCard } from '@/components/OrderCard';
 import type { Order } from '@/data/orders';
 import type { QualityEvent } from '@/data/types';
 type OrderRow = Order & Pick<QualityEvent, 'discrepancy' | 'product' | 'door' | 'branch' | 'plant' | 'reportedBy' | 'status'>;
@@ -99,8 +100,11 @@ function OrdersPageContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const setDateRange = (r: DateRange | null) => { setDateRangeLocal(r); setOrdersDateRange(r); };
-  const setAppliedFilters = (f: Record<string, string[]>) => { setAppliedFiltersLocal(f); setOrdersFilters(f); };
+  const screens = Grid.useBreakpoint();
+  const [cardPage, setCardPage] = useState(1);
+
+  const setDateRange = (r: DateRange | null) => { setDateRangeLocal(r); setOrdersDateRange(r); setCardPage(1); };
+  const setAppliedFilters = (f: Record<string, string[]>) => { setAppliedFiltersLocal(f); setOrdersFilters(f); setCardPage(1); };
 
   const { token } = theme.useToken();
 
@@ -632,27 +636,27 @@ function OrdersPageContent() {
 
       <PageHeader
         left={<DateRangeFilter value={dateRange} onChange={setDateRange} />}
+        center={
+          <Select
+            mode="multiple"
+            showSearch
+            optionFilterProp="label"
+            placeholder="Search order status, branch, product..."
+            options={ORDERS_SMART_SEARCH_OPTIONS}
+            value={ordersSelectValue}
+            onChange={handleOrdersSmartSearch}
+            maxTagCount="responsive"
+            style={{ width: '100%' }}
+            suffixIcon={<SearchOutlined style={{ color: token.colorTextQuaternary }} />}
+            allowClear
+          />
+        }
         right={
-          <Space>
-            <Select
-              mode="multiple"
-              showSearch
-              optionFilterProp="label"
-              placeholder="Search order status, branch, product..."
-              options={ORDERS_SMART_SEARCH_OPTIONS}
-              value={ordersSelectValue}
-              onChange={handleOrdersSmartSearch}
-              maxTagCount="responsive"
-              style={{ width: 280 }}
-              suffixIcon={<SearchOutlined style={{ color: token.colorTextQuaternary }} />}
-              allowClear
-            />
-            <FilterPanel
-              categories={ORDER_STATUS_FILTER}
-              applied={appliedFiltersLocal}
-              onApply={setAppliedFilters}
-            />
-          </Space>
+          <FilterPanel
+            categories={ORDER_STATUS_FILTER}
+            applied={appliedFiltersLocal}
+            onApply={setAppliedFilters}
+          />
         }
       />
 
@@ -680,63 +684,99 @@ function OrdersPageContent() {
           ]}
         />
 
-        {selectedOrderKeys.length > 0 && (
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            marginBottom: 8, padding: '6px 10px',
-            background: token.colorFillSecondary,
-            borderRadius: token.borderRadius,
-            border: `1px solid ${token.colorBorderSecondary}`,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Typography.Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
-                {selectedOrderKeys.length} selected
-              </Typography.Text>
-              <Button type="link" size="small" style={{ padding: 0 }} onClick={() => setSelectedOrderKeys([])}>
-                Clear
-              </Button>
+        {screens.lg === false ? (
+          <>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: screens.md ? '1fr 1fr' : '1fr',
+              gap: 12,
+              marginBottom: 16,
+            }}>
+              {filtered.slice((cardPage - 1) * 12, cardPage * 12).map(row => (
+                <OrderCard
+                  key={row.id}
+                  row={row}
+                  status={effectiveStatus(row)}
+                  menuItems={getMenuItems(row)}
+                  onAction={key => openRowAction(key, row)}
+                />
+              ))}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Button
-                size="small"
-                icon={<CheckOutlined />}
-                disabled={openCount === 0}
-                onClick={() => setBatchCloseOpen(true)}
-              >
-                Close Orders{openCount > 0 ? ` (${openCount})` : ''}
-              </Button>
-              <Button size="small" icon={<ExportOutlined />} onClick={handleExportOrders}>
-                Export
-              </Button>
-            </div>
-          </div>
-        )}
+            {filtered.length > 12 && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Pagination
+                  current={cardPage}
+                  pageSize={12}
+                  total={filtered.length}
+                  onChange={setCardPage}
+                  showSizeChanger={false}
+                  showTotal={(total, range) => `${range[0]}-${range[1]} of ${total}`}
+                  size="small"
+                />
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {selectedOrderKeys.length > 0 && (
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                marginBottom: 8, padding: '6px 10px',
+                background: token.colorFillSecondary,
+                borderRadius: token.borderRadius,
+                border: `1px solid ${token.colorBorderSecondary}`,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Typography.Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
+                    {selectedOrderKeys.length} selected
+                  </Typography.Text>
+                  <Button type="link" size="small" style={{ padding: 0 }} onClick={() => setSelectedOrderKeys([])}>
+                    Clear
+                  </Button>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Button
+                    size="small"
+                    icon={<CheckOutlined />}
+                    disabled={openCount === 0}
+                    onClick={() => setBatchCloseOpen(true)}
+                  >
+                    Close Orders{openCount > 0 ? ` (${openCount})` : ''}
+                  </Button>
+                  <Button size="small" icon={<ExportOutlined />} onClick={handleExportOrders}>
+                    Export
+                  </Button>
+                </div>
+              </div>
+            )}
 
-        <Table
-          dataSource={filtered}
-          columns={columns}
-          rowKey="id"
-          size="small"
-          onChange={(_p, tableFilters) => {
-            const next = { ...appliedFiltersLocal };
-            Object.entries(tableFilters).forEach(([k, vals]) => {
-              if (vals?.length) next[k] = vals as string[];
-              else delete next[k];
-            });
-            setAppliedFilters(next);
-          }}
-          rowSelection={{
-            type: 'checkbox',
-            selectedRowKeys: selectedOrderKeys,
-            onChange: keys => setSelectedOrderKeys(keys as string[]),
-          }}
-          pagination={{
-            pageSize: 10,
-            showSizeChanger: true,
-            pageSizeOptions: ['10', '25', '50'],
-            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
-          }}
-        />
+            <Table
+              dataSource={filtered}
+              columns={columns}
+              rowKey="id"
+              size="small"
+              onChange={(_p, tableFilters) => {
+                const next = { ...appliedFiltersLocal };
+                Object.entries(tableFilters).forEach(([k, vals]) => {
+                  if (vals?.length) next[k] = vals as string[];
+                  else delete next[k];
+                });
+                setAppliedFilters(next);
+              }}
+              rowSelection={{
+                type: 'checkbox',
+                selectedRowKeys: selectedOrderKeys,
+                onChange: keys => setSelectedOrderKeys(keys as string[]),
+              }}
+              pagination={{
+                pageSize: 10,
+                showSizeChanger: true,
+                pageSizeOptions: ['10', '25', '50'],
+                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
+              }}
+            />
+          </>
+        )}
       </div>
     </>
   );

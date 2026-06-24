@@ -97,8 +97,8 @@ export function PageHeader({ left, center, right }: Props) {
           </div>
         </div>
 
-        {/* Center: optional search or contextual content */}
-        {center && (
+        {/* Center: optional search or contextual content — hidden on mobile */}
+        {center && screens.md && (
           <div style={{ width: 280, flexShrink: 0 }}>{center}</div>
         )}
 
