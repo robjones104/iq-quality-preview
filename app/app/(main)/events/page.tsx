@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import dayjs from 'dayjs';
-import { Table, Button, Select, Space, Tag, Typography, Tooltip, notification, theme, Grid, Pagination } from 'antd';
+import { Table, Button, Select, Space, Tag, Typography, Tooltip, notification, theme, Grid, List } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { MoreOutlined, CloseOutlined, SearchOutlined, ArrowLeftOutlined, ExportOutlined } from '@ant-design/icons';
 import { CopyableValue } from '@/components/CopyableValue';
@@ -70,11 +70,10 @@ function EventsPageContent() {
   }, []);
 
   const screens = Grid.useBreakpoint();
-  const [cardPage, setCardPage] = useState(1);
 
   // Wrappers that keep local state and Zustand in sync
-  const setDateRange = (r: DateRange | null) => { setDateRangeLocal(r); setEventsDateRange(r); setCardPage(1); };
-  const setAppliedFilters = (f: Record<string, string[]>) => { setAppliedFiltersLocal(f); setEventsFilters(f); setCardPage(1); };
+  const setDateRange = (r: DateRange | null) => { setDateRangeLocal(r); setEventsDateRange(r); };
+  const setAppliedFilters = (f: Record<string, string[]>) => { setAppliedFiltersLocal(f); setEventsFilters(f); };
 
   const appliedFilters = appliedFiltersLocal;
 
@@ -339,7 +338,7 @@ function EventsPageContent() {
       />
 
       <div style={{ padding: `${token.padding}px ${token.paddingMD}px` }}>
-        {chips.length > 0 && (
+        {screens.md !== false && chips.length > 0 && (
           <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: token.marginXS, marginBottom: token.margin }}>
             {chips.map((chip) => (
               <Tag key={chip} closable onClose={() => removeChip(chip)} closeIcon={<CloseOutlined />} style={{ margin: 0 }}>
@@ -353,31 +352,22 @@ function EventsPageContent() {
         )}
 
         {screens.lg === false ? (
-          <>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: screens.md ? '1fr 1fr' : '1fr',
-              gap: 12,
-              marginBottom: 16,
-            }}>
-              {filtered.slice((cardPage - 1) * 12, cardPage * 12).map(event => (
-                <EventCard key={event.id} event={event} hasOrder={eventOrderIds.has(event.id)} />
-              ))}
-            </div>
-            {filtered.length > 12 && (
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <Pagination
-                  current={cardPage}
-                  pageSize={12}
-                  total={filtered.length}
-                  onChange={setCardPage}
-                  showSizeChanger={false}
-                  showTotal={(total, range) => `${range[0]}-${range[1]} of ${total}`}
-                  size="small"
-                />
-              </div>
+          <List
+            dataSource={filtered}
+            grid={{ gutter: 12, xs: 1, sm: 2 }}
+            pagination={{
+              pageSize: 12,
+              hideOnSinglePage: true,
+              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
+              size: 'small',
+              style: { textAlign: 'right', marginTop: 12 },
+            }}
+            renderItem={(event) => (
+              <List.Item style={{ padding: 0 }}>
+                <EventCard event={event} hasOrder={eventOrderIds.has(event.id)} />
+              </List.Item>
             )}
-          </>
+          />
         ) : (
           <>
             {selectedEventKeys.length > 0 && (

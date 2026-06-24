@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { DatePicker, Select, Modal, Grid } from 'antd';
+import { Button, Calendar, DatePicker, Drawer, Grid, Input, Segmented, Select, theme } from 'antd';
+import { CalendarOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 
 const { RangePicker } = DatePicker;
@@ -14,104 +15,31 @@ type Preset = { label: string; value: DateRange };
 function buildPresets(): Preset[] {
   const now = dayjs();
   return [
-    {
-      label: 'Today',
-      value: [now.startOf('day'), now.endOf('day')],
-    },
-    {
-      label: 'Yesterday',
-      value: [now.subtract(1, 'day').startOf('day'), now.subtract(1, 'day').endOf('day')],
-    },
-    {
-      label: 'Last 7 Days',
-      value: [now.subtract(6, 'day').startOf('day'), now.endOf('day')],
-    },
-    {
-      label: 'Last Week',
-      value: [
-        now.subtract(1, 'week').startOf('week'),
-        now.subtract(1, 'week').endOf('week'),
-      ],
-    },
-    {
-      label: 'This Month',
-      value: [now.startOf('month'), now.endOf('month')],
-    },
-    {
-      label: 'Last Month',
-      value: [
-        now.subtract(1, 'month').startOf('month'),
-        now.subtract(1, 'month').endOf('month'),
-      ],
-    },
-    {
-      label: 'Last 30 Days',
-      value: [now.subtract(29, 'day').startOf('day'), now.endOf('day')],
-    },
-    {
-      label: 'Last 60 Days',
-      value: [now.subtract(59, 'day').startOf('day'), now.endOf('day')],
-    },
-    {
-      label: 'Last 90 Days',
-      value: [now.subtract(89, 'day').startOf('day'), now.endOf('day')],
-    },
-    {
-      label: 'Last Year',
-      value: [
-        now.subtract(1, 'year').startOf('year'),
-        now.subtract(1, 'year').endOf('year'),
-      ],
-    },
-    {
-      label: 'Year to Date',
-      value: [now.startOf('year'), now.endOf('day')],
-    },
-    {
-      label: 'Last 5 Years',
-      value: [now.subtract(5, 'year').startOf('year'), now.endOf('day')],
-    },
+    { label: 'Today',        value: [now.startOf('day'), now.endOf('day')] },
+    { label: 'Yesterday',    value: [now.subtract(1, 'day').startOf('day'), now.subtract(1, 'day').endOf('day')] },
+    { label: 'Last 7 Days',  value: [now.subtract(6, 'day').startOf('day'), now.endOf('day')] },
+    { label: 'Last Week',    value: [now.subtract(1, 'week').startOf('week'), now.subtract(1, 'week').endOf('week')] },
+    { label: 'This Month',   value: [now.startOf('month'), now.endOf('month')] },
+    { label: 'Last Month',   value: [now.subtract(1, 'month').startOf('month'), now.subtract(1, 'month').endOf('month')] },
+    { label: 'Last 30 Days', value: [now.subtract(29, 'day').startOf('day'), now.endOf('day')] },
+    { label: 'Last 60 Days', value: [now.subtract(59, 'day').startOf('day'), now.endOf('day')] },
+    { label: 'Last 90 Days', value: [now.subtract(89, 'day').startOf('day'), now.endOf('day')] },
+    { label: 'Last Year',    value: [now.subtract(1, 'year').startOf('year'), now.subtract(1, 'year').endOf('year')] },
+    { label: 'Year to Date', value: [now.startOf('year'), now.endOf('day')] },
+    { label: 'Last 5 Years', value: [now.subtract(5, 'year').startOf('year'), now.endOf('day')] },
   ];
 }
 
-const MOBILE_SELECT_OPTIONS = [
-  {
-    label: 'Recent',
-    options: [
-      { value: 'Today', label: 'Today' },
-      { value: 'Yesterday', label: 'Yesterday' },
-    ],
-  },
-  {
-    label: 'Weeks',
-    options: [
-      { value: 'Last 7 Days', label: 'Last 7 Days' },
-      { value: 'Last Week', label: 'Last Week' },
-    ],
-  },
-  {
-    label: 'Months',
-    options: [
-      { value: 'This Month', label: 'This Month' },
-      { value: 'Last Month', label: 'Last Month' },
-      { value: 'Last 30 Days', label: 'Last 30 Days' },
-      { value: 'Last 60 Days', label: 'Last 60 Days' },
-      { value: 'Last 90 Days', label: 'Last 90 Days' },
-    ],
-  },
-  {
-    label: 'Years',
-    options: [
-      { value: 'Last Year', label: 'Last Year' },
-      { value: 'Year to Date', label: 'Year to Date' },
-      { value: 'Last 5 Years', label: 'Last 5 Years' },
-    ],
-  },
-  {
-    label: 'Custom',
-    options: [{ value: '__custom__', label: 'Custom range...' }],
-  },
-];
+const MONTH_OPTIONS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+].map((label, value) => ({ value, label }));
+
+const NOW_YEAR = dayjs().year();
+const YEAR_OPTIONS = Array.from({ length: 11 }, (_, i) => ({
+  value: NOW_YEAR - 8 + i,
+  label: String(NOW_YEAR - 8 + i),
+}));
 
 type Props = {
   value?: DateRange | null;
@@ -120,35 +48,64 @@ type Props = {
 
 export function DateRangeFilter({ value, onChange }: Props) {
   const screens = useBreakpoint();
-  const [modalOpen, setModalOpen] = useState(false);
-  const [pendingRange, setPendingRange] = useState<DateRange | null>(null);
+  const { token } = theme.useToken();
+  const [drawerOpen, setDrawerOpen]       = useState(false);
+  const [tab, setTab]                     = useState<'Presets' | 'Custom'>('Presets');
+  const [calDisplayDate, setCalDisplayDate] = useState(() => dayjs());
+  const [rangeStart, setRangeStart]       = useState<Dayjs | null>(null);
+  const [rangeEnd, setRangeEnd]           = useState<Dayjs | null>(null);
 
-  const presets = buildPresets();
+  const presets   = buildPresets();
+  const presetMap = new Map(presets.map(p => [p.label, p]));
 
-  const activePresetLabel = (): string | undefined => {
-    if (!value) return undefined;
-    const match = presets.find(
-      (p) => p.value[0].isSame(value[0], 'day') && p.value[1].isSame(value[1], 'day')
-    );
-    return match ? match.label : '__custom__';
+  const activePresetLabel = (): string | null => {
+    if (!value) return null;
+    return presets.find(p =>
+      p.value[0].isSame(value[0], 'day') && p.value[1].isSame(value[1], 'day')
+    )?.label ?? null;
   };
 
-  const handleMobileChange = (val: string) => {
-    if (val === '__custom__') {
-      setPendingRange(value ?? null);
-      setModalOpen(true);
-      return;
+  const inputLabel = (): string => {
+    if (!value) return '';
+    const preset = activePresetLabel();
+    if (preset) return preset;
+    return `${value[0].format('M/D/YY')} – ${value[1].format('M/D/YY')}`;
+  };
+
+  const handleOpen = () => {
+    const isCustom = value && !activePresetLabel();
+    if (isCustom) {
+      setTab('Custom');
+      setCalDisplayDate(value[0]);
+      setRangeStart(value[0]);
+      setRangeEnd(value[1]);
+    } else {
+      setTab('Presets');
+      setCalDisplayDate(dayjs());
+      setRangeStart(null);
+      setRangeEnd(null);
     }
-    const preset = presets.find((p) => p.label === val);
-    if (preset) onChange?.(preset.value);
+    setDrawerOpen(true);
   };
 
-  const handleModalOk = () => {
-    if (pendingRange) onChange?.(pendingRange);
-    setModalOpen(false);
+  const handlePresetSelect = (label: string) => {
+    const preset = presetMap.get(label);
+    if (preset) { onChange?.(preset.value); setDrawerOpen(false); }
   };
 
-  // screens.md is undefined before hydration — treat undefined as desktop to avoid flash
+  const handleDayTap = (day: Dayjs) => {
+    setCalDisplayDate(day);
+    if (!rangeStart || rangeEnd) {
+      setRangeStart(day);
+      setRangeEnd(null);
+    } else if (day.isBefore(rangeStart, 'day') || day.isSame(rangeStart, 'day')) {
+      setRangeStart(day);
+      setRangeEnd(null);
+    } else {
+      setRangeEnd(day);
+    }
+  };
+
   const isMobile = screens.md === false;
 
   if (!isMobile) {
@@ -163,33 +120,189 @@ export function DateRangeFilter({ value, onChange }: Props) {
     );
   }
 
+  const currentPreset = activePresetLabel();
+
   return (
     <>
-      <Select
-        value={activePresetLabel()}
+      <Input
+        readOnly
+        prefix={<CalendarOutlined style={{ color: token.colorTextTertiary }} />}
+        value={inputLabel()}
         placeholder="Date range"
-        style={{ width: 160 }}
-        options={MOBILE_SELECT_OPTIONS}
-        onChange={handleMobileChange}
-        popupMatchSelectWidth={false}
+        onClick={handleOpen}
+        style={{
+          cursor: 'pointer',
+          width: Math.max(128, (inputLabel() || 'Date range').length * 7.8 + 52),
+        }}
       />
-      <Modal
-        title="Custom date range"
-        open={modalOpen}
-        onOk={handleModalOk}
-        onCancel={() => setModalOpen(false)}
-        okText="Apply"
-        width={340}
+
+      <Drawer
+        title="Date Range"
+        placement="bottom"
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        height="auto"
+        styles={{ body: { padding: '12px 16px 16px' } }}
+        extra={
+          value ? (
+            <Button type="link" size="small" onClick={() => { onChange?.(null); setDrawerOpen(false); }}>
+              Clear
+            </Button>
+          ) : null
+        }
+        footer={
+          tab === 'Custom' ? (
+            <Button
+              type="primary"
+              block
+              disabled={!rangeStart || !rangeEnd}
+              onClick={() => { if (rangeStart && rangeEnd) { onChange?.([rangeStart, rangeEnd]); setDrawerOpen(false); } }}
+            >
+              Apply
+            </Button>
+          ) : undefined
+        }
       >
-        <div style={{ padding: '16px 0' }}>
-          <RangePicker
-            size="small"
-            value={pendingRange ?? undefined}
-            onChange={(dates) => setPendingRange(dates ? (dates as DateRange) : null)}
-            style={{ width: '100%' }}
-          />
-        </div>
-      </Modal>
+        <Segmented
+          options={['Presets', 'Custom']}
+          value={tab}
+          onChange={(v) => setTab(v as 'Presets' | 'Custom')}
+          block
+          style={{ marginBottom: 16 }}
+        />
+
+        {tab === 'Presets' ? (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            {presets.map(p => (
+              <Button
+                key={p.label}
+                type={currentPreset === p.label ? 'primary' : 'default'}
+                onClick={() => handlePresetSelect(p.label)}
+                block
+              >
+                {p.label}
+              </Button>
+            ))}
+          </div>
+        ) : (
+          <div>
+            <Calendar
+              fullscreen={false}
+              value={calDisplayDate}
+              onSelect={(date) => handleDayTap(date)}
+              headerRender={({ value: hVal, onChange: hOnChange }) => (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingBottom: 10,
+                }}>
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<LeftOutlined />}
+                    onClick={() => {
+                      const prev = hVal.subtract(1, 'month');
+                      hOnChange(prev);
+                      setCalDisplayDate(prev);
+                    }}
+                  />
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <Select
+                      size="small"
+                      value={hVal.month()}
+                      onChange={m => {
+                        const next = hVal.month(m);
+                        hOnChange(next);
+                        setCalDisplayDate(next);
+                      }}
+                      options={MONTH_OPTIONS}
+                      style={{ width: 114 }}
+                    />
+                    <Select
+                      size="small"
+                      value={hVal.year()}
+                      onChange={y => {
+                        const next = hVal.year(y);
+                        hOnChange(next);
+                        setCalDisplayDate(next);
+                      }}
+                      options={YEAR_OPTIONS}
+                      style={{ width: 78 }}
+                    />
+                  </div>
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<RightOutlined />}
+                    onClick={() => {
+                      const next = hVal.add(1, 'month');
+                      hOnChange(next);
+                      setCalDisplayDate(next);
+                    }}
+                  />
+                </div>
+              )}
+              dateFullCellRender={(date) => {
+                const inMonth = date.month() === calDisplayDate.month();
+                const isStart = !!rangeStart && date.isSame(rangeStart, 'day');
+                const isEnd   = !!rangeEnd   && date.isSame(rangeEnd,   'day');
+                const inRange = !!rangeStart && !!rangeEnd
+                  && date.isAfter(rangeStart, 'day') && date.isBefore(rangeEnd, 'day');
+                const isToday   = date.isSame(dayjs(), 'day');
+                const selected  = isStart || isEnd;
+
+                return (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    height: '100%',
+                    margin: '1px',
+                    borderRadius: token.borderRadiusSM,
+                    background: selected ? token.colorPrimary : inRange ? token.colorPrimaryBg : 'transparent',
+                    color: selected
+                      ? '#fff'
+                      : !inMonth
+                      ? token.colorTextDisabled
+                      : isToday
+                      ? token.colorPrimary
+                      : token.colorText,
+                    fontWeight: isToday && !selected ? 600 : 400,
+                    fontSize: token.fontSize,
+                  }}>
+                    {date.date()}
+                  </div>
+                );
+              }}
+            />
+
+            {/* Range summary */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: 8,
+              marginTop: 12,
+              fontSize: token.fontSizeSM,
+              minHeight: 22,
+            }}>
+              {rangeStart ? (
+                <>
+                  <span style={{ color: token.colorText, fontWeight: 500 }}>{rangeStart.format('MMM D, YYYY')}</span>
+                  <span style={{ color: token.colorTextTertiary }}>→</span>
+                  <span style={{ color: rangeEnd ? token.colorText : token.colorTextTertiary, fontWeight: rangeEnd ? 500 : 400 }}>
+                    {rangeEnd ? rangeEnd.format('MMM D, YYYY') : 'select end date'}
+                  </span>
+                </>
+              ) : (
+                <span style={{ color: token.colorTextTertiary }}>Tap a day to start</span>
+              )}
+            </div>
+
+          </div>
+        )}
+      </Drawer>
     </>
   );
 }

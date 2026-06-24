@@ -357,3 +357,182 @@ export function TriageReview({ events }: { events: QualityEvent[] }) {
     </div>
   );
 }
+
+export function WaitingOnTechChart({ events }: { events: QualityEvent[] }) {
+  const { token } = theme.useToken();
+  const waitingEvents = useMemo(() =>
+    events.filter(e => !!e.additionalInfoRequested).sort((a, b) => ageDays(b.date) - ageDays(a.date)),
+    [events]
+  );
+  const preview = waitingEvents.slice(0, 3);
+
+  if (waitingEvents.length === 0) {
+    return (
+      <EmptyState icon={<HourglassFilled />} message="No events waiting on tech info" />
+    );
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary, marginBottom: 2 }}>
+        {waitingEvents.length} pending
+      </div>
+      {preview.map(e => <WaitingCard key={e.id} event={e} />)}
+    </div>
+  );
+}
+
+export function DataQualityChart({ events }: { events: QualityEvent[] }) {
+  const { token } = theme.useToken();
+  const router = useRouter();
+
+  const allEdits = useMemo(() => events.flatMap(e => e.editHistory ?? []), [events]);
+  const eventsEdited = useMemo(() => events.filter(e => e.editHistory && e.editHistory.length > 0).length, [events]);
+  const reclassRate = events.length > 0 ? Math.round((eventsEdited / events.length) * 100) : 0;
+
+  const editsByBranch = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const e of events) {
+      if (!e.editHistory?.length) continue;
+      counts[e.branch] = (counts[e.branch] ?? 0) + e.editHistory.length;
+    }
+    return Object.entries(counts).map(([branch, count]) => ({ branch, count })).sort((a, b) => b.count - a.count);
+  }, [events]);
+
+  const editsByField = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const entry of allEdits) { counts[entry.field] = (counts[entry.field] ?? 0) + 1; }
+    return Object.entries(counts).map(([field, count]) => ({ field, count })).sort((a, b) => b.count - a.count);
+  }, [allEdits]);
+
+  const maxBranchCount = editsByBranch[0]?.count ?? 1;
+  const visibleBranches = editsByBranch.slice(0, 4);
+
+  if (allEdits.length === 0) {
+    return <EmptyState icon={<EditOutlined />} message="No data edits in this period" />;
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+        <Text style={{ fontSize: token.fontSizeHeading2, fontWeight: 700, lineHeight: 1, color: reclassRate >= 20 ? token.colorWarning : token.colorText }}>
+          {reclassRate}%
+        </Text>
+        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>of events recategorized</Text>
+      </div>
+      <div>
+        <Text style={{ fontSize: token.fontSizeXS, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: token.colorTextTertiary, display: 'block', marginBottom: 8 }}>
+          Edits by Branch
+        </Text>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {visibleBranches.map(({ branch, count }) => (
+            <div key={branch} onClick={() => router.push(`/events?branch=${encodeURIComponent(branch)}`)} style={{ cursor: 'pointer' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                <Text style={{ fontSize: token.fontSizeSM }}>{branch}</Text>
+                <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600 }}>{count}</Text>
+              </div>
+              <div style={{ height: 4, borderRadius: 2, background: token.colorFillSecondary, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${Math.round((count / maxBranchCount) * 100)}%`, background: token.colorWarning, borderRadius: 2, transition: 'width 0.4s' }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div>
+        <Text style={{ fontSize: token.fontSizeXS, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: token.colorTextTertiary, display: 'block', marginBottom: 6 }}>
+          What's Being Changed
+        </Text>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {editsByField.map(({ field, count }) => (
+            <div key={field} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px', background: token.colorFillSecondary, borderRadius: token.borderRadiusSM }}>
+              <Text style={{ fontSize: token.fontSizeSM }}>{field}</Text>
+              <Text style={{ fontSize: token.fontSizeXS, fontWeight: 700, color: token.colorTextTertiary }}>{count}</Text>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function QueueHealthChart({ events }: { events: QualityEvent[] }) {
+  const { token } = theme.useToken();
+  const router = useRouter();
+  const { dateRange } = useFilterStore();
+
+  const matrix = useMemo(() => {
+    const cells = {
+      fresh: { reported: 0, underInv: 0 },
+      aging: { reported: 0, underInv: 0 },
+      stale: { reported: 0, underInv: 0 },
+    };
+    for (const e of events) {
+      if (e.status !== 'Reported' && e.status !== 'Under Investigation') continue;
+      const age = ageDays(e.date);
+      const bucket = age < FRESH_MAX ? 'fresh' : age < STALE_MIN ? 'aging' : 'stale';
+      if (e.status === 'Reported') cells[bucket].reported++;
+      else cells[bucket].underInv++;
+    }
+    return cells;
+  }, [events]);
+
+  const openTotal = Object.values(matrix).reduce((sum, b) => sum + b.reported + b.underInv, 0);
+  const resolved = events.filter(e => e.status === 'Validated' || e.status === 'Invalidated').length;
+  const resolutionRate = events.length > 0 ? Math.round((resolved / events.length) * 100) : 0;
+
+  const matrixRows = [
+    { key: 'fresh' as const, label: 'Fresh', sub: `0–${FRESH_MAX - 1}d`, dr: (): [ReturnType<typeof dayjs>, ReturnType<typeof dayjs>] => [TODAY.subtract(FRESH_MAX - 1, 'day'), TODAY] },
+    { key: 'aging' as const, label: 'Aging', sub: `${FRESH_MAX}–${STALE_MIN - 1}d`, dr: (): [ReturnType<typeof dayjs>, ReturnType<typeof dayjs>] => [TODAY.subtract(STALE_MIN - 1, 'day'), TODAY.subtract(FRESH_MAX, 'day')] },
+    { key: 'stale' as const, label: 'Stale', sub: `${STALE_MIN}+d`, dr: (): [ReturnType<typeof dayjs>, ReturnType<typeof dayjs>] => [dateRange ? dateRange[0] : TODAY.subtract(2, 'year'), TODAY.subtract(STALE_MIN, 'day')] },
+  ];
+  const matrixCols = [
+    { key: 'reported' as const, label: 'Reported',   status: 'Reported',           color: STATUS_COLORS['Reported'] },
+    { key: 'underInv' as const, label: 'Under Inv.', status: 'Under Investigation', color: STATUS_COLORS['Under Investigation'] },
+  ];
+  const navigate = (dr: [ReturnType<typeof dayjs>, ReturnType<typeof dayjs>], status: string) => {
+    const from = dr[0].format('YYYY-MM-DD');
+    const to   = dr[1].format('YYYY-MM-DD');
+    router.push(`/events?status=${encodeURIComponent(status)}&from=${from}&to=${to}`);
+  };
+  const rowHeat: Record<string, string> = {
+    fresh: token.colorBgContainer,
+    aging: token.colorWarningBg,
+    stale: token.colorWarningBgHover,
+  };
+
+  return (
+    <div>
+      <div style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary, marginBottom: 8 }}>
+        {openTotal} open · {resolutionRate}% resolved
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '64px 1fr 1fr', gridTemplateRows: 'auto 1fr 1fr 1fr', gap: 1, background: token.colorBorderSecondary, borderRadius: token.borderRadiusSM, overflow: 'hidden' }}>
+        <div style={{ background: token.colorFillTertiary }} />
+        {matrixCols.map(col => (
+          <div key={col.key} style={{ background: token.colorFillTertiary, padding: '8px', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+            <span style={{ width: 7, height: 7, borderRadius: 1, background: col.color, display: 'inline-block', flexShrink: 0 }} />
+            <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600 }}>{col.label}</Text>
+          </div>
+        ))}
+        {matrixRows.map(row => ([
+          <div key={`${row.key}-label`} style={{ background: rowHeat[row.key], padding: '8px 10px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600 }}>{row.label}</Text>
+            <Text type="secondary" style={{ fontSize: token.fontSizeXS }}>{row.sub}</Text>
+          </div>,
+          ...matrixCols.map(col => {
+            const count = matrix[row.key][col.key];
+            const bg = rowHeat[row.key];
+            return (
+              <div
+                key={`${row.key}-${col.key}`}
+                onClick={() => navigate(row.dr(), col.status)}
+                style={{ background: bg, padding: '16px 8px', textAlign: 'center', cursor: 'pointer', transition: 'background 0.15s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                onMouseEnter={e => (e.currentTarget.style.background = token.colorFillSecondary)}
+                onMouseLeave={e => (e.currentTarget.style.background = bg)}
+              >
+                <Text style={{ fontSize: token.fontSizeHeading3, fontWeight: 700, lineHeight: 1 }}>{count}</Text>
+              </div>
+            );
+          }),
+        ]))}
+      </div>
+    </div>
+  );
+}
