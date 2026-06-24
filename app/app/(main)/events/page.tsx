@@ -159,6 +159,9 @@ function EventsPageContent() {
     return matchStatus && matchDiscrepancy && matchDoor && matchProduct && matchRootCause && matchBranch && matchPlant && matchReportedBy;
   });
 
+  const colFilters = (key: string) =>
+    (EVENT_FILTER_CATEGORIES.find(c => c.key === key)?.options ?? []).map(o => ({ text: o, value: o }));
+
   const columns: ColumnsType<QualityEvent> = [
     {
       title: 'Event ID',
@@ -181,6 +184,8 @@ function EventsPageContent() {
       dataIndex: 'discrepancy',
       key: 'discrepancy',
       sorter: (a, b) => a.discrepancy.localeCompare(b.discrepancy),
+      filters: colFilters('discrepancy'),
+      filteredValue: appliedFilters.discrepancy ?? null,
       width: 192,
       render: (discrepancy: string, record) => (
         <div style={{ overflow: 'hidden' }}>
@@ -207,6 +212,9 @@ function EventsPageContent() {
       dataIndex: 'door',
       key: 'door',
       sorter: (a, b) => a.door.localeCompare(b.door),
+      filters: colFilters('door'),
+      filteredValue: appliedFilters.door ?? null,
+      filterSearch: true,
       ellipsis: { showTitle: true },
       width: 148,
     },
@@ -215,6 +223,8 @@ function EventsPageContent() {
       dataIndex: 'product',
       key: 'product',
       sorter: (a, b) => a.product.localeCompare(b.product),
+      filters: colFilters('product'),
+      filteredValue: appliedFilters.product ?? null,
       ellipsis: { showTitle: true },
       width: 148,
     },
@@ -223,6 +233,9 @@ function EventsPageContent() {
       dataIndex: 'reportedBy',
       key: 'reportedBy',
       sorter: (a, b) => a.reportedBy.localeCompare(b.reportedBy),
+      filters: colFilters('reportedBy'),
+      filteredValue: appliedFilters.reportedBy ?? null,
+      filterSearch: true,
       ellipsis: { showTitle: true },
       width: 182,
     },
@@ -231,6 +244,9 @@ function EventsPageContent() {
       dataIndex: 'branch',
       key: 'branch',
       sorter: (a, b) => a.branch.localeCompare(b.branch),
+      filters: colFilters('branch'),
+      filteredValue: appliedFilters.branch ?? null,
+      filterSearch: true,
       ellipsis: { showTitle: true },
       width: 138,
     },
@@ -247,6 +263,8 @@ function EventsPageContent() {
       dataIndex: 'status',
       key: 'status',
       sorter: (a, b) => a.status.localeCompare(b.status),
+      filters: colFilters('status'),
+      filteredValue: appliedFilters.status ?? null,
       width: 160,
       render: (_: EventStatus, record) => (
         <StatusTag
@@ -369,6 +387,14 @@ function EventsPageContent() {
           columns={columns}
           rowKey="id"
           size="small"
+          onChange={(_p, tableFilters) => {
+            const next = { ...appliedFilters };
+            Object.entries(tableFilters).forEach(([k, vals]) => {
+              if (vals?.length) next[k] = vals as string[];
+              else delete next[k];
+            });
+            setAppliedFilters(next);
+          }}
           rowSelection={{
             type: 'checkbox',
             selectedRowKeys: selectedEventKeys,

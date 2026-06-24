@@ -3,12 +3,13 @@
 import { useState, useRef, Fragment } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useEventStore } from '@/store/eventStore';
 import {
-  Button, Card, Col, Divider, Form, Input, Modal, Row, Select, Space,
-  Table, Typography, notification, theme,
+  Button, Card, Col, Divider, Form, Input, Modal, Row, Select, Space, Switch,
+  Table, Typography, theme,
 } from 'antd';
 import {
-  ArrowLeftOutlined, CheckOutlined, CloseOutlined, EditFilled, ExclamationCircleFilled,
+  ArrowLeftOutlined, CheckCircleFilled, CheckOutlined, CloseCircleFilled, CloseOutlined, EditFilled, ExclamationCircleFilled,
   FileAddFilled, MessageFilled, MoreOutlined, PictureFilled, PlusOutlined,
   RollbackOutlined, SaveFilled, SearchOutlined, StarFilled, StopFilled, ToolFilled,
 } from '@ant-design/icons';
@@ -29,7 +30,7 @@ const ROOT_CAUSE_OPTIONS = [
   'Training Issue', 'Supplier Issue', 'Engineering Issue', 'Short Shipping',
 ].map(v => ({ value: v, label: v }));
 
-const ESCALATION_OPTIONS = ESCALATION_TYPE_OPTIONS;
+const ESCALATION_OPTIONS = ESCALATION_TYPE_OPTIONS.filter(o => o.value !== 'Custom');
 
 const STATUS_STEP: Record<EventStatus, number> = {
   Reported:              0,
@@ -87,15 +88,27 @@ function generateHistoricalInsights(event: QualityEvent, pool: QualityEvent[]): 
 
 
 export default function EventDetailClient({ event }: { event: QualityEvent }) {
-  const [status, setStatus]                   = useState<EventStatus>(event.status);
+  const { mutations: evtMutations, patchEvent, pushActivityLog, pushEditHistory } = useEventStore();
+  const evtStored = evtMutations[event.id] ?? {};
+
+  const [status, setStatus]                   = useState<EventStatus>(evtStored.status ?? event.status);
   const [editingProduct, setEditingProduct]   = useState(false);
   const [selectedPartIdx, setSelectedPartIdx] = useState(0);
-  const [rootCause, setRootCause]             = useState<string | null>(event.rootCause);
-  const [rootCauseOptions, setRootCauseOptions] = useState(ROOT_CAUSE_OPTIONS);
+  const [rootCause, setRootCause]             = useState<string | null>(
+    evtStored.rootCause !== undefined ? evtStored.rootCause : event.rootCause
+  );
+  const [rootCauseOptions, setRootCauseOptions] = useState(() => {
+    const extras = (evtStored.rootCauseOptions ?? []).filter(
+      s => !ROOT_CAUSE_OPTIONS.some(b => b.value === s.value)
+    );
+    return [...ROOT_CAUSE_OPTIONS, ...extras];
+  });
   const [rcSearch, setRcSearch]               = useState('');
-  const [escalation, setEscalation]           = useState<string | null>(null);
+  const [escalation, setEscalation]           = useState<string | null>(
+    evtStored.escalation !== undefined ? evtStored.escalation : null
+  );
   const [createEscOpen, setCreateEscOpen]     = useState(false);
-  const [tags, setTags]                       = useState<string[]>([]);
+  const [tags, setTags]                       = useState<string[]>(evtStored.tags ?? []);
   const [insights, setInsights]               = useState<string | null>(null);
   const [loadingInsights, setLoadingInsights] = useState(false);
   const [historical, setHistorical]           = useState<string | null>(null);
@@ -106,15 +119,59 @@ export default function EventDetailClient({ event }: { event: QualityEvent }) {
   const [newLogComment, setNewLogComment]     = useState('');
   const [validateOpen, setValidateOpen]       = useState(false);
   const [invalidateOpen, setInvalidateOpen]   = useState(false);
-  const [editHistory, setEditHistory]         = useState<EditHistoryEntry[]>(event.editHistory ?? []);
+  const [startInvOpen,      setStartInvOpen]      = useState(false);
+  const [startInvNote,      setStartInvNote]      = useState('');
+  const [startInvReqInfo,   setStartInvReqInfo]   = useState(true);
+  const [reqInfoOpen,       setReqInfoOpen]       = useState(false);
+  const [reqInfoText,       setReqInfoText]       = useState('');
+  const reqInfoSent = !!(event.additionalInfoRequested || evtStored.additionalInfoRequested);
+  const setReqInfoSent = () => patchEvent(event.id, { additionalInfoRequested: true });
+  const [reopenEvtOpen,     setReopenEvtOpen]     = useState(false);
+  const [validateNote,      setValidateNote]      = useState('');
+  const [validateSuccess,   setValidateSuccess]   = useState(false);
+  const [invalidateNote,    setInvalidateNote]    = useState('');
+  const [invalidateSuccess, setInvalidateSuccess] = useState(false);
+  const [startInvSuccess,   setStartInvSuccess]   = useState(false);
+  const [reopenEvtSuccess,  setReopenEvtSuccess]  = useState(false);
+  const [pendingRootCause,  setPendingRootCause]  = useState<string | null>(null);
+  const [rcConfirmOpen,     setRcConfirmOpen]     = useState(false);
+  const [pendingEscalation, setPendingEscalation] = useState<string | null>(null);
+  const [escConfirmOpen,    setEscConfirmOpen]    = useState(false);
+  const [escSearch,         setEscSearch]         = useState('');
+  const [expandedImg,       setExpandedImg]       = useState<number | null>(null);
+  const [editHistory, setEditHistory]         = useState<EditHistoryEntry[]>([
+    ...(event.editHistory ?? []),
+    ...(evtStored.editHistory ?? []),
+  ]);
+  const eventSeedLogs = logs.filter(l => l.eventId === event.id);
+  const [activityLog, setActivityLog] = useState<ActivityLog[]>(() => [
+    ...eventSeedLogs,
+    ...(evtStored.activityLogAdditions ?? []),
+  ]);
   const [editForm]                            = Form.useForm();
   const lastLoggedRootCause                   = useRef<string | null>(event.rootCause);
   const { token } = theme.useToken();
   const router = useRouter();
 
+  const nowTs = () => new Date().toISOString().replace('T', ' ').slice(0, 16);
+
+  const addToActivityLog = (comment: string, forStatus?: EventStatus) => {
+    const entry: ActivityLog = {
+      id: `al_${Date.now()}`,
+      eventId: event.id,
+      date: nowTs(),
+      role: 'Field Quality',
+      employee: 'Current User',
+      status: forStatus ?? status,
+      comment,
+    };
+    setActivityLog(prev => [...prev, entry]);
+    pushActivityLog(event.id, entry);
+  };
+
   const logEditEntry = (field: string, from: string | null, to: string | null) => {
-    const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 16);
-    setEditHistory(prev => [...prev, {
+    const timestamp = nowTs();
+    const entry: EditHistoryEntry = {
       id: `eh_${Date.now()}_${field}`,
       timestamp,
       editedBy: 'Current User',
@@ -122,7 +179,10 @@ export default function EventDetailClient({ event }: { event: QualityEvent }) {
       field,
       from,
       to,
-    }]);
+    };
+    setEditHistory(prev => [...prev, entry]);
+    pushEditHistory(event.id, entry);
+    addToActivityLog(`${field} changed from "${from ?? '—'}" to "${to ?? '—'}".`);
   };
 
   const handleSaveEdits = () => {
@@ -150,7 +210,6 @@ export default function EventDetailClient({ event }: { event: QualityEvent }) {
     [{ partNumber: '', description: '' }]
   );
 
-  const eventLogs    = logs.filter(l => l.eventId === event.id);
   const stepIdx      = STATUS_STEP[status];
   const reportedDate = event.reportedAt.replace('T', ' ').substring(0, 16);
 
@@ -247,17 +306,17 @@ export default function EventDetailClient({ event }: { event: QualityEvent }) {
         right={
           <Space>
             {status === 'Reported' && (
-              <Button icon={<SearchOutlined />} onClick={() => setStatus('Under Investigation')}>
+              <Button icon={<SearchOutlined />} onClick={() => setStartInvOpen(true)}>
                 Start Investigation
               </Button>
             )}
             {status === 'Under Investigation' && (
-              <Button type="text" icon={<RollbackOutlined />} onClick={() => setStatus('Reported')}>
+              <Button type="text" icon={<RollbackOutlined />} onClick={() => setReopenEvtOpen(true)}>
                 Reopen
               </Button>
             )}
             {(status === 'Validated' || status === 'Invalidated') && (
-              <Button type="text" icon={<RollbackOutlined />} onClick={() => setStatus('Reported')}>
+              <Button type="text" icon={<RollbackOutlined />} onClick={() => setReopenEvtOpen(true)}>
                 Reopen
               </Button>
             )}
@@ -366,7 +425,7 @@ export default function EventDetailClient({ event }: { event: QualityEvent }) {
                   editingProduct ? (
                     <Space size={4}>
                       <Button type="text" size="small" icon={<CloseOutlined />} onClick={() => setEditingProduct(false)}>Cancel</Button>
-                      <Button size="small" icon={<SaveFilled />} onClick={handleSaveEdits}>Save</Button>
+                      <Button type="primary" size="small" icon={<SaveFilled />} onClick={handleSaveEdits}>Save</Button>
                     </Space>
                   ) : (
                     <Button type="text" size="small" icon={<EditFilled style={{ fontSize: token.fontSizeSM }} />} onClick={() => setEditingProduct(true)}>
@@ -676,18 +735,19 @@ export default function EventDetailClient({ event }: { event: QualityEvent }) {
                         gap: 6,
                         marginBottom: 8,
                         cursor: 'pointer',
-                      }}>
+                      }} onClick={() => setExpandedImg(0)}>
                         <PictureFilled style={{ fontSize: token.fontSizeHeading3, color: token.colorTextQuaternary }} />
                         <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No photos attached</Text>
-                        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Click to upload</Text>
+                        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Click to expand</Text>
                       </div>
                       <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
                         {[0, 1, 2].map(i => (
-                          <div key={i} style={{
+                          <div key={i} onClick={() => setExpandedImg(i)} style={{
                             flex: 1, aspectRatio: '1',
                             background: token.colorFillTertiary,
                             border: `1px solid ${token.colorBorderSecondary}`,
                             borderRadius: token.borderRadiusSM,
+                            cursor: 'pointer',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                           }}>
                             <PictureFilled style={{ fontSize: token.fontSizeSM, color: token.colorTextQuaternary }} />
@@ -741,7 +801,7 @@ export default function EventDetailClient({ event }: { event: QualityEvent }) {
                     </div>
                   )}
                   <Table
-                    dataSource={eventLogs}
+                    dataSource={[...activityLog].reverse()}
                     columns={logColumns}
                     rowKey="id"
                     size="small"
@@ -845,17 +905,9 @@ export default function EventDetailClient({ event }: { event: QualityEvent }) {
                         filterOption={false}
                         onSearch={setRcSearch}
                         onChange={(v: string | undefined) => {
-                          const next = v ?? null;
-                          if (next !== lastLoggedRootCause.current) {
-                            logEditEntry('Root Cause', lastLoggedRootCause.current, next);
-                            lastLoggedRootCause.current = next;
-                          }
-                          if (!v) { setRootCause(null); setRcSearch(''); return; }
-                          if (!rootCauseOptions.find(o => o.value === v)) {
-                            setRootCauseOptions(prev => [...prev, { value: v, label: v }]);
-                          }
-                          setRootCause(v);
-                          setRcSearch('');
+                          if (!v) { setRootCause(null); patchEvent(event.id, { rootCause: null }); setRcSearch(''); return; }
+                          setPendingRootCause(v);
+                          setRcConfirmOpen(true);
                         }}
                         options={(() => {
                           const q = rcSearch.toLowerCase();
@@ -868,18 +920,33 @@ export default function EventDetailClient({ event }: { event: QualityEvent }) {
                             : matches;
                         })()}
                         allowClear
-                        onClear={() => { setRootCause(null); setRcSearch(''); }}
+                        onClear={() => { setRootCause(null); patchEvent(event.id, { rootCause: null }); setRcSearch(''); }}
                       />
                     </Form.Item>
                     <Form.Item label="Escalation" style={{ marginBottom: 10 }}>
                       <Select
+                        showSearch
                         value={escalation ?? undefined}
-                        onChange={(v: string | undefined) => {
-                          if (v === 'Custom') { setCreateEscOpen(true); return; }
-                          setEscalation(v ?? null);
-                        }}
                         placeholder="Link to escalation"
-                        options={ESCALATION_OPTIONS}
+                        filterOption={false}
+                        onSearch={setEscSearch}
+                        onChange={(v: string | undefined) => {
+                          if (!v) { setEscalation(null); patchEvent(event.id, { escalation: null }); setEscSearch(''); return; }
+                          const isExisting = ESCALATION_OPTIONS.some(o => o.value === v);
+                          if (!isExisting) { setCreateEscOpen(true); setEscSearch(''); return; }
+                          setPendingEscalation(v);
+                          setEscConfirmOpen(true);
+                        }}
+                        options={(() => {
+                          const q = escSearch.toLowerCase();
+                          const matches = q
+                            ? ESCALATION_OPTIONS.filter(o => o.value.toLowerCase().includes(q))
+                            : ESCALATION_OPTIONS;
+                          const hasExact = ESCALATION_OPTIONS.some(o => o.value.toLowerCase() === q);
+                          return q && !hasExact
+                            ? [...matches, { value: escSearch, label: `+ Create "${escSearch}"` }]
+                            : matches;
+                        })()}
                         allowClear
                       />
                     </Form.Item>
@@ -887,7 +954,7 @@ export default function EventDetailClient({ event }: { event: QualityEvent }) {
                       <Select
                         mode="tags"
                         value={tags}
-                        onChange={setTags}
+                        onChange={(t: string[]) => { setTags(t); patchEvent(event.id, { tags: t }); }}
                         placeholder="Add tags"
                         style={{ width: '100%' }}
                       />
@@ -905,9 +972,43 @@ export default function EventDetailClient({ event }: { event: QualityEvent }) {
                     >
                       Generate AI Insights
                     </Button>
-                    <Button block icon={<MessageFilled />}>
-                      Message Technician
-                    </Button>
+                    {reqInfoSent ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', background: token.colorFillTertiary, borderRadius: token.borderRadiusSM }}>
+                        <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: token.fontSize }} />
+                        <Text style={{ fontSize: token.fontSizeSM }}>Additional information requested from {event.reportedBy}</Text>
+                      </div>
+                    ) : reqInfoOpen ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <Input.TextArea
+                          autoFocus
+                          rows={4}
+                          placeholder="Describe what additional information is needed from the field tech..."
+                          value={reqInfoText}
+                          onChange={e => setReqInfoText(e.target.value)}
+                        />
+                        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                          <Button size="small" onClick={() => { setReqInfoOpen(false); setReqInfoText(''); }}>Cancel</Button>
+                          <Button
+                            size="small"
+                            type="primary"
+                            icon={<MessageFilled />}
+                            disabled={!reqInfoText.trim()}
+                            onClick={() => {
+                              setReqInfoOpen(false);
+                              setReqInfoText('');
+                              setReqInfoSent();
+                              addToActivityLog(`Additional information requested from ${event.reportedBy}.`);
+                            }}
+                          >
+                            Send Request
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Button block icon={<MessageFilled />} onClick={() => setReqInfoOpen(true)}>
+                        Request Additional Information
+                      </Button>
+                    )}
                   </Space>
                 </>
               )}
@@ -919,48 +1020,257 @@ export default function EventDetailClient({ event }: { event: QualityEvent }) {
 
       {/* VALIDATE MODAL */}
       <Modal
-        title="Validate Event"
+        title={validateSuccess ? null : 'Validate Event'}
         open={validateOpen}
-        onCancel={() => setValidateOpen(false)}
+        onCancel={() => { setValidateOpen(false); setValidateNote(''); setValidateSuccess(false); }}
+        footer={validateSuccess ? null : undefined}
         onOk={() => {
           setStatus('Validated');
-          setValidateOpen(false);
-          notification.success({
-            message: 'Notifications sent',
-            description: `Customer Service and field tech ${event.reportedBy} have been notified that ${event.id} is validated and ready for fulfillment.`,
-            placement: 'bottomRight',
-            duration: 5,
-          });
+          patchEvent(event.id, { status: 'Validated' });
+          addToActivityLog(`Event validated. Note: ${validateNote}`, 'Validated');
+          setValidateSuccess(true);
         }}
         okText="Validate & Notify"
-        okButtonProps={{ type: 'primary' }}
+        okButtonProps={{ type: 'primary', disabled: !validateNote.trim() }}
       >
-        <Text style={{ display: 'block', fontSize: token.fontSize, color: token.colorTextSecondary }}>
-          Validating this event will mark it as confirmed and send notifications to Customer Service and field tech <strong>{event.reportedBy}</strong> to proceed with parts fulfillment.
-        </Text>
+        {validateSuccess ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: token.fontSize }} />
+              <Text style={{ fontSize: token.fontSize, fontWeight: 600 }}>Event Validated</Text>
+            </div>
+            <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
+              {event.id} has been validated. Customer Service and field tech {event.reportedBy} have been notified to proceed with fulfillment.
+            </Text>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button type="primary" onClick={() => { setValidateOpen(false); setValidateNote(''); setValidateSuccess(false); }}>Done</Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <Text style={{ display: 'block', marginBottom: 12, fontSize: token.fontSize, color: token.colorTextSecondary }}>
+              Validating this event will mark it as confirmed and send notifications to Customer Service and field tech <strong>{event.reportedBy}</strong> to proceed with parts fulfillment.
+            </Text>
+            <Input.TextArea
+              value={validateNote}
+              onChange={e => setValidateNote(e.target.value)}
+              placeholder="Add a validation note (required)..."
+              rows={3}
+              autoFocus
+            />
+          </>
+        )}
       </Modal>
 
       {/* INVALIDATE MODAL */}
       <Modal
-        title="Invalidate Event"
+        title={invalidateSuccess ? null : 'Invalidate Event'}
         open={invalidateOpen}
-        onCancel={() => setInvalidateOpen(false)}
+        onCancel={() => { setInvalidateOpen(false); setInvalidateNote(''); setInvalidateSuccess(false); }}
+        footer={invalidateSuccess ? null : undefined}
         onOk={() => {
           setStatus('Invalidated');
-          setInvalidateOpen(false);
-          notification.success({
-            message: 'Notifications sent',
-            description: `Customer Service and field tech ${event.reportedBy} have been notified that ${event.id} has been invalidated.`,
-            placement: 'bottomRight',
-            duration: 5,
-          });
+          patchEvent(event.id, { status: 'Invalidated' });
+          addToActivityLog(`Event invalidated. Reason: ${invalidateNote}`, 'Invalidated');
+          setInvalidateSuccess(true);
         }}
         okText="Invalidate & Notify"
-        okButtonProps={{ danger: true }}
+        okButtonProps={{ danger: true, disabled: !invalidateNote.trim() }}
       >
-        <Text style={{ display: 'block', fontSize: token.fontSize, color: token.colorTextSecondary }}>
-          Invalidating this event will close the investigation and send notifications to Customer Service and field tech <strong>{event.reportedBy}</strong> that no further action is required.
+        {invalidateSuccess ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <CloseCircleFilled style={{ color: token.colorTextSecondary, fontSize: token.fontSize }} />
+              <Text style={{ fontSize: token.fontSize, fontWeight: 600 }}>Event Invalidated</Text>
+            </div>
+            <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
+              {event.id} has been marked as invalid. Customer Service and field tech {event.reportedBy} have been notified that no further action is required.
+            </Text>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button type="primary" onClick={() => { setInvalidateOpen(false); setInvalidateNote(''); setInvalidateSuccess(false); }}>Done</Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <Text style={{ display: 'block', marginBottom: 12, fontSize: token.fontSize, color: token.colorTextSecondary }}>
+              Invalidating this event will close the investigation and send notifications to Customer Service and field tech <strong>{event.reportedBy}</strong> that no further action is required.
+            </Text>
+            <Input.TextArea
+              value={invalidateNote}
+              onChange={e => setInvalidateNote(e.target.value)}
+              placeholder="Add an invalidation note (required)..."
+              rows={3}
+              autoFocus
+            />
+          </>
+        )}
+      </Modal>
+
+      {/* START INVESTIGATION MODAL */}
+      <Modal
+        title={startInvSuccess ? null : 'Start Investigation'}
+        open={startInvOpen}
+        onCancel={() => { setStartInvOpen(false); setStartInvNote(''); setStartInvReqInfo(true); setStartInvSuccess(false); }}
+        footer={startInvSuccess ? null : undefined}
+        onOk={() => {
+          setStatus('Under Investigation');
+          patchEvent(event.id, { status: 'Under Investigation' });
+          addToActivityLog('Investigation started.', 'Under Investigation');
+          if (startInvReqInfo) {
+            setReqInfoSent();
+            addToActivityLog(`Additional information requested from ${event.reportedBy}.`, 'Under Investigation');
+          }
+          setStartInvSuccess(true);
+        }}
+        okText="Start Investigation"
+        okButtonProps={{ type: 'primary', disabled: startInvReqInfo && !startInvNote.trim() }}
+      >
+        {startInvSuccess ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: token.fontSize }} />
+              <Text style={{ fontSize: token.fontSize, fontWeight: 600 }}>Investigation Started</Text>
+            </div>
+            <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
+              {event.id} is now Under Investigation.{startInvReqInfo && ` Field tech ${event.reportedBy} has been notified and asked to provide additional information.`}
+            </Text>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button type="primary" onClick={() => { setStartInvOpen(false); setStartInvNote(''); setStartInvReqInfo(true); setStartInvSuccess(false); }}>Done</Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <Text style={{ display: 'block', marginBottom: 16, fontSize: token.fontSize, color: token.colorTextSecondary }}>
+              This will move the event to <strong>Under Investigation</strong> status.
+            </Text>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '10px 12px',
+              background: token.colorFillTertiary,
+              borderRadius: token.borderRadiusSM,
+              marginBottom: startInvReqInfo ? 12 : 0,
+            }}>
+              <Text style={{ fontSize: token.fontSize }}>Request additional information from field tech</Text>
+              <Switch checked={startInvReqInfo} onChange={setStartInvReqInfo} />
+            </div>
+            {startInvReqInfo && (
+              <Input.TextArea
+                value={startInvNote}
+                onChange={e => setStartInvNote(e.target.value)}
+                placeholder="Describe what additional information is needed (required)..."
+                rows={3}
+                autoFocus
+              />
+            )}
+          </>
+        )}
+      </Modal>
+
+      {/* REOPEN EVENT MODAL */}
+      <Modal
+        title={reopenEvtSuccess ? null : 'Reopen Event'}
+        open={reopenEvtOpen}
+        onCancel={() => { setReopenEvtOpen(false); setReopenEvtSuccess(false); }}
+        footer={reopenEvtSuccess ? null : undefined}
+        onOk={() => {
+          setStatus('Reported');
+          patchEvent(event.id, { status: 'Reported' });
+          addToActivityLog('Event reopened to Reported status.', 'Reported');
+          setReopenEvtSuccess(true);
+        }}
+        okText="Reopen Event"
+      >
+        {reopenEvtSuccess ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: token.fontSize }} />
+              <Text style={{ fontSize: token.fontSize, fontWeight: 600 }}>Event Reopened</Text>
+            </div>
+            <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
+              {event.id} has been returned to Reported status and is ready for re-triage.
+            </Text>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button type="primary" onClick={() => { setReopenEvtOpen(false); setReopenEvtSuccess(false); }}>Done</Button>
+            </div>
+          </div>
+        ) : (
+          <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
+            This will reopen the event and return it to <strong>Reported</strong> status.
+          </Text>
+        )}
+      </Modal>
+
+      {/* ROOT CAUSE CONFIRM MODAL */}
+      <Modal
+        title="Set Root Cause"
+        open={rcConfirmOpen}
+        onCancel={() => { setRcConfirmOpen(false); setPendingRootCause(null); }}
+        onOk={() => {
+          if (!pendingRootCause) return;
+          const next = pendingRootCause;
+          if (next !== lastLoggedRootCause.current) {
+            logEditEntry('Root Cause', lastLoggedRootCause.current, next);
+            lastLoggedRootCause.current = next;
+          }
+          const isNew = !rootCauseOptions.find(o => o.value === next);
+          if (isNew) {
+            const updatedOpts = [...rootCauseOptions, { value: next, label: next }];
+            setRootCauseOptions(updatedOpts);
+            patchEvent(event.id, { rootCauseOptions: updatedOpts.filter(o => !ROOT_CAUSE_OPTIONS.some(r => r.value === o.value)) });
+          }
+          setRootCause(next);
+          patchEvent(event.id, { rootCause: next });
+          setRcSearch('');
+          setRcConfirmOpen(false);
+          setPendingRootCause(null);
+        }}
+        okText="Confirm"
+        okButtonProps={{ type: 'primary' }}
+      >
+        <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
+          Set root cause as <strong>{pendingRootCause}</strong>? This will be logged to the event history.
         </Text>
+      </Modal>
+
+      {/* ESCALATION CONFIRM MODAL */}
+      <Modal
+        title="Link Escalation"
+        open={escConfirmOpen}
+        onCancel={() => { setEscConfirmOpen(false); setPendingEscalation(null); setEscSearch(''); }}
+        onOk={() => {
+          setEscalation(pendingEscalation);
+          patchEvent(event.id, { escalation: pendingEscalation });
+          addToActivityLog(`Linked to escalation: ${pendingEscalation}.`);
+          setEscConfirmOpen(false);
+          setPendingEscalation(null);
+          setEscSearch('');
+        }}
+        okText="Confirm"
+        okButtonProps={{ type: 'primary' }}
+      >
+        <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
+          Link escalation <strong>{pendingEscalation}</strong> to this event?
+        </Text>
+      </Modal>
+
+      {/* IMAGE EXPAND MODAL */}
+      <Modal
+        open={expandedImg !== null}
+        onCancel={() => setExpandedImg(null)}
+        footer={null}
+        width={560}
+        title="Photo"
+        centered
+      >
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          height: '78vh', gap: 12,
+          background: token.colorFillTertiary,
+          borderRadius: token.borderRadiusSM,
+        }}>
+          <PictureFilled style={{ fontSize: 48, color: token.colorTextQuaternary }} />
+          <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No photo attached</Text>
+        </div>
       </Modal>
 
     </div>

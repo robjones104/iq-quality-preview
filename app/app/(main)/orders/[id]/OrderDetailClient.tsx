@@ -2,13 +2,14 @@
 
 import { useState, Fragment } from 'react';
 import Link from 'next/link';
+import { useOrderStore } from '@/store/orderStore';
 import {
   Button, Card, Col, Divider, Form, Input, Modal,
-  Row, Select, Space, Switch, Table, Tag, Typography, notification, theme,
+  Row, Select, Space, Switch, Table, Tag, Typography, theme,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
-  ArrowLeftOutlined, BarcodeOutlined, CheckOutlined, CloseOutlined,
+  ArrowLeftOutlined, BarcodeOutlined, CheckCircleFilled, CheckOutlined, CloseCircleFilled, CloseOutlined,
   EditFilled, PlusOutlined, RollbackOutlined, SendOutlined,
 } from '@ant-design/icons';
 import { CopyableValue } from '@/components/CopyableValue';
@@ -72,19 +73,24 @@ type Props = { order: Order; event: QualityEvent };
 
 export function OrderDetailClient({ order, event }: Props) {
   const { token } = theme.useToken();
+  const { mutations: orderMutations, patchOrder, pushOrderLog } = useOrderStore();
+  const ordStored = orderMutations[order.id] ?? {};
 
-  const [status, setStatus]             = useState<Status>(order.orderStatus as Status);
-  const [approved, setApproved]         = useState(order.orderStatus === 'Closed');
+  const [status, setStatus]             = useState<Status>(ordStored.status ?? (order.orderStatus as Status));
+  const [approved, setApproved]         = useState(ordStored.approved ?? (order.orderStatus === 'Closed'));
   const [parts, setParts]               = useState<OrderPart[]>([...order.parts]);
   const [activeTab, setActiveTab]       = useState('details');
-  const [assignedToProcurement, setAssignedToProcurement] = useState(false);
-  const [replacementOrderNo, setReplacementOrderNo]       = useState('');
+  const [assignedToProcurement, setAssignedToProcurement] = useState(ordStored.assignedToProcurement ?? false);
+  const [replacementOrderNo, setReplacementOrderNo]       = useState(ordStored.replacementOrderNo ?? '');
 
   // Log
   const seedLogs = SEED_LOGS[order.id] ?? [
     { id: 'l1', timestamp: order.lastUpdated, role: 'System', employee: 'System', orderStatus: order.orderStatus as Status, submittedStatus: event.status, content: `Order created from event ${order.eventId}.`, auto: true },
   ];
-  const [logs, setLogs]         = useState<LogEntry[]>(seedLogs);
+  const [logs, setLogs] = useState<LogEntry[]>(() => [
+    ...seedLogs,
+    ...(ordStored.logAdditions ?? []) as LogEntry[],
+  ]);
   const [logDraft, setLogDraft] = useState('');
   const [addingLog, setAddingLog] = useState(false);
 
@@ -102,13 +108,20 @@ export function OrderDetailClient({ order, event }: Props) {
   const [procurementEmail, setProcurementEmail]         = useState('');
   const [procurementOrderNo, setProcurementOrderNo]     = useState('');
 
+  const [expandedScan,       setExpandedScan]       = useState<number | null>(null);
+  const [approveSuccess,     setApproveSuccess]     = useState(false);
+  const [declineSuccess,     setDeclineSuccess]     = useState(false);
+  const [closeSuccess,       setCloseSuccess]       = useState(false);
+  const [reopenSuccess,      setReopenSuccess]      = useState(false);
+  const [procurementSuccess, setProcurementSuccess] = useState(false);
+
   // Part modal
   const [partForm]          = Form.useForm();
   const [partModalOpen, setPartModalOpen] = useState(false);
   const [editingSeqNo, setEditingSeqNo]   = useState<number | null>(null);
 
   const addLog = (content: string, auto = true, atStatus?: Status) => {
-    setLogs(prev => [...prev, {
+    const entry: LogEntry = {
       id: String(Date.now()),
       timestamp: nowTs(),
       role: auto ? 'System' : 'Customer Service',
@@ -117,7 +130,9 @@ export function OrderDetailClient({ order, event }: Props) {
       submittedStatus: event.status,
       content,
       auto,
-    }]);
+    };
+    setLogs(prev => [...prev, entry]);
+    pushOrderLog(order.id, entry);
   };
 
   // Status actions
@@ -125,31 +140,27 @@ export function OrderDetailClient({ order, event }: Props) {
 
   const handleConfirmApprove = () => {
     setApproved(true);
-    if (approveReplacementOrderNo.trim()) setReplacementOrderNo(approveReplacementOrderNo);
+    patchOrder(order.id, { approved: true });
+    if (approveReplacementOrderNo.trim()) {
+      setReplacementOrderNo(approveReplacementOrderNo);
+      patchOrder(order.id, { replacementOrderNo: approveReplacementOrderNo });
+    }
     if (approveAssign && approveProcurementEmail) {
       setAssignedToProcurement(true);
+      patchOrder(order.id, { assignedToProcurement: true });
       addLog(`Order approved. Assigned to Procurement. Notified: ${approveProcurementEmail}`, false);
-      notification.success({
-        message: 'Notifications sent',
-        description: `Procurement: ${approveProcurementEmail}\nBranch: ${event.branch}`,
-        placement: 'bottomRight',
-        duration: 5,
-      });
     } else {
       addLog('Order approved.', false);
     }
-    setApproveOpen(false);
-    setApproveAssign(false);
-    setApproveProcurementEmail('');
-    setApproveReplacementOrderNo('');
+    setApproveSuccess(true);
   };
 
   const handleDecline = () => {
     if (!declineReason.trim()) return;
     setStatus('Closed');
+    patchOrder(order.id, { status: 'Closed', declined: true, approved: false });
     addLog(`Order declined and closed. Reason: ${declineReason}`, true, 'Closed');
-    setDeclineOpen(false);
-    setDeclineReason('');
+    setDeclineSuccess(true);
   };
 
   const handleReopen = () => {
@@ -158,31 +169,28 @@ export function OrderDetailClient({ order, event }: Props) {
     setApproved(false);
     setAssignedToProcurement(false);
     setReplacementOrderNo('');
+    patchOrder(order.id, { status: 'Open', approved: false, declined: false, assignedToProcurement: false, replacementOrderNo: '' });
     addLog(`Order reopened. Reason: ${reopenReason}`, false, 'Open');
-    setReopenOpen(false);
-    setReopenReason('');
+    setReopenSuccess(true);
   };
 
   const handleAssignProcurement = () => {
     if (!procurementEmail) return;
     setAssignedToProcurement(true);
-    if (procurementOrderNo.trim()) setReplacementOrderNo(procurementOrderNo);
+    patchOrder(order.id, { assignedToProcurement: true });
+    if (procurementOrderNo.trim()) {
+      setReplacementOrderNo(procurementOrderNo);
+      patchOrder(order.id, { replacementOrderNo: procurementOrderNo });
+    }
     addLog(`Assigned to Procurement. Notified: ${procurementEmail}`, false);
-    notification.success({
-      message: 'Notifications sent',
-      description: `Procurement: ${procurementEmail}\nBranch: ${event.branch}`,
-      placement: 'bottomRight',
-      duration: 5,
-    });
-    setProcurementOpen(false);
-    setProcurementEmail('');
-    setProcurementOrderNo('');
+    setProcurementSuccess(true);
   };
 
   const handleClose = () => {
     setStatus('Closed');
+    patchOrder(order.id, { status: 'Closed' });
     addLog('Order closed by CS.', false, 'Closed');
-    setCloseOpen(false);
+    setCloseSuccess(true);
   };
 
   // Part actions
@@ -591,10 +599,10 @@ export function OrderDetailClient({ order, event }: Props) {
               display: 'flex', flexDirection: 'column',
               alignItems: 'center', justifyContent: 'center',
               gap: 6, minHeight: 120, cursor: 'pointer',
-            }}>
+            }} onClick={() => setExpandedScan(0)}>
               <BarcodeOutlined style={{ fontSize: token.fontSizeHeading2, color: token.colorTextQuaternary }} />
               <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No label scans attached</Text>
-              <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Auto-captured from field scan</Text>
+              <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Click to expand</Text>
             </div>
 
             <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary, lineHeight: 1.5 }}>
@@ -606,143 +614,253 @@ export function OrderDetailClient({ order, event }: Props) {
       </div>
 
       {/* APPROVE MODAL */}
-      {/* APPROVE MODAL */}
       <Modal
-        title="Approve Order"
+        title={approveSuccess ? null : 'Approve Order'}
         open={approveOpen}
-        onCancel={() => { setApproveOpen(false); setApproveAssign(false); setApproveProcurementEmail(''); setApproveReplacementOrderNo(''); }}
+        onCancel={() => { setApproveOpen(false); setApproveAssign(false); setApproveProcurementEmail(''); setApproveReplacementOrderNo(''); setApproveSuccess(false); }}
         onOk={handleConfirmApprove}
         okText={approveAssign && approveProcurementEmail ? 'Approve & Notify Procurement' : 'Approve'}
-        okButtonProps={{ type: 'primary' }}
+        okButtonProps={{ type: 'primary', disabled: !approveReplacementOrderNo.trim() }}
+        footer={approveSuccess ? null : undefined}
         width={480}
       >
-        <Text style={{ display: 'block', marginBottom: 16, fontSize: token.fontSize, color: token.colorTextSecondary }}>
-          This marks the order as approved. You can assign it to procurement now or as a separate step after.
-        </Text>
-        <Form layout="vertical" size="small">
-          <Form.Item label="Replacement Order # (optional)" style={{ marginBottom: 12 }}>
-            <Input
-              placeholder="e.g. RO-2026-00123"
-              value={approveReplacementOrderNo}
-              onChange={e => setApproveReplacementOrderNo(e.target.value)}
-            />
-          </Form.Item>
-        </Form>
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '10px 12px',
-          background: token.colorFillTertiary,
-          borderRadius: token.borderRadiusSM,
-          marginBottom: approveAssign ? 12 : 0,
-        }}>
-          <Text style={{ fontSize: token.fontSize }}>Assign to Procurement</Text>
-          <Switch
-            checked={approveAssign}
-            onChange={v => { setApproveAssign(v); if (!v) setApproveProcurementEmail(''); }}
-          />
-        </div>
-        {approveAssign && (
-          <Form layout="vertical" size="small" style={{ marginTop: 12 }}>
-            <Form.Item label="Notify" style={{ marginBottom: 0 }}>
-              <Select
-                placeholder="Select procurement contact..."
-                value={approveProcurementEmail || undefined}
-                onChange={v => setApproveProcurementEmail(v)}
-                options={PROCUREMENT_CONTACTS}
-                style={{ width: '100%' }}
+        {approveSuccess ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: token.fontSize }} />
+              <Text style={{ fontSize: token.fontSize, fontWeight: 600 }}>Order Approved</Text>
+            </div>
+            <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
+              {order.id} has been approved.{' '}
+              {approveAssign && approveProcurementEmail
+                ? `Email notifications sent to ${event.branch} branch and ${approveProcurementEmail}.`
+                : `Email notification sent to ${event.branch} branch.`}
+            </Text>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button type="primary" onClick={() => { setApproveOpen(false); setApproveAssign(false); setApproveProcurementEmail(''); setApproveReplacementOrderNo(''); setApproveSuccess(false); }}>Done</Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <Text style={{ display: 'block', marginBottom: 16, fontSize: token.fontSize, color: token.colorTextSecondary }}>
+              This marks the order as approved. You can assign it to procurement now or as a separate step after.
+            </Text>
+            <Form layout="vertical" size="small">
+              <Form.Item label="Replacement Part #" required style={{ marginBottom: 12 }}>
+                <Input
+                  placeholder="e.g. RO-2026-00123"
+                  value={approveReplacementOrderNo}
+                  onChange={e => setApproveReplacementOrderNo(e.target.value)}
+                />
+              </Form.Item>
+            </Form>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '10px 12px',
+              background: token.colorFillTertiary,
+              borderRadius: token.borderRadiusSM,
+              marginBottom: approveAssign ? 12 : 0,
+            }}>
+              <Text style={{ fontSize: token.fontSize }}>Assign to Procurement</Text>
+              <Switch
+                checked={approveAssign}
+                onChange={v => { setApproveAssign(v); if (!v) setApproveProcurementEmail(''); }}
               />
-            </Form.Item>
-          </Form>
+            </div>
+            {approveAssign && (
+              <Form layout="vertical" size="small" style={{ marginTop: 12 }}>
+                <Form.Item label="Notify" style={{ marginBottom: 0 }}>
+                  <Select
+                    placeholder="Select procurement contact..."
+                    value={approveProcurementEmail || undefined}
+                    onChange={v => setApproveProcurementEmail(v)}
+                    options={PROCUREMENT_CONTACTS}
+                    style={{ width: '100%' }}
+                  />
+                </Form.Item>
+              </Form>
+            )}
+          </>
         )}
       </Modal>
 
       {/* DECLINE MODAL */}
       <Modal
-        title="Decline Order"
+        title={declineSuccess ? null : 'Decline Order'}
         open={declineOpen}
-        onCancel={() => { setDeclineOpen(false); setDeclineReason(''); }}
+        onCancel={() => { setDeclineOpen(false); setDeclineReason(''); setDeclineSuccess(false); }}
         onOk={handleDecline}
         okText="Decline & Close"
         okButtonProps={{ danger: true, disabled: !declineReason.trim() }}
+        footer={declineSuccess ? null : undefined}
       >
-        <Text style={{ display: 'block', marginBottom: 12, fontSize: token.fontSize, color: token.colorTextSecondary }}>
-          This will close the order. Please provide a reason for the record.
-        </Text>
-        <Input.TextArea
-          placeholder="Reason for declining..."
-          value={declineReason}
-          onChange={e => setDeclineReason(e.target.value)}
-          rows={4}
-          autoFocus
-        />
+        {declineSuccess ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <CloseCircleFilled style={{ color: token.colorTextSecondary, fontSize: token.fontSize }} />
+              <Text style={{ fontSize: token.fontSize, fontWeight: 600 }}>Order Declined</Text>
+            </div>
+            <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
+              {order.id} has been declined and closed. Email notification sent to {event.branch} branch.
+            </Text>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button type="primary" onClick={() => { setDeclineOpen(false); setDeclineReason(''); setDeclineSuccess(false); }}>Done</Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <Text style={{ display: 'block', marginBottom: 12, fontSize: token.fontSize, color: token.colorTextSecondary }}>
+              This will close the order. Please provide a reason for the record.
+            </Text>
+            <Input.TextArea
+              placeholder="Reason for declining..."
+              value={declineReason}
+              onChange={e => setDeclineReason(e.target.value)}
+              rows={4}
+              autoFocus
+            />
+          </>
+        )}
       </Modal>
 
       {/* REOPEN MODAL */}
       <Modal
-        title="Reopen Order"
+        title={reopenSuccess ? null : 'Reopen Order'}
         open={reopenOpen}
-        onCancel={() => { setReopenOpen(false); setReopenReason(''); }}
+        onCancel={() => { setReopenOpen(false); setReopenReason(''); setReopenSuccess(false); }}
         onOk={handleReopen}
         okText="Reopen"
         okButtonProps={{ disabled: !reopenReason.trim() }}
+        footer={reopenSuccess ? null : undefined}
       >
-        <Text style={{ display: 'block', marginBottom: 12, fontSize: token.fontSize, color: token.colorTextSecondary }}>
-          This will reopen the order to Open status. Please provide a reason.
-        </Text>
-        <Input.TextArea
-          placeholder="Reason for reopening..."
-          value={reopenReason}
-          onChange={e => setReopenReason(e.target.value)}
-          rows={4}
-          autoFocus
-        />
+        {reopenSuccess ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <CheckCircleFilled style={{ color: token.colorInfo, fontSize: token.fontSize }} />
+              <Text style={{ fontSize: token.fontSize, fontWeight: 600 }}>Order Reopened</Text>
+            </div>
+            <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
+              {order.id} has been returned to Open status and is ready for review.
+            </Text>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button type="primary" onClick={() => { setReopenOpen(false); setReopenReason(''); setReopenSuccess(false); }}>Done</Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <Text style={{ display: 'block', marginBottom: 12, fontSize: token.fontSize, color: token.colorTextSecondary }}>
+              This will reopen the order to Open status. Please provide a reason.
+            </Text>
+            <Input.TextArea
+              placeholder="Reason for reopening..."
+              value={reopenReason}
+              onChange={e => setReopenReason(e.target.value)}
+              rows={4}
+              autoFocus
+            />
+          </>
+        )}
       </Modal>
 
       {/* ASSIGN TO PROCUREMENT MODAL */}
       <Modal
-        title="Assign to Procurement"
+        title={procurementSuccess ? null : 'Assign to Procurement'}
         open={procurementOpen}
-        onCancel={() => { setProcurementOpen(false); setProcurementEmail(''); setProcurementOrderNo(''); }}
+        onCancel={() => { setProcurementOpen(false); setProcurementEmail(''); setProcurementOrderNo(''); setProcurementSuccess(false); }}
         onOk={handleAssignProcurement}
         okText="Assign & Notify"
         okButtonProps={{ type: 'primary', disabled: !procurementEmail }}
+        footer={procurementSuccess ? null : undefined}
         width={480}
       >
-        <Text style={{ display: 'block', marginBottom: 16, fontSize: token.fontSize, color: token.colorTextSecondary }}>
-          Notify a procurement contact and optionally log the replacement order number.
-        </Text>
-        <Form layout="vertical" size="small">
-          <Form.Item label="Notify" style={{ marginBottom: 12 }}>
-            <Select
-              placeholder="Select procurement contact..."
-              value={procurementEmail || undefined}
-              onChange={v => setProcurementEmail(v)}
-              options={PROCUREMENT_CONTACTS}
-              style={{ width: '100%' }}
-            />
-          </Form.Item>
-          <Form.Item label="Replacement Order # (optional)" style={{ marginBottom: 0 }}>
-            <Input
-              placeholder="e.g. RO-2026-00123"
-              value={procurementOrderNo}
-              onChange={e => setProcurementOrderNo(e.target.value)}
-            />
-          </Form.Item>
-        </Form>
+        {procurementSuccess ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: token.fontSize }} />
+              <Text style={{ fontSize: token.fontSize, fontWeight: 600 }}>Assigned to Procurement</Text>
+            </div>
+            <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
+              {order.id} has been assigned to procurement. Email notifications sent to {event.branch} branch and {procurementEmail}.
+            </Text>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button type="primary" onClick={() => { setProcurementOpen(false); setProcurementEmail(''); setProcurementOrderNo(''); setProcurementSuccess(false); }}>Done</Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <Text style={{ display: 'block', marginBottom: 16, fontSize: token.fontSize, color: token.colorTextSecondary }}>
+              Notify a procurement contact and optionally log the replacement order number.
+            </Text>
+            <Form layout="vertical" size="small">
+              <Form.Item label="Notify" style={{ marginBottom: 12 }}>
+                <Select
+                  placeholder="Select procurement contact..."
+                  value={procurementEmail || undefined}
+                  onChange={v => setProcurementEmail(v)}
+                  options={PROCUREMENT_CONTACTS}
+                  style={{ width: '100%' }}
+                />
+              </Form.Item>
+              <Form.Item label="Replacement Order # (optional)" style={{ marginBottom: 0 }}>
+                <Input
+                  placeholder="e.g. RO-2026-00123"
+                  value={procurementOrderNo}
+                  onChange={e => setProcurementOrderNo(e.target.value)}
+                />
+              </Form.Item>
+            </Form>
+          </>
+        )}
       </Modal>
 
       {/* CLOSE ORDER MODAL */}
       <Modal
-        title="Close Order"
+        title={closeSuccess ? null : 'Close Order'}
         open={closeOpen}
-        onCancel={() => setCloseOpen(false)}
+        onCancel={() => { setCloseOpen(false); setCloseSuccess(false); }}
         onOk={handleClose}
         okText="Close Order"
         okButtonProps={{ type: 'primary' }}
+        footer={closeSuccess ? null : undefined}
       >
-        <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
-          This will mark the order as Closed. It can be reopened if needed.
-        </Text>
+        {closeSuccess ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: token.fontSize }} />
+              <Text style={{ fontSize: token.fontSize, fontWeight: 600 }}>Order Closed</Text>
+            </div>
+            <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
+              {order.id} has been closed. It can be reopened if needed.
+            </Text>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button type="primary" onClick={() => { setCloseOpen(false); setCloseSuccess(false); }}>Done</Button>
+            </div>
+          </div>
+        ) : (
+          <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
+            This will mark the order as Closed. It can be reopened if needed.
+          </Text>
+        )}
+      </Modal>
+
+      {/* LABEL SCAN EXPAND MODAL */}
+      <Modal
+        open={expandedScan !== null}
+        onCancel={() => setExpandedScan(null)}
+        footer={null}
+        width={560}
+        title="Label Scan"
+        centered
+      >
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          height: '78vh', gap: 12,
+          background: token.colorFillTertiary,
+          borderRadius: token.borderRadiusSM,
+        }}>
+          <BarcodeOutlined style={{ fontSize: 48, color: token.colorTextQuaternary }} />
+          <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No scan attached</Text>
+        </div>
       </Modal>
 
       {/* ADD / EDIT PART MODAL */}

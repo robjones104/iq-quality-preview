@@ -3,13 +3,13 @@
 import { useState, useEffect, Suspense } from 'react';
 import dayjs from 'dayjs';
 import {
-  Dropdown, Form, Input, Modal, notification, Select, Space,
+  Dropdown, Form, Input, Modal, Select, Space,
   Switch, Table, Tabs, Button, Tag, Tooltip, Typography, theme,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { MenuProps } from 'antd';
 import {
-  CheckOutlined, CloseOutlined, ExportOutlined, MoreOutlined, RollbackOutlined,
+  CheckCircleFilled, CheckOutlined, CloseCircleFilled, CloseOutlined, ExportOutlined, MoreOutlined, RollbackOutlined,
   SearchOutlined, SendOutlined,
 } from '@ant-design/icons';
 import { CopyableValue } from '@/components/CopyableValue';
@@ -22,6 +22,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { DateRangeFilter, type DateRange } from '@/components/DateRangeFilter';
 import { EVENT_FILTER_CATEGORIES } from '@/data/filterOptions';
 import { useFilterStore } from '@/store/filterStore';
+import { useOrderStore } from '@/store/orderStore';
 import type { Order } from '@/data/orders';
 import type { QualityEvent } from '@/data/types';
 type OrderRow = Order & Pick<QualityEvent, 'discrepancy' | 'product' | 'door' | 'branch' | 'plant' | 'reportedBy' | 'status'>;
@@ -132,20 +133,16 @@ function OrdersPageContent() {
     setAppliedFilters(next);
   };
 
-  // Row-level status overrides (tracks in-session changes)
-  const [rowStatuses, setRowStatuses]       = useState<Record<string, OrderStatus>>({});
-  const [rowApproved, setRowApproved]       = useState<Record<string, boolean>>({});
-  const [rowDeclined, setRowDeclined]       = useState<Record<string, boolean>>({});
-  const [rowProcurement, setRowProcurement] = useState<Record<string, boolean>>({});
+  const { mutations: orderMutations, patchOrder } = useOrderStore();
 
   const effectiveStatus = (row: OrderRow): OrderStatus =>
-    rowStatuses[row.id] ?? (row.orderStatus as OrderStatus);
+    orderMutations[row.id]?.status ?? (row.orderStatus as OrderStatus);
   const isApproved = (row: OrderRow): boolean =>
-    rowApproved[row.id] ?? row.approved ?? false;
+    orderMutations[row.id]?.approved ?? row.approved ?? false;
   const isDeclined = (row: OrderRow): boolean =>
-    rowDeclined[row.id] ?? row.declined ?? false;
+    orderMutations[row.id]?.declined ?? row.declined ?? false;
   const isProcurement = (row: OrderRow): boolean =>
-    rowProcurement[row.id] ?? row.assignedToProcurement ?? false;
+    orderMutations[row.id]?.assignedToProcurement ?? row.assignedToProcurement ?? false;
 
   // Procurement queue toggle
   const [procurementQueue, setProcurementQueue] = useState(false);
@@ -174,7 +171,12 @@ function OrdersPageContent() {
   const [reopenOpen, setReopenOpen]     = useState(false);
   const [reopenReason, setReopenReason] = useState('');
 
-  const [notifApi, notifContextHolder] = notification.useNotification();
+  const [approveSuccess,    setApproveSuccess]    = useState(false);
+  const [declineSuccess,    setDeclineSuccess]    = useState(false);
+  const [closeSuccess,      setCloseSuccess]      = useState(false);
+  const [reopenSuccess,     setReopenSuccess]     = useState(false);
+  const [batchCloseSuccess, setBatchCloseSuccess] = useState(false);
+  const [batchCloseCount,   setBatchCloseCount]   = useState(0);
 
   const handleExportOrders = () => {
     const selected = filtered.filter(o => selectedOrderKeys.includes(o.id));
@@ -196,47 +198,29 @@ function OrdersPageContent() {
 
   const handleConfirmApprove = () => {
     if (!activeOrderId) return;
-    setRowApproved(prev => ({ ...prev, [activeOrderId]: true }));
+    patchOrder(activeOrderId, { approved: true });
     if (approveAssign && approveEmail) {
-      setRowProcurement(prev => ({ ...prev, [activeOrderId]: true }));
-      notifApi.success({
-        message: `Order ${activeOrderId} approved`,
-        description: `Procurement notified: ${approveEmail}`,
-        placement: 'bottomRight', duration: 4,
-      });
-    } else {
-      notifApi.success({ message: `Order ${activeOrderId} approved`, placement: 'bottomRight', duration: 4 });
+      patchOrder(activeOrderId, { assignedToProcurement: true });
     }
-    setApproveOpen(false);
-    resetApprove();
+    setApproveSuccess(true);
   };
 
   const handleDecline = () => {
     if (!activeOrderId || !declineReason.trim()) return;
-    setRowStatuses(prev => ({ ...prev, [activeOrderId]: 'Closed' }));
-    setRowDeclined(prev => ({ ...prev, [activeOrderId]: true }));
-    setRowApproved(prev => ({ ...prev, [activeOrderId]: false }));
-    notifApi.success({ message: `Order ${activeOrderId} declined`, placement: 'bottomRight', duration: 4 });
-    setDeclineOpen(false);
-    setDeclineReason('');
+    patchOrder(activeOrderId, { status: 'Closed', declined: true, approved: false });
+    setDeclineSuccess(true);
   };
 
   const handleClose = () => {
     if (!activeOrderId) return;
-    setRowStatuses(prev => ({ ...prev, [activeOrderId]: 'Closed' }));
-    notifApi.success({ message: `Order ${activeOrderId} closed`, placement: 'bottomRight', duration: 4 });
-    setCloseOpen(false);
+    patchOrder(activeOrderId, { status: 'Closed' });
+    setCloseSuccess(true);
   };
 
   const handleReopen = () => {
     if (!activeOrderId || !reopenReason.trim()) return;
-    setRowStatuses(prev => ({ ...prev, [activeOrderId]: 'Open' }));
-    setRowApproved(prev => { const n = { ...prev }; delete n[activeOrderId!]; return n; });
-    setRowDeclined(prev => { const n = { ...prev }; delete n[activeOrderId!]; return n; });
-    setRowProcurement(prev => { const n = { ...prev }; delete n[activeOrderId!]; return n; });
-    notifApi.success({ message: `Order ${activeOrderId} reopened`, placement: 'bottomRight', duration: 4 });
-    setReopenOpen(false);
-    setReopenReason('');
+    patchOrder(activeOrderId, { status: 'Open', approved: false, declined: false, assignedToProcurement: false });
+    setReopenSuccess(true);
   };
 
   const handleBatchClose = () => {
@@ -245,17 +229,9 @@ function OrdersPageContent() {
       return row && effectiveStatus(row) === 'Open';
     });
     if (toClose.length === 0) return;
-    setRowStatuses(prev => {
-      const next = { ...prev };
-      toClose.forEach(id => { next[id] = 'Closed'; });
-      return next;
-    });
-    notifApi.success({
-      message: `${toClose.length} order${toClose.length > 1 ? 's' : ''} closed`,
-      placement: 'bottomRight', duration: 4,
-    });
-    setBatchCloseOpen(false);
-    setSelectedOrderKeys([]);
+    toClose.forEach(id => patchOrder(id, { status: 'Closed' }));
+    setBatchCloseCount(toClose.length);
+    setBatchCloseSuccess(true);
   };
 
   const openRowAction = (key: string, row: OrderRow) => {
@@ -309,18 +285,10 @@ function OrdersPageContent() {
     return row && effectiveStatus(row) === 'Open';
   }).length;
 
+  const evtColFilters = (key: string) =>
+    (EVENT_FILTER_CATEGORIES.find(c => c.key === key)?.options ?? []).map(o => ({ text: o, value: o }));
+
   const columns: ColumnsType<OrderRow> = [
-    {
-      title: 'Status',
-      key: 'orderStatus',
-      sorter: (a, b) => effectiveStatus(a).localeCompare(effectiveStatus(b)),
-      width: 120,
-      render: (_, record) => (
-        <Tag color={ORDER_STATUS_COLOR[effectiveStatus(record)] ?? 'default'}>
-          {effectiveStatus(record)}
-        </Tag>
-      ),
-    },
     {
       title: 'Order ID',
       dataIndex: 'id',
@@ -331,31 +299,18 @@ function OrdersPageContent() {
           {id}
         </Link>
       ),
-      width: 160,
+      width: 130,
     },
     {
-      title: 'Discrepancy',
-      dataIndex: 'discrepancy',
-      key: 'discrepancy',
-      sorter: (a, b) => a.discrepancy.localeCompare(b.discrepancy),
+      title: 'Branch',
+      dataIndex: 'branch',
+      key: 'branch',
+      sorter: (a, b) => a.branch.localeCompare(b.branch),
+      filters: evtColFilters('branch'),
+      filteredValue: appliedFiltersLocal.branch ?? null,
+      filterSearch: true,
       ellipsis: { showTitle: true },
-      width: 176,
-    },
-    {
-      title: 'Product',
-      dataIndex: 'product',
-      key: 'product',
-      sorter: (a, b) => a.product.localeCompare(b.product),
-      ellipsis: { showTitle: true },
-      width: 140,
-    },
-    {
-      title: 'Door Type',
-      dataIndex: 'door',
-      key: 'door',
-      sorter: (a, b) => a.door.localeCompare(b.door),
-      ellipsis: { showTitle: true },
-      width: 176,
+      width: 138,
     },
     {
       title: 'Job No.',
@@ -366,20 +321,46 @@ function OrdersPageContent() {
       render: (jobNo: string) => <CopyableValue value={jobNo} />,
     },
     {
+      title: 'Discrepancy',
+      dataIndex: 'discrepancy',
+      key: 'discrepancy',
+      sorter: (a, b) => a.discrepancy.localeCompare(b.discrepancy),
+      filters: evtColFilters('discrepancy'),
+      filteredValue: appliedFiltersLocal.discrepancy ?? null,
+      ellipsis: { showTitle: true },
+      width: 176,
+    },
+    {
+      title: 'Product',
+      dataIndex: 'product',
+      key: 'product',
+      sorter: (a, b) => a.product.localeCompare(b.product),
+      filters: evtColFilters('product'),
+      filteredValue: appliedFiltersLocal.product ?? null,
+      ellipsis: { showTitle: true },
+      width: 140,
+    },
+    {
+      title: 'Door Type',
+      dataIndex: 'door',
+      key: 'door',
+      sorter: (a, b) => a.door.localeCompare(b.door),
+      filters: evtColFilters('door'),
+      filteredValue: appliedFiltersLocal.door ?? null,
+      filterSearch: true,
+      ellipsis: { showTitle: true },
+      width: 176,
+    },
+    {
       title: 'Reported By',
       dataIndex: 'reportedBy',
       key: 'reportedBy',
       sorter: (a, b) => a.reportedBy.localeCompare(b.reportedBy),
+      filters: evtColFilters('reportedBy'),
+      filteredValue: appliedFiltersLocal.reportedBy ?? null,
+      filterSearch: true,
       ellipsis: { showTitle: true },
       width: 182,
-    },
-    {
-      title: 'Branch',
-      dataIndex: 'branch',
-      key: 'branch',
-      sorter: (a, b) => a.branch.localeCompare(b.branch),
-      ellipsis: { showTitle: true },
-      width: 138,
     },
     {
       title: 'Plant',
@@ -387,7 +368,7 @@ function OrdersPageContent() {
       key: 'plant',
       sorter: (a, b) => a.plant.localeCompare(b.plant),
       render: (plant: string) => plant.split(' ')[0],
-      width: 64,
+      width: 80,
     },
     {
       title: 'Last Updated',
@@ -396,6 +377,19 @@ function OrdersPageContent() {
       sorter: (a, b) => a.lastUpdated.localeCompare(b.lastUpdated),
       defaultSortOrder: 'descend',
       width: 148,
+    },
+    {
+      title: 'Status',
+      key: 'orderStatus',
+      sorter: (a, b) => effectiveStatus(a).localeCompare(effectiveStatus(b)),
+      filters: [{ text: 'Open', value: 'Open' }, { text: 'Closed', value: 'Closed' }],
+      filteredValue: appliedFiltersLocal.orderStatus ?? null,
+      width: 120,
+      render: (_, record) => (
+        <Tag color={ORDER_STATUS_COLOR[effectiveStatus(record)] ?? 'default'}>
+          {effectiveStatus(record)}
+        </Tag>
+      ),
     },
     {
       title: '',
@@ -425,126 +419,215 @@ function OrdersPageContent() {
 
   return (
     <>
-      {notifContextHolder}
-
       {/* APPROVE MODAL */}
       <Modal
-        title="Approve Order"
+        title={approveSuccess ? null : 'Approve Order'}
         open={approveOpen}
-        onCancel={() => { setApproveOpen(false); resetApprove(); }}
+        onCancel={() => { setApproveOpen(false); resetApprove(); setApproveSuccess(false); }}
         onOk={handleConfirmApprove}
         okText={approveAssign && approveEmail ? 'Approve & Notify Procurement' : 'Approve'}
-        okButtonProps={{ type: 'primary' }}
+        okButtonProps={{ type: 'primary', disabled: !approveReplacement.trim() }}
+        footer={approveSuccess ? null : undefined}
         width={480}
       >
-        <Typography.Text style={{ display: 'block', marginBottom: 16, fontSize: token.fontSize, color: token.colorTextSecondary }}>
-          This marks the order as approved. You can assign it to procurement now or as a separate step after.
-        </Typography.Text>
-        <Form layout="vertical" size="small">
-          <Form.Item label="Replacement Order # (optional)" style={{ marginBottom: 12 }}>
-            <Input
-              placeholder="e.g. RO-2026-00123"
-              value={approveReplacement}
-              onChange={e => setApproveReplacement(e.target.value)}
-            />
-          </Form.Item>
-        </Form>
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '10px 12px', background: token.colorFillTertiary,
-          borderRadius: token.borderRadiusSM, marginBottom: approveAssign ? 12 : 0,
-        }}>
-          <Typography.Text style={{ fontSize: token.fontSize }}>Assign to Procurement</Typography.Text>
-          <Switch
-            checked={approveAssign}
-            onChange={v => { setApproveAssign(v); if (!v) setApproveEmail(''); }}
-          />
-        </div>
-        {approveAssign && (
-          <Form layout="vertical" size="small" style={{ marginTop: 12 }}>
-            <Form.Item label="Notify" style={{ marginBottom: 0 }}>
-              <Select
-                placeholder="Select procurement contact..."
-                value={approveEmail || undefined}
-                onChange={v => setApproveEmail(v)}
-                options={PROCUREMENT_CONTACTS}
-                style={{ width: '100%' }}
+        {approveSuccess ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: token.fontSize }} />
+              <Typography.Text style={{ fontSize: token.fontSize, fontWeight: 600 }}>Order Approved</Typography.Text>
+            </div>
+            <Typography.Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
+              {activeOrderId} has been approved.{' '}
+              {approveAssign && approveEmail
+                ? `Email notifications sent to ${orderRows.find(r => r.id === activeOrderId)?.branch} branch and ${approveEmail}.`
+                : `Email notification sent to ${orderRows.find(r => r.id === activeOrderId)?.branch} branch.`}
+            </Typography.Text>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button type="primary" onClick={() => { setApproveOpen(false); resetApprove(); setApproveSuccess(false); }}>Done</Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <Typography.Text style={{ display: 'block', marginBottom: 16, fontSize: token.fontSize, color: token.colorTextSecondary }}>
+              This marks the order as approved. You can assign it to procurement now or as a separate step after.
+            </Typography.Text>
+            <Form layout="vertical" size="small">
+              <Form.Item label="Replacement Part #" required style={{ marginBottom: 12 }}>
+                <Input
+                  placeholder="e.g. RO-2026-00123"
+                  value={approveReplacement}
+                  onChange={e => setApproveReplacement(e.target.value)}
+                />
+              </Form.Item>
+            </Form>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '10px 12px', background: token.colorFillTertiary,
+              borderRadius: token.borderRadiusSM, marginBottom: approveAssign ? 12 : 0,
+            }}>
+              <Typography.Text style={{ fontSize: token.fontSize }}>Assign to Procurement</Typography.Text>
+              <Switch
+                checked={approveAssign}
+                onChange={v => { setApproveAssign(v); if (!v) setApproveEmail(''); }}
               />
-            </Form.Item>
-          </Form>
+            </div>
+            {approveAssign && (
+              <Form layout="vertical" size="small" style={{ marginTop: 12 }}>
+                <Form.Item label="Notify" style={{ marginBottom: 0 }}>
+                  <Select
+                    placeholder="Select procurement contact..."
+                    value={approveEmail || undefined}
+                    onChange={v => setApproveEmail(v)}
+                    options={PROCUREMENT_CONTACTS}
+                    style={{ width: '100%' }}
+                  />
+                </Form.Item>
+              </Form>
+            )}
+          </>
         )}
       </Modal>
 
       {/* DECLINE MODAL */}
       <Modal
-        title="Decline Order"
+        title={declineSuccess ? null : 'Decline Order'}
         open={declineOpen}
-        onCancel={() => { setDeclineOpen(false); setDeclineReason(''); }}
+        onCancel={() => { setDeclineOpen(false); setDeclineReason(''); setDeclineSuccess(false); }}
         onOk={handleDecline}
         okText="Decline & Close"
         okButtonProps={{ danger: true, disabled: !declineReason.trim() }}
+        footer={declineSuccess ? null : undefined}
       >
-        <Typography.Text style={{ display: 'block', marginBottom: 12, fontSize: token.fontSize, color: token.colorTextSecondary }}>
-          This will close the order. Please provide a reason for the record.
-        </Typography.Text>
-        <Input.TextArea
-          placeholder="Reason for declining..."
-          value={declineReason}
-          onChange={e => setDeclineReason(e.target.value)}
-          rows={4}
-          autoFocus
-        />
+        {declineSuccess ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <CloseCircleFilled style={{ color: token.colorTextSecondary, fontSize: token.fontSize }} />
+              <Typography.Text style={{ fontSize: token.fontSize, fontWeight: 600 }}>Order Declined</Typography.Text>
+            </div>
+            <Typography.Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
+              {activeOrderId} has been declined and closed. Email notification sent to {orderRows.find(r => r.id === activeOrderId)?.branch} branch.
+            </Typography.Text>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button type="primary" onClick={() => { setDeclineOpen(false); setDeclineReason(''); setDeclineSuccess(false); }}>Done</Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <Typography.Text style={{ display: 'block', marginBottom: 12, fontSize: token.fontSize, color: token.colorTextSecondary }}>
+              This will close the order. Please provide a reason for the record.
+            </Typography.Text>
+            <Input.TextArea
+              placeholder="Reason for declining..."
+              value={declineReason}
+              onChange={e => setDeclineReason(e.target.value)}
+              rows={4}
+              autoFocus
+            />
+          </>
+        )}
       </Modal>
 
       {/* CLOSE SINGLE MODAL */}
       <Modal
-        title="Close Order"
+        title={closeSuccess ? null : 'Close Order'}
         open={closeOpen}
-        onCancel={() => setCloseOpen(false)}
+        onCancel={() => { setCloseOpen(false); setCloseSuccess(false); }}
         onOk={handleClose}
         okText="Close Order"
         okButtonProps={{ type: 'primary' }}
+        footer={closeSuccess ? null : undefined}
       >
-        <Typography.Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
-          This will mark the order as Closed. It can be reopened if needed.
-        </Typography.Text>
+        {closeSuccess ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: token.fontSize }} />
+              <Typography.Text style={{ fontSize: token.fontSize, fontWeight: 600 }}>Order Closed</Typography.Text>
+            </div>
+            <Typography.Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
+              {activeOrderId} has been closed. It can be reopened if needed.
+            </Typography.Text>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button type="primary" onClick={() => { setCloseOpen(false); setCloseSuccess(false); }}>Done</Button>
+            </div>
+          </div>
+        ) : (
+          <Typography.Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
+            This will mark the order as Closed. It can be reopened if needed.
+          </Typography.Text>
+        )}
       </Modal>
 
       {/* REOPEN MODAL */}
       <Modal
-        title="Reopen Order"
+        title={reopenSuccess ? null : 'Reopen Order'}
         open={reopenOpen}
-        onCancel={() => { setReopenOpen(false); setReopenReason(''); }}
+        onCancel={() => { setReopenOpen(false); setReopenReason(''); setReopenSuccess(false); }}
         onOk={handleReopen}
         okText="Reopen"
         okButtonProps={{ disabled: !reopenReason.trim() }}
+        footer={reopenSuccess ? null : undefined}
       >
-        <Typography.Text style={{ display: 'block', marginBottom: 12, fontSize: token.fontSize, color: token.colorTextSecondary }}>
-          This will reopen the order to Open status. Please provide a reason.
-        </Typography.Text>
-        <Input.TextArea
-          placeholder="Reason for reopening..."
-          value={reopenReason}
-          onChange={e => setReopenReason(e.target.value)}
-          rows={4}
-          autoFocus
-        />
+        {reopenSuccess ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <CheckCircleFilled style={{ color: token.colorInfo, fontSize: token.fontSize }} />
+              <Typography.Text style={{ fontSize: token.fontSize, fontWeight: 600 }}>Order Reopened</Typography.Text>
+            </div>
+            <Typography.Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
+              {activeOrderId} has been returned to Open status and is ready for review.
+            </Typography.Text>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button type="primary" onClick={() => { setReopenOpen(false); setReopenReason(''); setReopenSuccess(false); }}>Done</Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <Typography.Text style={{ display: 'block', marginBottom: 12, fontSize: token.fontSize, color: token.colorTextSecondary }}>
+              This will reopen the order to Open status. Please provide a reason.
+            </Typography.Text>
+            <Input.TextArea
+              placeholder="Reason for reopening..."
+              value={reopenReason}
+              onChange={e => setReopenReason(e.target.value)}
+              rows={4}
+              autoFocus
+            />
+          </>
+        )}
       </Modal>
 
       {/* BATCH CLOSE CONFIRM */}
       <Modal
-        title="Close Orders"
+        title={batchCloseSuccess ? null : 'Close Orders'}
         open={batchCloseOpen}
-        onCancel={() => setBatchCloseOpen(false)}
+        onCancel={() => { setBatchCloseOpen(false); setBatchCloseSuccess(false); }}
         onOk={handleBatchClose}
         okText={`Close ${openCount} Order${openCount !== 1 ? 's' : ''}`}
         okButtonProps={{ type: 'primary', disabled: openCount === 0 }}
+        footer={batchCloseSuccess ? null : undefined}
       >
-        <Typography.Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
-          {openCount > 0
-            ? `This will close ${openCount} open order${openCount !== 1 ? 's' : ''}. They can be reopened individually if needed.`
-            : 'No open orders are selected.'}
-        </Typography.Text>
+        {batchCloseSuccess ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: token.fontSize }} />
+              <Typography.Text style={{ fontSize: token.fontSize, fontWeight: 600 }}>
+                {batchCloseCount} Order{batchCloseCount !== 1 ? 's' : ''} Closed
+              </Typography.Text>
+            </div>
+            <Typography.Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
+              {batchCloseCount} order{batchCloseCount !== 1 ? 's have' : ' has'} been closed successfully.
+            </Typography.Text>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button type="primary" onClick={() => { setBatchCloseOpen(false); setSelectedOrderKeys([]); setBatchCloseSuccess(false); }}>Done</Button>
+            </div>
+          </div>
+        ) : (
+          <Typography.Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
+            {openCount > 0
+              ? `This will close ${openCount} open order${openCount !== 1 ? 's' : ''}. They can be reopened individually if needed.`
+              : 'No open orders are selected.'}
+          </Typography.Text>
+        )}
       </Modal>
 
       <PageHeader
@@ -634,6 +717,14 @@ function OrdersPageContent() {
           columns={columns}
           rowKey="id"
           size="small"
+          onChange={(_p, tableFilters) => {
+            const next = { ...appliedFiltersLocal };
+            Object.entries(tableFilters).forEach(([k, vals]) => {
+              if (vals?.length) next[k] = vals as string[];
+              else delete next[k];
+            });
+            setAppliedFilters(next);
+          }}
           rowSelection={{
             type: 'checkbox',
             selectedRowKeys: selectedOrderKeys,
