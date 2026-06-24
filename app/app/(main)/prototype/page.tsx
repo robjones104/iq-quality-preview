@@ -333,7 +333,7 @@ export default function PrototypePage() {
               <TriageReview events={filteredEvents} />
             )}
             {activeSection === 'orders' && (
-              <OrderFulfillment events={filteredEvents} />
+              <OrderFulfillment events={filteredEvents} orders={orders} />
             )}
           </div>
         </Flex>
