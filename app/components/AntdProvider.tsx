@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { ConfigProvider, theme as antdTheme } from 'antd';
 import { useThemeStore } from '@/store/themeStore';
-import { SEED_TOKENS, LIGHT_COMPONENT_TOKENS, DARK_COMPONENT_TOKENS } from '@/lib/theme';
+import { SEED_TOKENS, DARK_SEED_OVERRIDES, LIGHT_COMPONENT_TOKENS, DARK_COMPONENT_TOKENS } from '@/lib/theme';
 import { useLargeScreen } from '@/hooks/useLargeScreen';
 
 // Renders nothing — just syncs the resolved colorBgLayout token to document.body.
@@ -27,7 +27,7 @@ export function AntdProvider({ children }: { children: React.ReactNode }) {
     <ConfigProvider
       theme={{
         algorithm: darkMode ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
-        token: { ...SEED_TOKENS, fontSize: baseFontSize, fontSizeXS: baseFontSize - 4, ...(darkMode && { colorPrimary: '#FFD20B', colorTextLightSolid: '#141414' }) },
+        token: { ...SEED_TOKENS, fontSize: baseFontSize, fontSizeXS: baseFontSize - 4, ...(darkMode && DARK_SEED_OVERRIDES) },
         components: darkMode ? DARK_COMPONENT_TOKENS : LIGHT_COMPONENT_TOKENS,
       }}
     >

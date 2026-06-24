@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, Col, Row, Segmented, Typography, theme } from 'antd';
 import { Line, Bar, Pie } from '@ant-design/plots';
 import dayjs from 'dayjs';
@@ -48,6 +49,7 @@ export function FieldIntake({
   events: QualityEvent[];
   dateRange: DateRange | null;
 }) {
+  const router = useRouter();
   const [showAllBranches, setShowAllBranches] = useState(false);
   const [donutMode, setDonutMode] = useState<'discrepancy' | 'product'>('discrepancy');
   const { token } = theme.useToken();
@@ -117,23 +119,30 @@ export function FieldIntake({
 
         {/* Events over time */}
         <Col xs={24} lg={8}>
-          <Card size="small" title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Events Over Time</span>} style={{ marginBottom: token.marginSM }}>
-            <Line
-              key={plotTheme}
-              data={timeData}
-              xField="date"
-              yField="count"
-              height={240}
-              theme={plotTheme}
-              style={{ lineWidth: 1 }}
-              point={{ shapeField: 'square', sizeField: 1 }}
-              interaction={{ tooltip: { marker: false } }}
-              axis={{
-                x: { ...axisStyle, labelFormatter: (v: string) => dayjs(v).format('MMM D'), tickCount: 4 },
-                y: { ...axisStyle, tickCount: 4 },
-              }}
-              tooltip={{ title: (d: { date: string }) => dayjs(d.date).format('MMM D, YYYY') }}
-            />
+          <Card size="small" title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Events Over Time</span>} style={{ marginBottom: token.marginSM }} styles={{ body: { minHeight: 320 } }}>
+            <div style={{ cursor: 'pointer' }}>
+              <Line
+                key={plotTheme}
+                data={timeData}
+                xField="date"
+                yField="count"
+                height={276}
+                theme={plotTheme}
+                style={{ lineWidth: 1 }}
+                point={{ shapeField: 'square', sizeField: 1 }}
+                interaction={{ tooltip: { marker: false } }}
+                axis={{
+                  x: { ...axisStyle, labelFormatter: (v: string) => dayjs(v).format('MMM D'), tickCount: 4 },
+                  y: { ...axisStyle, tickCount: 4 },
+                }}
+                tooltip={{ title: (d: { date: string }) => dayjs(d.date).format('MMM D, YYYY') }}
+                onEvent={(_chart, event) => {
+                  if (event.type !== 'element:click') return;
+                  const datum = event.data?.data as { date?: string } | undefined;
+                  if (datum?.date) router.push(`/events?from=${datum.date}&to=${datum.date}`);
+                }}
+              />
+            </div>
           </Card>
         </Col>
 
@@ -150,6 +159,7 @@ export function FieldIntake({
               )
             }
             style={{ marginBottom: token.marginSM }}
+            styles={{ body: { minHeight: 320 } }}
           >
             {(() => {
               const { sortedBranches, countMap } = branchStackData;
@@ -162,41 +172,48 @@ export function FieldIntake({
                 }))
               );
               return (
-                <Bar
-                  key={plotTheme}
-                  data={chartData}
-                  xField="branch"
-                  yField="count"
-                  colorField="status"
-                  stack={true}
-                  height={showAllBranches ? 480 : 240}
-                  theme={plotTheme}
-                  label={false}
-                  interaction={{ elementHighlight: true }}
-                  state={{ active: { opacity: 1 }, inactive: { opacity: 0.15 } }}
-                  scale={{
-                    x: { domain: visible },
-                    color: {
-                      domain: [...BRANCH_STATUS_ORDER],
-                      range: ['#1677FF', '#FA8C16', '#8C8C8C'],
-                    },
-                  }}
-                  axis={{
-                    x: { ...axisStyle, labelFormatter: (v: string) => v.length > 14 ? v.slice(0, 13) + '…' : v },
-                    y: { ...axisStyle, tickCount: 4 },
-                  }}
-                  legend={{
-                    color: {
-                      position: 'bottom',
-                      itemLabelFill: token.colorText,
-                      itemLabelFontSize: token.fontSizeSM,
-                    },
-                  }}
-                  tooltip={{
-                    title: (d: { branch: string }) => d.branch,
-                    items: [{ field: 'count', name: 'Events' }],
-                  }}
-                />
+                <div style={{ cursor: 'pointer' }}>
+                  <Bar
+                    key={plotTheme}
+                    data={chartData}
+                    xField="branch"
+                    yField="count"
+                    colorField="status"
+                    stack={true}
+                    height={showAllBranches ? 480 : 276}
+                    theme={plotTheme}
+                    label={false}
+                    interaction={{ elementHighlight: true }}
+                    state={{ active: { opacity: 1 }, inactive: { opacity: 0.15 } }}
+                    scale={{
+                      x: { domain: visible },
+                      color: {
+                        domain: [...BRANCH_STATUS_ORDER],
+                        range: ['#1677FF', '#FA8C16', '#8C8C8C'],
+                      },
+                    }}
+                    axis={{
+                      x: { ...axisStyle, labelFormatter: (v: string) => v.length > 14 ? v.slice(0, 13) + '…' : v },
+                      y: { ...axisStyle, tickCount: 4 },
+                    }}
+                    legend={{
+                      color: {
+                        position: 'bottom',
+                        itemLabelFill: token.colorText,
+                        itemLabelFontSize: token.fontSizeSM,
+                      },
+                    }}
+                    tooltip={{
+                      title: (d: { branch: string }) => d.branch,
+                      items: [{ field: 'count', name: 'Events' }],
+                    }}
+                    onEvent={(_chart, event) => {
+                      if (event.type !== 'element:click') return;
+                      const datum = event.data?.data as { branch?: string } | undefined;
+                      if (datum?.branch) router.push(`/events?branch=${encodeURIComponent(datum.branch)}`);
+                    }}
+                  />
+                </div>
               );
             })()}
           </Card>
@@ -223,34 +240,47 @@ export function FieldIntake({
               />
             }
             style={{ marginBottom: token.marginSM }}
+            styles={{ body: { minHeight: 320 } }}
           >
-            <Pie
-              key={plotTheme}
-              data={donutMode === 'discrepancy' ? discData : productData}
-              angleField="count"
-              colorField={donutMode === 'discrepancy' ? 'discrepancy' : 'product'}
-              height={240}
-              theme={plotTheme}
-              label={false}
-              animate={{ enter: { type: 'waveIn', duration: 600 } }}
-              interaction={{ elementHighlight: true }}
-              state={{ active: { opacity: 1 }, inactive: { opacity: 0.15 } }}
-              legend={{
-                color: {
-                  position: 'bottom',
-                  layout: { justifyContent: 'flex-start' },
-                  itemLabelFill: token.colorText,
-                  itemLabelFontSize: token.fontSizeSM,
-                  itemLabelFormatter: (v: string) => v.length > 20 ? v.slice(0, 19) + '…' : v,
-                  rows: 8,
-                },
-              }}
-              tooltip={{
-                title: (d: Record<string, string>) =>
-                  donutMode === 'discrepancy' ? d.discrepancy : d.product,
-                items: [{ field: 'count', name: 'Events' }],
-              }}
-            />
+            <div style={{ cursor: 'pointer' }}>
+              <Pie
+                key={plotTheme}
+                data={donutMode === 'discrepancy' ? discData : productData}
+                angleField="count"
+                colorField={donutMode === 'discrepancy' ? 'discrepancy' : 'product'}
+                height={276}
+                theme={plotTheme}
+                label={false}
+                animate={{ enter: { type: 'waveIn', duration: 600 } }}
+                interaction={{ elementHighlight: true }}
+                state={{ active: { opacity: 1 }, inactive: { opacity: 0.15 } }}
+                legend={{
+                  color: {
+                    position: 'bottom',
+                    layout: { justifyContent: 'flex-start' },
+                    itemLabelFill: token.colorText,
+                    itemLabelFontSize: token.fontSizeSM,
+                    itemLabelFormatter: (v: string) => v.length > 20 ? v.slice(0, 19) + '…' : v,
+                    rows: 8,
+                  },
+                }}
+                tooltip={{
+                  title: (d: Record<string, string>) =>
+                    donutMode === 'discrepancy' ? d.discrepancy : d.product,
+                  items: [{ field: 'count', name: 'Events' }],
+                }}
+                onEvent={(_chart, event) => {
+                  if (event.type !== 'element:click') return;
+                  const datum = event.data?.data as Record<string, string> | undefined;
+                  if (!datum) return;
+                  if (donutMode === 'discrepancy' && datum.discrepancy) {
+                    router.push(`/events?discrepancy=${encodeURIComponent(datum.discrepancy)}`);
+                  } else if (donutMode === 'product' && datum.product) {
+                    router.push(`/events?product=${encodeURIComponent(datum.product)}`);
+                  }
+                }}
+              />
+            </div>
           </Card>
         </Col>
 

@@ -113,7 +113,7 @@ function buildInsights(events: QualityEvent[], dateRange: DateRange | null) {
     actions.push({
       priority: 'info',
       label: `${topBranch[0]} accounts for ${pct}% of events this period (${topBranch[1]}) — consider proactive outreach`,
-      href: '/events',
+      href: `/events?branch=${encodeURIComponent(topBranch[0])}`,
     });
   }
 
@@ -121,7 +121,7 @@ function buildInsights(events: QualityEvent[], dateRange: DateRange | null) {
     actions.push({
       priority: 'info',
       label: `${topDisc[0]} is disproportionately high — review for systemic root cause`,
-      href: '/events',
+      href: `/events?discrepancy=${encodeURIComponent(topDisc[0])}`,
     });
   }
 

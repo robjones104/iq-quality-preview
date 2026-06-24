@@ -31,11 +31,14 @@ const { Text } = Typography;
 
 function EventsPageContent() {
   const searchParams = useSearchParams();
-  const flagParam   = searchParams.get('flag');
-  const statusParam = searchParams.get('status');
-  const fromParam   = searchParams.get('from');
-  const toParam     = searchParams.get('to');
-  const backToParam = searchParams.get('backTo');
+  const flagParam        = searchParams.get('flag');
+  const statusParam      = searchParams.get('status');
+  const branchParam      = searchParams.get('branch');
+  const discrepancyParam = searchParams.get('discrepancy');
+  const productParam     = searchParams.get('product');
+  const fromParam        = searchParams.get('from');
+  const toParam          = searchParams.get('to');
+  const backToParam      = searchParams.get('backTo');
 
   const { eventsDateRange, setEventsDateRange, eventsFilters, setEventsFilters } = useFilterStore();
 
@@ -45,14 +48,23 @@ function EventsPageContent() {
     return eventsDateRange;
   });
   const [appliedFiltersLocal, setAppliedFiltersLocal] = useState<Record<string, string[]>>(() => {
-    if (statusParam) return { status: statusParam.split(',') };
-    return eventsFilters;
+    const fromUrl: Record<string, string[]> = {};
+    if (statusParam)      fromUrl.status      = statusParam.split(',');
+    if (branchParam)      fromUrl.branch      = branchParam.split(',');
+    if (discrepancyParam) fromUrl.discrepancy = discrepancyParam.split(',');
+    if (productParam)     fromUrl.product     = productParam.split(',');
+    return Object.keys(fromUrl).length ? fromUrl : eventsFilters;
   });
 
   // Sync URL-param initializations to Zustand so they survive event-detail navigation
   useEffect(() => {
     if (fromParam && toParam) setEventsDateRange([dayjs(fromParam), dayjs(toParam)] as DateRange);
-    if (statusParam) setEventsFilters({ status: statusParam.split(',') });
+    const fromUrl: Record<string, string[]> = {};
+    if (statusParam)      fromUrl.status      = statusParam.split(',');
+    if (branchParam)      fromUrl.branch      = branchParam.split(',');
+    if (discrepancyParam) fromUrl.discrepancy = discrepancyParam.split(',');
+    if (productParam)     fromUrl.product     = productParam.split(',');
+    if (Object.keys(fromUrl).length) setEventsFilters(fromUrl);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import dayjs from 'dayjs';
 import {
   Dropdown, Form, Input, Modal, notification, Select, Space,
@@ -13,6 +13,7 @@ import {
   SearchOutlined, SendOutlined,
 } from '@ant-design/icons';
 import { CopyableValue } from '@/components/CopyableValue';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { orders } from '@/data/orders';
 import { events } from '@/data/events';
@@ -68,11 +69,34 @@ const orderRows: OrderRow[] = orders.map(o => {
   };
 });
 
-export default function OrdersPage() {
+function OrdersPageContent() {
+  const searchParams = useSearchParams();
+  const orderStatusParam = searchParams.get('orderStatus');
+  const decisionParam    = searchParams.get('decision');
+  const fromParam        = searchParams.get('from');
+  const toParam          = searchParams.get('to');
+
   const { ordersDateRange, setOrdersDateRange, ordersFilters, setOrdersFilters } = useFilterStore();
 
-  const [dateRange, setDateRangeLocal] = useState<DateRange | null>(ordersDateRange);
-  const [appliedFiltersLocal, setAppliedFiltersLocal] = useState<Record<string, string[]>>(ordersFilters);
+  const [dateRange, setDateRangeLocal] = useState<DateRange | null>(() => {
+    if (fromParam && toParam) return [dayjs(fromParam), dayjs(toParam)] as DateRange;
+    return ordersDateRange;
+  });
+  const [appliedFiltersLocal, setAppliedFiltersLocal] = useState<Record<string, string[]>>(() => {
+    const fromUrl: Record<string, string[]> = {};
+    if (orderStatusParam) fromUrl.orderStatus = orderStatusParam.split(',');
+    if (decisionParam)    fromUrl.decision    = decisionParam.split(',');
+    return Object.keys(fromUrl).length ? fromUrl : ordersFilters;
+  });
+
+  useEffect(() => {
+    if (fromParam && toParam) setOrdersDateRange([dayjs(fromParam), dayjs(toParam)] as DateRange);
+    const fromUrl: Record<string, string[]> = {};
+    if (orderStatusParam) fromUrl.orderStatus = orderStatusParam.split(',');
+    if (decisionParam)    fromUrl.decision    = decisionParam.split(',');
+    if (Object.keys(fromUrl).length) setOrdersFilters(fromUrl);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const setDateRange = (r: DateRange | null) => { setDateRangeLocal(r); setOrdersDateRange(r); };
   const setAppliedFilters = (f: Record<string, string[]>) => { setAppliedFiltersLocal(f); setOrdersFilters(f); };
@@ -589,10 +613,7 @@ export default function OrdersPage() {
                 Clear
               </Button>
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <Button size="small" icon={<ExportOutlined />} onClick={handleExportOrders}>
-                Export
-              </Button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <Button
                 size="small"
                 icon={<CheckOutlined />}
@@ -600,6 +621,9 @@ export default function OrdersPage() {
                 onClick={() => setBatchCloseOpen(true)}
               >
                 Close Orders{openCount > 0 ? ` (${openCount})` : ''}
+              </Button>
+              <Button size="small" icon={<ExportOutlined />} onClick={handleExportOrders}>
+                Export
               </Button>
             </div>
           </div>
@@ -624,5 +648,13 @@ export default function OrdersPage() {
         />
       </div>
     </>
+  );
+}
+
+export default function OrdersPage() {
+  return (
+    <Suspense fallback={null}>
+      <OrdersPageContent />
+    </Suspense>
   );
 }

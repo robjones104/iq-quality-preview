@@ -158,6 +158,10 @@ const SEED_EVENTS: QualityEvent[] = [
     discrepancy: 'Incorrect Build', door: 'Dura_Glide 3000 Series',
     issueDescription: 'Received Motor Gearbox variant B instead of variant A. Supplier packing list matches variant A.',
     assignee: 'Jordan Takeda', reportedBy: 'Bartholomew T. Henderson', reportedAt: '2026-06-04T09:15:00',
+    editHistory: [
+      { id: 'eh_2388_1', timestamp: '2026-06-04 10:08', editedBy: 'Jordan Takeda', role: 'Field Quality', field: 'Discrepancy', from: 'Will not Operate', to: 'Incorrect Build' },
+      { id: 'eh_2388_2', timestamp: '2026-06-04 10:31', editedBy: 'Jordan Takeda', role: 'Field Quality', field: 'Root Cause', from: null, to: 'Supplier Issue' },
+    ],
   },
   {
     id: 'QE_2385', date: '2026-06-04', jobNo: 'SO109816772', dfo: 1, elLine: 1,
@@ -166,6 +170,10 @@ const SEED_EVENTS: QualityEvent[] = [
     discrepancy: 'Will not Operate', door: 'Dura_Glide 3000 Series',
     issueDescription: 'Three units from batch #ECB-2206 failed power-on self-test. All shipped from same supplier lot.',
     assignee: 'Jordan Takeda', reportedBy: 'Evangeline M. Rodriguez', reportedAt: '2026-06-04T08:30:00',
+    editHistory: [
+      { id: 'eh_2385_1', timestamp: '2026-06-04 09:14', editedBy: 'Jordan Takeda', role: 'Field Quality', field: 'Discrepancy', from: 'Incorrect Build', to: 'Will not Operate' },
+      { id: 'eh_2385_2', timestamp: '2026-06-04 09:45', editedBy: 'Jordan Takeda', role: 'Field Quality', field: 'Root Cause', from: 'Factory Issue', to: 'Supplier Issue' },
+    ],
   },
   {
     id: 'QE_2381', date: '2026-06-03', jobNo: 'SO109814401', dfo: 4, elLine: 2,
@@ -183,6 +191,10 @@ const SEED_EVENTS: QualityEvent[] = [
     discrepancy: 'Loose Component', door: 'Procare 8500',
     issueDescription: 'Door closer installed at incorrect spring tension setting. Customer reports door slamming.',
     assignee: 'Dana Okonkwo', reportedBy: 'Maximilian J. Kowalski', reportedAt: '2026-06-03T10:05:00',
+    editHistory: [
+      { id: 'eh_2379_1', timestamp: '2026-06-03 11:20', editedBy: 'Dana Okonkwo', role: 'Field Quality', field: 'Discrepancy', from: 'Machining', to: 'Loose Component' },
+      { id: 'eh_2379_2', timestamp: '2026-06-03 11:38', editedBy: 'Dana Okonkwo', role: 'Field Quality', field: 'Root Cause', from: null, to: 'Installation Error' },
+    ],
   },
   {
     id: 'QE_2376', date: '2026-06-02', jobNo: 'SO109809755', dfo: 1, elLine: 2,
@@ -191,6 +203,10 @@ const SEED_EVENTS: QualityEvent[] = [
     discrepancy: 'Missing Installed Component', door: 'Dura_Glide 5200',
     issueDescription: 'Sensor shipped without installation screws. Customer ordered full installation kit.',
     assignee: 'Priya Sharma', reportedBy: 'Alexandrina M. Vasquez', reportedAt: '2026-06-02T16:20:00',
+    editHistory: [
+      { id: 'eh_2376_1', timestamp: '2026-06-02 17:05', editedBy: 'Priya Sharma', role: 'Field Quality', field: 'Discrepancy', from: 'Missing Hardware', to: 'Missing Installed Component' },
+      { id: 'eh_2376_2', timestamp: '2026-06-02 17:05', editedBy: 'Priya Sharma', role: 'Field Quality', field: 'Root Cause', from: null, to: 'Short Shipping' },
+    ],
   },
   {
     id: 'QE_2373', date: '2026-06-02', jobNo: 'SO109807412', dfo: 3, elLine: 1,
@@ -199,6 +215,10 @@ const SEED_EVENTS: QualityEvent[] = [
     discrepancy: 'Visual', door: 'All Glass 2000',
     issueDescription: 'Glass panel delivered with hairline crack along lower edge. Customer spec requires flawless finish.',
     assignee: 'Priya Sharma', reportedBy: 'Bartholomew J. Sanders', reportedAt: '2026-06-02T13:45:00',
+    editHistory: [
+      { id: 'eh_2373_1', timestamp: '2026-06-02 14:30', editedBy: 'Priya Sharma', role: 'Field Quality', field: 'Discrepancy', from: 'Freight Damage', to: 'Visual' },
+      { id: 'eh_2373_2', timestamp: '2026-06-02 14:55', editedBy: 'Priya Sharma', role: 'Field Quality', field: 'Product', from: 'Glass Panel', to: 'Glass' },
+    ],
   },
   {
     id: 'QE_2370', date: '2026-06-01', jobNo: 'WO109805099', dfo: 2,
@@ -216,6 +236,9 @@ const SEED_EVENTS: QualityEvent[] = [
     discrepancy: 'Thermal Event', door: 'Dura_Glide Greenstar 3000',
     issueDescription: 'Threshold seal deforming under high-heat conditions. Interior temperatures exceeding 95°F cause seal to gap.',
     assignee: 'Elliot Vance', reportedBy: 'Montgomery Richardson', reportedAt: '2026-06-01T10:30:00',
+    editHistory: [
+      { id: 'eh_2367_1', timestamp: '2026-06-01 11:44', editedBy: 'Elliot Vance', role: 'Field Quality', field: 'Root Cause', from: 'Factory Issue', to: 'Engineering Issue' },
+    ],
   },
   {
     id: 'QE_2364', date: '2026-05-31', jobNo: 'SO109800423', dfo: 4, elLine: 2,
@@ -224,6 +247,10 @@ const SEED_EVENTS: QualityEvent[] = [
     discrepancy: 'Missing Hardware', door: 'M-Force Swing Door',
     issueDescription: 'Hardware kit shipped without through-bolt set. Required for hollow metal door frame installation.',
     assignee: 'Elliot Vance', reportedBy: 'Monica Diaz', reportedAt: '2026-05-31T15:10:00',
+    editHistory: [
+      { id: 'eh_2364_1', timestamp: '2026-05-31 16:00', editedBy: 'Elliot Vance', role: 'Field Quality', field: 'Discrepancy', from: 'Incorrect Build', to: 'Missing Hardware' },
+      { id: 'eh_2364_2', timestamp: '2026-05-31 16:20', editedBy: 'Elliot Vance', role: 'Field Quality', field: 'Root Cause', from: 'Factory Issue', to: 'Short Shipping' },
+    ],
   },
   {
     id: 'QE_2361', date: '2026-05-31', jobNo: 'WO109798110', dfo: 1,
@@ -241,6 +268,10 @@ const SEED_EVENTS: QualityEvent[] = [
     discrepancy: 'Incorrect Build', door: 'Procare 8300',
     issueDescription: 'Controllers built to incorrect firmware version. Entire shipment of 24 units affected.',
     assignee: 'Dana Okonkwo', reportedBy: 'Brian Kennedy', reportedAt: '2026-05-30T09:00:00',
+    editHistory: [
+      { id: 'eh_2358_1', timestamp: '2026-05-30 10:15', editedBy: 'Dana Okonkwo', role: 'Field Quality', field: 'Discrepancy', from: 'Will not Operate', to: 'Incorrect Build' },
+      { id: 'eh_2358_2', timestamp: '2026-05-30 11:02', editedBy: 'Dana Okonkwo', role: 'Field Quality', field: 'Root Cause', from: null, to: 'Supplier Issue' },
+    ],
   },
   {
     id: 'QE_2355', date: '2026-05-30', jobNo: 'SO109793534', dfo: 3, elLine: 2,
@@ -249,6 +280,11 @@ const SEED_EVENTS: QualityEvent[] = [
     discrepancy: 'Will not Operate', door: 'Dura_Glide Greenstar 3000',
     issueDescription: 'Motor gearbox units from batch #MG-4412 drawing excessive current. Risk of controller board damage.',
     assignee: 'Jordan Takeda', reportedBy: 'Paul Dumont', reportedAt: '2026-05-30T08:15:00',
+    editHistory: [
+      { id: 'eh_2355_1', timestamp: '2026-05-30 09:30', editedBy: 'Jordan Takeda', role: 'Field Quality', field: 'Discrepancy', from: 'Freight Damage', to: 'Will not Operate' },
+      { id: 'eh_2355_2', timestamp: '2026-05-30 09:55', editedBy: 'Jordan Takeda', role: 'Field Quality', field: 'Root Cause', from: 'Ordering Error', to: 'Factory Issue' },
+      { id: 'eh_2355_3', timestamp: '2026-05-30 10:10', editedBy: 'Jordan Takeda', role: 'Field Quality', field: 'Product', from: 'Controller', to: 'Motor Gearbox' },
+    ],
   },
   {
     id: 'QE_2352', date: '2026-05-29', jobNo: 'SO109791221', dfo: 1, elLine: 1,
@@ -257,6 +293,10 @@ const SEED_EVENTS: QualityEvent[] = [
     discrepancy: 'Loose Component', door: 'Dura_Glide 2000 Series',
     issueDescription: 'Exit device strike plate misaligned by 3mm causing intermittent latch failure under load.',
     assignee: 'Dana Okonkwo', reportedBy: 'Heather Cox', reportedAt: '2026-05-29T14:30:00',
+    editHistory: [
+      { id: 'eh_2352_1', timestamp: '2026-05-29 16:05', editedBy: 'Dana Okonkwo', role: 'Field Quality', field: 'Root Cause', from: null, to: 'Factory Issue' },
+      { id: 'eh_2352_2', timestamp: '2026-05-29 17:22', editedBy: 'Dana Okonkwo', role: 'Field Quality', field: 'Root Cause', from: 'Factory Issue', to: 'Installation Error' },
+    ],
   },
 
   // ── Today / Tomorrow / Friday (Jun 17–20 2026) ────────────────────────────
