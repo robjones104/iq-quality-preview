@@ -3,8 +3,8 @@
 import { useState, useEffect, Suspense } from 'react';
 import dayjs from 'dayjs';
 import {
-  Dropdown, Form, Input, Modal, Select,
-  Switch, Table, Tabs, Button, Tag, Tooltip, Typography, theme, Grid, Pagination,
+  Dropdown, Form, Input, List, Modal, Select,
+  Switch, Table, Tabs, Button, Tag, Tooltip, Typography, theme, Grid,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { MenuProps } from 'antd';
@@ -101,10 +101,9 @@ function OrdersPageContent() {
   }, []);
 
   const screens = Grid.useBreakpoint();
-  const [cardPage, setCardPage] = useState(1);
 
-  const setDateRange = (r: DateRange | null) => { setDateRangeLocal(r); setOrdersDateRange(r); setCardPage(1); };
-  const setAppliedFilters = (f: Record<string, string[]>) => { setAppliedFiltersLocal(f); setOrdersFilters(f); setCardPage(1); };
+  const setDateRange = (r: DateRange | null) => { setDateRangeLocal(r); setOrdersDateRange(r); };
+  const setAppliedFilters = (f: Record<string, string[]>) => { setAppliedFiltersLocal(f); setOrdersFilters(f); };
 
   const { token } = theme.useToken();
 
@@ -661,7 +660,7 @@ function OrdersPageContent() {
       />
 
       <div style={{ padding: token.paddingMD }}>
-        {chips.length > 0 && (
+        {screens.md !== false && chips.length > 0 && (
           <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: token.marginXS, marginBottom: token.margin }}>
             {chips.map((chip) => (
               <Tag key={chip} closable onClose={() => removeChip(chip)} closeIcon={<CloseOutlined />} style={{ margin: 0 }}>
@@ -685,37 +684,27 @@ function OrdersPageContent() {
         />
 
         {screens.lg === false ? (
-          <>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: screens.md ? '1fr 1fr' : '1fr',
-              gap: 12,
-              marginBottom: 16,
-            }}>
-              {filtered.slice((cardPage - 1) * 12, cardPage * 12).map(row => (
+          <List
+            dataSource={filtered}
+            grid={{ gutter: 12, xs: 1, sm: 2 }}
+            pagination={{
+              pageSize: 12,
+              hideOnSinglePage: true,
+              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
+              size: 'small',
+              style: { textAlign: 'right', marginTop: 12 },
+            }}
+            renderItem={(row) => (
+              <List.Item style={{ padding: 0 }}>
                 <OrderCard
-                  key={row.id}
                   row={row}
                   status={effectiveStatus(row)}
                   menuItems={getMenuItems(row)}
                   onAction={key => openRowAction(key, row)}
                 />
-              ))}
-            </div>
-            {filtered.length > 12 && (
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <Pagination
-                  current={cardPage}
-                  pageSize={12}
-                  total={filtered.length}
-                  onChange={setCardPage}
-                  showSizeChanger={false}
-                  showTotal={(total, range) => `${range[0]}-${range[1]} of ${total}`}
-                  size="small"
-                />
-              </div>
+              </List.Item>
             )}
-          </>
+          />
         ) : (
           <>
             {selectedOrderKeys.length > 0 && (

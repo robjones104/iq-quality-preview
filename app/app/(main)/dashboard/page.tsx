@@ -1,7 +1,7 @@
 'use client';
 
-import React, { Fragment, useMemo, useState } from 'react';
-import { Button, Card, Col, Flex, Grid, Progress, Row, Select, Statistic, Tag, Space, Typography, theme } from 'antd';
+import React, { Fragment, useRef, useMemo, useState } from 'react';
+import { Button, Card, Col, Flex, Grid, Progress, Row, Segmented, Select, Statistic, Tag, Space, Typography, theme } from 'antd';
 import { CloseOutlined, CaretDownFilled, CaretRightFilled, AppstoreFilled, FormOutlined, SearchOutlined, HourglassFilled } from '@ant-design/icons';
 import Link from 'next/link';
 import dayjs from 'dayjs';
@@ -13,9 +13,9 @@ import { events } from '@/data/events';
 import { orders } from '@/data/orders';
 import { useFilterStore } from '@/store/filterStore';
 import { AiSummary } from '@/components/AiSummary';
-import { FieldIntake } from '@/components/FieldIntake';
-import { TriageReview } from '@/components/TriageReview';
-import { OrderFulfillment } from '@/components/OrderFulfillment';
+import { FieldIntake, EventsOverTimeChart, EventsByBranchChart, EventsByDiscrepancyChart } from '@/components/FieldIntake';
+import { TriageReview, QueueHealthChart, WaitingOnTechChart, DataQualityChart } from '@/components/TriageReview';
+import { OrderFulfillment, PendingCSReviewChart, OrderPipelineChart, DecisionTrendChart } from '@/components/OrderFulfillment';
 import type { QualityEvent } from '@/data/types';
 import type { DateRange } from '@/components/DateRangeFilter';
 
@@ -56,6 +56,8 @@ function KpiCard({
   icon: React.ReactNode;
 }) {
   const { token } = theme.useToken();
+  const screens = Grid.useBreakpoint();
+  const isMobile = screens.md === false;
   const [hovered, setHovered] = useState(false);
   const diff = prior !== null ? count - prior : null;
   const pct  = (diff !== null && prior !== null && prior > 0)
@@ -72,7 +74,11 @@ function KpiCard({
     ? 'No change vs. prior period'
     : `${up ? '↑' : '↓'} ${Math.abs(diff).toLocaleString()}${pct !== null ? ` (${pct}%)` : ''} vs. prior period`;
 
-  const wrapStyle: React.CSSProperties = { flex: '1 1 0', minWidth: 160 };
+  const mobileDeltaText = diff === null
+    ? 'Set date range'
+    : diff === 0
+    ? 'No change'
+    : `${up ? '↑' : '↓'} ${Math.abs(diff).toLocaleString()}${pct !== null ? ` (${pct}%)` : ''}`;
 
   const card = (
     <Card
@@ -86,28 +92,41 @@ function KpiCard({
         transform: href && hovered ? 'translateY(-2px)' : 'translateY(0)',
         boxShadow: href && hovered ? `0 8px 24px ${token.colorPrimary}33` : undefined,
       }}
-      styles={{ header: { padding: '0 16px', minHeight: 32 }, body: { padding: '8px 16px' } }}
+      styles={{
+        header: { padding: '0 16px', minHeight: 32 },
+        body: { padding: '8px 16px' },
+      }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div>
+        <div style={{ minWidth: 0 }}>
           <Statistic
             value={count}
             valueStyle={{ fontSize: token.fontSizeHeading3, fontWeight: 700, color: token.colorText, lineHeight: 1.2 }}
           />
-          <div style={{ fontSize: token.fontSizeSM, marginTop: 2, minHeight: 16, color: deltaColor }}>
-            {deltaText}
+          <div style={{
+            fontSize: token.fontSizeSM,
+            marginTop: 2,
+            minHeight: 16,
+            color: deltaColor,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}>
+            {isMobile ? mobileDeltaText : deltaText}
           </div>
         </div>
-        <div style={{ fontSize: token.fontSizeHeading2, color: accent, opacity: 0.25, lineHeight: 1 }}>
-          {icon}
-        </div>
+        {!isMobile && (
+          <div style={{ fontSize: token.fontSizeHeading2, color: accent, opacity: 0.25, lineHeight: 1, flexShrink: 0 }}>
+            {icon}
+          </div>
+        )}
       </div>
     </Card>
   );
 
   return href
-    ? <Link href={href} style={{ ...wrapStyle, textDecoration: 'none', display: 'block' }}>{card}</Link>
-    : <div style={wrapStyle}>{card}</div>;
+    ? <Link href={href} style={{ textDecoration: 'none', display: 'block' }}>{card}</Link>
+    : <div>{card}</div>;
 }
 
 function SectionHeader({
@@ -199,7 +218,7 @@ const SMART_SEARCH_OPTIONS = EVENT_FILTER_CATEGORIES.map(cat => ({
 export default function DashboardPage() {
   const { token } = theme.useToken();
   const screens = Grid.useBreakpoint();
-  const sidePadding = screens.xxl ? '5%' : screens.xl ? '3.5%' : `${token.paddingMD + 20}px`;
+  const sidePadding = screens.xxl ? '5%' : screens.xl ? '3.5%' : screens.md === false ? '20px' : `${token.paddingMD + 20}px`;
   const { dateRange, setDateRange } = useFilterStore();
   const [appliedFilters, setAppliedFilters] = useState<Record<string, string[]>>({});
   const [activeSection, setActiveSection] = useState<Section>('triage');
@@ -310,37 +329,40 @@ export default function DashboardPage() {
   }, [filteredOrders]);
 
   const toggle = (s: Section) => setActiveSection(prev => prev === s ? prev : s);
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const SECTIONS: Section[] = ['intake', 'triage', 'orders'];
+  const [carouselIndex, setCarouselIndex] = useState(0);
 
   return (
     <>
       <PageHeader
         left={<DateRangeFilter value={dateRange} onChange={setDateRange} />}
+        center={
+          <Select
+            mode="multiple"
+            showSearch
+            optionFilterProp="label"
+            placeholder="Search branch, product, discrepancy..."
+            options={SMART_SEARCH_OPTIONS}
+            value={selectValue}
+            onChange={handleSmartSearch}
+            maxTagCount="responsive"
+            style={{ width: '100%' }}
+            suffixIcon={<SearchOutlined style={{ color: token.colorTextQuaternary }} />}
+            allowClear
+          />
+        }
         right={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Select
-              mode="multiple"
-              showSearch
-              optionFilterProp="label"
-              placeholder="Search branch, product, discrepancy..."
-              options={SMART_SEARCH_OPTIONS}
-              value={selectValue}
-              onChange={handleSmartSearch}
-              maxTagCount="responsive"
-              style={{ width: 320 }}
-              suffixIcon={<SearchOutlined style={{ color: token.colorTextQuaternary }} />}
-              allowClear
-            />
-            <FilterPanel
-              categories={EVENT_FILTER_CATEGORIES}
-              applied={appliedFilters}
-              onApply={setAppliedFilters}
-            />
-          </div>
+          <FilterPanel
+            categories={EVENT_FILTER_CATEGORIES}
+            applied={appliedFilters}
+            onApply={setAppliedFilters}
+          />
         }
       />
 
       <div style={{ padding: `${token.paddingMD}px ${sidePadding}` }}>
-        {chips.length > 0 && (
+        {screens.md !== false && chips.length > 0 && (
           <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: token.marginXS, marginBottom: token.margin }}>
             {chips.map((chip) => (
               <Tag key={chip} closable onClose={() => removeChip(chip)} closeIcon={<CloseOutlined />} style={{ margin: 0 }}>
@@ -356,46 +378,128 @@ export default function DashboardPage() {
         <Flex vertical gap={token.marginLG}>
           <AiSummary events={filteredEvents} dateRange={dateRange} />
 
-          <Flex gap={token.marginSM} wrap>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: screens.md === false ? '1fr 1fr' : 'repeat(4, 1fr)',
+            gap: token.marginSM,
+          }}>
             {kpis.map((k) => (
               <KpiCard key={k.title} {...k} />
             ))}
-          </Flex>
-
-          <Row gutter={token.marginSM} style={{ alignItems: 'stretch' }}>
-            <Col xs={24} lg={8} style={{ display: 'flex', flexDirection: 'column' }}>
-              <SectionHeader
-                label="Field Intake"
-                stats={intakeStats}
-                active={activeSection === 'intake'}
-                onClick={() => toggle('intake')}
-              />
-            </Col>
-            <Col xs={24} lg={8} style={{ display: 'flex', flexDirection: 'column' }}>
-              <SectionHeader
-                label="Triage / Review"
-                stats={triageStats.stats}
-                active={activeSection === 'triage'}
-                onClick={() => toggle('triage')}
-                progress={triageStats.progress}
-              />
-            </Col>
-            <Col xs={24} lg={8} style={{ display: 'flex', flexDirection: 'column' }}>
-              <SectionHeader
-                label="Order Fulfillment"
-                stats={orderStats.stats}
-                active={activeSection === 'orders'}
-                onClick={() => toggle('orders')}
-                progress={orderStats.progress}
-              />
-            </Col>
-          </Row>
-
-          <div>
-            {activeSection === 'intake'  && <FieldIntake events={filteredEvents} dateRange={dateRange} />}
-            {activeSection === 'triage'  && <TriageReview events={filteredEvents} />}
-            {activeSection === 'orders'  && <OrderFulfillment events={filteredEvents} orders={filteredOrders} />}
           </div>
+
+          {screens.md === false ? (
+            <div>
+              <Segmented
+                block
+                options={[
+                  { label: 'Intake', value: 'intake' },
+                  { label: 'Triage', value: 'triage' },
+                  { label: 'Orders', value: 'orders' },
+                ]}
+                value={activeSection}
+                onChange={(v) => {
+                  setActiveSection(v as Section);
+                  setCarouselIndex(0);
+                  const el = carouselRef.current;
+                  if (el) el.scrollLeft = 0;
+                }}
+                style={{ marginBottom: token.marginSM }}
+              />
+              {(() => {
+                const panels =
+                  activeSection === 'intake' ? [
+                    { title: 'Events Over Time',  content: <EventsOverTimeChart events={filteredEvents} dateRange={dateRange} height={200} /> },
+                    { title: 'Events by Branch',  content: <EventsByBranchChart events={filteredEvents} height={200} /> },
+                    { title: 'By Discrepancy',    content: <EventsByDiscrepancyChart events={filteredEvents} height={200} /> },
+                  ] : activeSection === 'triage' ? [
+                    { title: 'Queue Health',      content: <QueueHealthChart events={filteredEvents} /> },
+                    { title: 'Waiting on Tech',   content: <WaitingOnTechChart events={filteredEvents} /> },
+                    { title: 'Data Quality',      content: <DataQualityChart events={filteredEvents} /> },
+                  ] : [
+                    { title: 'Pending CS Review', content: <PendingCSReviewChart orders={filteredOrders} /> },
+                    { title: 'Order Pipeline',    content: <OrderPipelineChart orders={filteredOrders} /> },
+                    { title: 'Decision Trend',    content: <DecisionTrendChart orders={filteredOrders} height={200} /> },
+                  ];
+                return (
+                  <>
+                    <div
+                      ref={carouselRef}
+                      onScroll={() => {
+                        const el = carouselRef.current;
+                        if (!el) return;
+                        const step = el.offsetWidth - 20;
+                        const mod = el.scrollLeft % step;
+                        if (mod < 8 || mod > step - 8) {
+                          setCarouselIndex(Math.min(Math.max(Math.round(el.scrollLeft / step), 0), panels.length - 1));
+                        }
+                      }}
+                      style={{ display: 'flex', gap: 12, overflowX: 'scroll', scrollSnapType: 'x mandatory', scrollbarWidth: 'none' }}
+                    >
+                      {panels.map(({ title, content }) => (
+                        <div key={title} style={{ width: 'calc(100% - 32px)', flexShrink: 0, scrollSnapAlign: 'start' }}>
+                          <Card size="small" title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>{title}</span>}>
+                            {content}
+                          </Card>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, marginTop: token.marginXS }}>
+                      {panels.map((_, i) => (
+                        <div
+                          key={i}
+                          style={{
+                            height: 6,
+                            width: carouselIndex === i ? 18 : 6,
+                            borderRadius: 3,
+                            background: carouselIndex === i ? token.colorPrimary : token.colorFillTertiary,
+                            transition: 'all 0.2s ease',
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          ) : (
+            <Row gutter={token.marginSM} style={{ alignItems: 'stretch' }}>
+              <Col xs={24} lg={8} style={{ display: 'flex', flexDirection: 'column' }}>
+                <SectionHeader
+                  label="Field Intake"
+                  stats={intakeStats}
+                  active={activeSection === 'intake'}
+                  onClick={() => toggle('intake')}
+                />
+              </Col>
+              <Col xs={24} lg={8} style={{ display: 'flex', flexDirection: 'column' }}>
+                <SectionHeader
+                  label="Triage / Review"
+                  stats={triageStats.stats}
+                  active={activeSection === 'triage'}
+                  onClick={() => toggle('triage')}
+                  progress={triageStats.progress}
+                />
+              </Col>
+              <Col xs={24} lg={8} style={{ display: 'flex', flexDirection: 'column' }}>
+                <SectionHeader
+                  label="Order Fulfillment"
+                  stats={orderStats.stats}
+                  active={activeSection === 'orders'}
+                  onClick={() => toggle('orders')}
+                  progress={orderStats.progress}
+                />
+              </Col>
+            </Row>
+          )}
+
+          {screens.md !== false && (
+            <div>
+              {activeSection === 'intake'  && <FieldIntake events={filteredEvents} dateRange={dateRange} />}
+              {activeSection === 'triage'  && <TriageReview events={filteredEvents} />}
+              {activeSection === 'orders'  && <OrderFulfillment events={filteredEvents} orders={filteredOrders} />}
+            </div>
+          )}
         </Flex>
       </div>
     </>

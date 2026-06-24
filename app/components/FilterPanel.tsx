@@ -1,11 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { Popover, Button, Input, Checkbox, Typography, Badge, theme } from 'antd';
+import { Popover, Button, Input, Checkbox, Typography, Badge, Drawer, Grid, Tabs, theme } from 'antd';
 import { FilterFilled, SearchOutlined } from '@ant-design/icons';
 import type { FilterCategory } from '@/data/filterOptions';
 
 const { Text } = Typography;
+const { useBreakpoint } = Grid;
 
 type Props = {
   categories: FilterCategory[];
@@ -17,7 +18,11 @@ export function FilterPanel({ categories, applied, onApply }: Props) {
   const [open, setOpen] = useState(false);
   const [activeKey, setActiveKey] = useState(categories[0]?.key ?? '');
   const [search, setSearch] = useState('');
+  const [pendingFilters, setPendingFilters] = useState<Record<string, string[]>>({});
   const { token } = theme.useToken();
+  const screens = useBreakpoint();
+
+  const isMobile = screens.md === false;
 
   const totalApplied = Object.values(applied).reduce((sum, arr) => sum + arr.length, 0);
 
@@ -26,13 +31,21 @@ export function FilterPanel({ categories, applied, onApply }: Props) {
     o.toLowerCase().includes(search.toLowerCase())
   );
 
+  // Desktop: live applied state
   const appliedForActive = applied[activeKey] ?? [];
   const allChecked = filteredOptions.length > 0 && filteredOptions.every((o) => appliedForActive.includes(o));
   const someChecked = filteredOptions.some((o) => appliedForActive.includes(o));
 
+  // Mobile: pending (staged) state
+  const pendingForActive = pendingFilters[activeKey] ?? [];
+  const pendingAllChecked = filteredOptions.length > 0 && filteredOptions.every((o) => pendingForActive.includes(o));
+  const pendingSomeChecked = filteredOptions.some((o) => pendingForActive.includes(o));
+  const totalPending = Object.values(pendingFilters).reduce((sum, arr) => sum + arr.length, 0);
+
   const handleOpen = () => {
     setActiveKey(categories[0]?.key ?? '');
     setSearch('');
+    setPendingFilters(applied);
     setOpen(true);
   };
 
@@ -41,6 +54,7 @@ export function FilterPanel({ categories, applied, onApply }: Props) {
     setSearch('');
   };
 
+  // Desktop: live apply
   const handleOptionChange = (opt: string, checked: boolean) => {
     const current = applied[activeKey] ?? [];
     onApply({
@@ -56,6 +70,117 @@ export function FilterPanel({ categories, applied, onApply }: Props) {
     });
   };
 
+  // Mobile: pending only
+  const handlePendingOptionChange = (opt: string, checked: boolean) => {
+    const current = pendingFilters[activeKey] ?? [];
+    setPendingFilters({
+      ...pendingFilters,
+      [activeKey]: checked ? [...current, opt] : current.filter((v) => v !== opt),
+    });
+  };
+
+  const handlePendingSelectAll = (checked: boolean) => {
+    setPendingFilters({
+      ...pendingFilters,
+      [activeKey]: checked ? filteredOptions : [],
+    });
+  };
+
+  // ── Mobile: icon button + bottom drawer ──────────────────────────────────
+  if (isMobile) {
+    return (
+      <>
+        <Badge count={totalApplied} size="small" color={token.colorPrimary}>
+          <Button type="primary" icon={<FilterFilled />} onClick={handleOpen} />
+        </Badge>
+
+        <Drawer
+          title="Filter"
+          placement="bottom"
+          open={open}
+          onClose={() => setOpen(false)}
+          height="80%"
+          extra={
+            totalPending > 0 ? (
+              <Button type="link" size="small" onClick={() => setPendingFilters({})}>
+                Clear all
+              </Button>
+            ) : null
+          }
+          footer={
+            <Button
+              type="primary"
+              block
+              onClick={() => { onApply(pendingFilters); setOpen(false); }}
+            >
+              Apply{totalPending > 0 ? ` (${totalPending})` : ''}
+            </Button>
+          }
+        >
+          <Tabs
+            size="small"
+            activeKey={activeKey}
+            onChange={handleCategoryClick}
+            tabBarStyle={{ marginBottom: 12 }}
+            items={categories.map(cat => {
+              const count = pendingFilters[cat.key]?.length ?? 0;
+              return {
+                key: cat.key,
+                label: count > 0 ? (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    {cat.label}
+                    <Badge count={count} size="small" color={token.colorPrimary} />
+                  </span>
+                ) : cat.label,
+              };
+            })}
+          />
+
+          <Input
+            prefix={<SearchOutlined style={{ color: token.colorTextQuaternary }} />}
+            placeholder={`Search ${activeCategory?.label.toLowerCase() ?? ''}...`}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            allowClear
+            style={{ marginBottom: 10 }}
+          />
+
+          <div style={{
+            marginBottom: 10,
+            paddingBottom: 8,
+            borderBottom: `1px solid ${token.colorBorderSecondary}`,
+          }}>
+            <Checkbox
+              indeterminate={pendingSomeChecked && !pendingAllChecked}
+              checked={pendingAllChecked}
+              onChange={(e) => handlePendingSelectAll(e.target.checked)}
+            >
+              <Text style={{ fontSize: token.fontSizeSM }} type="secondary">Select all</Text>
+            </Checkbox>
+          </div>
+
+          {filteredOptions.length === 0 ? (
+            <Text type="secondary" style={{ fontSize: token.fontSize }}>No results</Text>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 12px', alignItems: 'center' }}>
+              {filteredOptions.map((opt) => (
+                <Checkbox
+                  key={opt}
+                  checked={pendingForActive.includes(opt)}
+                  onChange={(e) => handlePendingOptionChange(opt, e.target.checked)}
+                  style={{ marginInlineStart: 0 }}
+                >
+                  <Text style={{ fontSize: token.fontSize }}>{opt}</Text>
+                </Checkbox>
+              ))}
+            </div>
+          )}
+        </Drawer>
+      </>
+    );
+  }
+
+  // ── Desktop: Popover ──────────────────────────────────────────────────────
   const panelContent = (
     <div style={{ display: 'flex', width: 520, height: 300, overflow: 'hidden', borderRadius: token.borderRadiusLG }}>
       {/* Left: category list */}

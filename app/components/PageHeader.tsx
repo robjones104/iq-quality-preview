@@ -4,9 +4,12 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { theme, Grid, Button, Drawer, Menu } from 'antd';
-import { MenuOutlined, MoonFilled, SunFilled } from '@ant-design/icons';
+import {
+  MenuOutlined, MoonFilled, SunFilled,
+  HomeFilled, CalendarFilled, ShoppingFilled, ContactsFilled,
+  DatabaseFilled, BellFilled, SettingFilled, ProfileFilled,
+} from '@ant-design/icons';
 import { useThemeStore } from '@/store/themeStore';
-import { NAV_TOP, NAV_MANAGE, NAV_BOTTOM } from '@/lib/nav';
 
 const { useBreakpoint } = Grid;
 
@@ -25,39 +28,34 @@ export function PageHeader({ left, center, right }: Props) {
 
   const close = () => setMobileNavOpen(false);
 
-  // Resolve active key from current pathname
-  const allNavItems = [...NAV_TOP, ...NAV_MANAGE, ...NAV_BOTTOM];
-  const activeKey =
-    allNavItems.find((item) =>
-      item.href === '/dashboard'
-        ? pathname === '/' || pathname === '/dashboard'
-        : pathname.startsWith(item.href)
-    )?.href ?? '';
+  const activeKey = (() => {
+    if (pathname === '/' || pathname === '/dashboard') return '/dashboard';
+    if (pathname.startsWith('/manage'))       return '/manage/root-causes';
+    if (pathname.startsWith('/events'))       return '/events';
+    if (pathname.startsWith('/orders'))       return '/orders';
+    if (pathname.startsWith('/users'))        return '/users';
+    if (pathname.startsWith('/notifications')) return '/notifications';
+    if (pathname.startsWith('/settings'))     return '/settings';
+    if (pathname.startsWith('/account'))      return '/account';
+    return '';
+  })();
 
   const menuItems = [
-    ...NAV_TOP.map((item) => ({
-      key: item.href,
-      label: <Link href={item.href} onClick={close}>{item.label}</Link>,
-    })),
-    {
-      key: 'manage',
-      label: 'Manage Lists',
-      children: NAV_MANAGE.map((item) => ({
-        key: item.href,
-        label: <Link href={item.href} onClick={close}>{item.label}</Link>,
-      })),
-    },
+    { key: '/dashboard',          icon: <HomeFilled />,     label: <Link href="/dashboard"          onClick={close}>Home</Link> },
+    { key: '/events',             icon: <CalendarFilled />, label: <Link href="/events"             onClick={close}>Events</Link> },
+    { key: '/orders',             icon: <ShoppingFilled />, label: <Link href="/orders"             onClick={close}>Orders</Link> },
+    { key: '/users',              icon: <ContactsFilled />, label: <Link href="/users"              onClick={close}>Users</Link> },
+    { key: '/manage/root-causes', icon: <DatabaseFilled />, label: <Link href="/manage/root-causes" onClick={close}>Manage Lists</Link> },
     { type: 'divider' as const },
-    ...NAV_BOTTOM.map((item) => ({
-      key: item.href,
-      label: <Link href={item.href} onClick={close}>{item.label}</Link>,
-    })),
+    { key: '/notifications',      icon: <BellFilled />,     label: <Link href="/notifications"      onClick={close}>Notifications</Link> },
+    { key: '/settings',           icon: <SettingFilled />,  label: <Link href="/settings"           onClick={close}>Settings</Link> },
+    { key: '/account',            icon: <ProfileFilled />,  label: <Link href="/account"            onClick={close}>Profile</Link> },
     { type: 'divider' as const },
     {
       key: 'theme-toggle',
+      icon: darkMode ? <SunFilled /> : <MoonFilled />,
       label: (
-        <div onClick={toggle} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {darkMode ? <SunFilled /> : <MoonFilled />}
+        <div onClick={toggle}>
           {darkMode ? 'Switch to Light' : 'Switch to Dark'}
         </div>
       ),
@@ -127,17 +125,17 @@ export function PageHeader({ left, center, right }: Props) {
         open={mobileNavOpen}
         onClose={close}
         placement="left"
-        width={260}
-        styles={{ body: { padding: 0 } }}
+        width="100%"
+        styles={{ body: { padding: 0 }, header: { padding: '16px 20px' } }}
       >
         <Menu
           mode="inline"
           selectedKeys={[activeKey]}
-          defaultOpenKeys={['manage']}
           items={menuItems}
-          style={{ border: 'none', height: '100%' }}
+          style={{ border: 'none', height: '100%', fontSize: 16 }}
         />
       </Drawer>
+
     </>
   );
 }
