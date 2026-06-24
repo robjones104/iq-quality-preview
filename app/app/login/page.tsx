@@ -1,13 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Card, Input, Button, Form, Typography, theme } from 'antd';
 
 const { Title, Text } = Typography;
 
 export default function LoginPage() {
-  const router = useRouter();
   const { token } = theme.useToken();
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -23,8 +21,7 @@ export default function LoginPage() {
     });
 
     if (res.ok) {
-      router.push('/');
-      router.refresh();
+      window.location.href = '/';
     } else {
       setError(true);
       setLoading(false);

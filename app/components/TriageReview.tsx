@@ -2,8 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Card, Col, Row, Typography, theme } from 'antd';
-import { Bar } from '@ant-design/plots';
-import { HourglassFilled } from '@ant-design/icons';
+import { HourglassFilled, EditOutlined } from '@ant-design/icons';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import dayjs from 'dayjs';
@@ -119,32 +118,48 @@ export function TriageReview({ events }: { events: QualityEvent[] }) {
     [events]
   );
 
-  const rootCauseCounts = useMemo(() => {
+  const allEdits = useMemo(() =>
+    events.flatMap(e => e.editHistory ?? []),
+    [events]
+  );
+
+  const eventsEdited = useMemo(() =>
+    events.filter(e => e.editHistory && e.editHistory.length > 0).length,
+    [events]
+  );
+
+  const reclassRate = events.length > 0 ? Math.round((eventsEdited / events.length) * 100) : 0;
+
+  const editsByBranch = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const e of events) {
-      if (e.rootCause) counts[e.rootCause] = (counts[e.rootCause] ?? 0) + 1;
+      if (!e.editHistory?.length) continue;
+      counts[e.branch] = (counts[e.branch] ?? 0) + e.editHistory.length;
     }
     return Object.entries(counts)
-      .map(([cause, count]) => ({ cause, count }))
+      .map(([branch, count]) => ({ branch, count }))
       .sort((a, b) => b.count - a.count);
   }, [events]);
 
-  const isDark = token.colorBgBase === '#000000';
-  const plotTheme = isDark ? 'classicDark' : 'classic';
-  const axisStyle = {
-    labelFill:     token.colorText,
-    labelFontSize: token.fontSizeSM,
-    gridStroke:    token.colorBorderSecondary,
-    gridLineWidth: 1,
-    lineStroke:    token.colorBorderSecondary,
-    lineLineWidth: 1,
-    tickStroke:    token.colorBorderSecondary,
-    tickLineWidth: 1,
-  };
+  const editsByField = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const entry of allEdits) {
+      counts[entry.field] = (counts[entry.field] ?? 0) + 1;
+    }
+    return Object.entries(counts)
+      .map(([field, count]) => ({ field, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [allEdits]);
 
-  const [showAllWaiting, setShowAllWaiting] = useState(false);
+  const maxBranchCount = editsByBranch[0]?.count ?? 1;
+
+  const [showAllWaiting, setShowAllWaiting]     = useState(false);
+  const [showAllBranches, setShowAllBranches]   = useState(false);
   const WAITING_PREVIEW = 3;
-  const visibleWaiting = showAllWaiting ? waitingEvents : waitingEvents.slice(0, WAITING_PREVIEW);
+  const BRANCH_PREVIEW  = 4;
+  const visibleWaiting  = showAllWaiting  ? waitingEvents  : waitingEvents.slice(0, WAITING_PREVIEW);
+  const visibleBranches = showAllBranches ? editsByBranch : editsByBranch.slice(0, BRANCH_PREVIEW);
+
 
   const matrixRows = [
     { key: 'fresh' as const, label: 'Fresh', sub: `0–${FRESH_MAX - 1}d`, dr: (): [ReturnType<typeof dayjs>, ReturnType<typeof dayjs>] => [TODAY.subtract(FRESH_MAX - 1, 'day'), TODAY] },
@@ -263,36 +278,77 @@ export function TriageReview({ events }: { events: QualityEvent[] }) {
           </Card>
         </Col>
 
-        {/* Root Cause Breakdown */}
+        {/* Data Quality */}
         <Col xs={24} lg={8}>
           <Card
             size="small"
-            title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Root Cause</span>}
-            extra={<span style={{ fontSize: token.fontSizeSM, color: token.colorTextQuaternary }}>{rootCauseCounts.reduce((s, d) => s + d.count, 0)} validated</span>}
-            styles={{ body: { minHeight: 320, padding: rootCauseCounts.length === 0 ? undefined : '8px 12px' } }}
+            title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Data Quality</span>}
+            extra={
+              <span style={{ fontSize: token.fontSizeSM, color: token.colorTextSecondary }}>
+                {allEdits.length} total edits
+                {editsByBranch.length > BRANCH_PREVIEW && (
+                  <>
+                    {' · '}
+                    <Typography.Link style={{ fontSize: token.fontSizeSM }} onClick={() => setShowAllBranches(v => !v)}>
+                      {showAllBranches ? 'Show less' : 'View all'}
+                    </Typography.Link>
+                  </>
+                )}
+              </span>
+            }
+            styles={{ body: { minHeight: 320, padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 16 } }}
           >
-            {rootCauseCounts.length === 0 ? (
-              <EmptyState icon={<HourglassFilled />} message="No validated events yet" />
+            {allEdits.length === 0 ? (
+              <EmptyState icon={<EditOutlined />} message="No data edits in this period" />
             ) : (
-              <Bar
-                key={plotTheme}
-                data={rootCauseCounts}
-                xField="count"
-                yField="cause"
-                height={300}
-                theme={plotTheme}
-                scale={{ color: { range: ['#4096ff'] } }}
-                label={false}
-                animate={{ enter: { type: 'growInX', duration: 600 } }}
-                interaction={{ elementHighlight: true }}
-                state={{ active: { opacity: 1 }, inactive: { opacity: 0.15 } }}
-                axis={{
-                  x: { ...axisStyle, tickCount: 4 },
-                  y: { ...axisStyle },
-                }}
-                legend={false}
-                tooltip={{ title: (d: { cause: string }) => d.cause, items: [{ field: 'count', name: 'Events' }] }}
-              />
+              <>
+                {/* Headline rate */}
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                  <Text style={{ fontSize: token.fontSizeHeading2, fontWeight: 700, lineHeight: 1, color: reclassRate >= 20 ? token.colorWarning : token.colorText }}>
+                    {reclassRate}%
+                  </Text>
+                  <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>of events recategorized</Text>
+                </div>
+
+                {/* By Branch */}
+                <div>
+                  <Text style={{ fontSize: token.fontSizeXS, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: token.colorTextTertiary, display: 'block', marginBottom: 8 }}>
+                    Edits by Branch
+                  </Text>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {visibleBranches.map(({ branch, count }) => (
+                      <div
+                        key={branch}
+                        onClick={() => router.push(`/events?branch=${encodeURIComponent(branch)}`)}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                          <Text style={{ fontSize: token.fontSizeSM }}>{branch}</Text>
+                          <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600 }}>{count}</Text>
+                        </div>
+                        <div style={{ height: 4, borderRadius: 2, background: token.colorFillSecondary, overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${Math.round((count / maxBranchCount) * 100)}%`, background: token.colorWarning, borderRadius: 2, transition: 'width 0.4s' }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* By Field */}
+                <div>
+                  <Text style={{ fontSize: token.fontSizeXS, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: token.colorTextTertiary, display: 'block', marginBottom: 6 }}>
+                    What's Being Changed
+                  </Text>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {editsByField.map(({ field, count }) => (
+                      <div key={field} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px', background: token.colorFillSecondary, borderRadius: token.borderRadiusSM }}>
+                        <Text style={{ fontSize: token.fontSizeSM }}>{field}</Text>
+                        <Text style={{ fontSize: token.fontSizeXS, fontWeight: 700, color: token.colorTextTertiary }}>{count}</Text>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
             )}
           </Card>
         </Col>

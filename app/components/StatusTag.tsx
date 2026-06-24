@@ -24,18 +24,23 @@ type Props = {
   additionalInfoRequested?: boolean;
 };
 
+// Light-on-dark contrast: always white background so tooltips are readable in dark theme
+const TOOLTIP_BG    = '#f5f5f5';
+const TOOLTIP_TEXT  = 'rgba(0, 0, 0, 0.88)';
+
 export function StatusTag({ status, hasOrder, additionalInfoRequested }: Props) {
   const { token } = theme.useToken();
+  const tipInner = { color: TOOLTIP_TEXT, fontSize: token.fontSizeSM };
   return (
     <Tag color={STATUS_PRESETS[status]} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
       {status}
       {hasOrder && (
-        <Tooltip title="Order attached">
+        <Tooltip title="Order attached" color={TOOLTIP_BG} overlayInnerStyle={tipInner}>
           <ShoppingCartOutlined style={{ fontSize: token.fontSizeSM }} />
         </Tooltip>
       )}
       {additionalInfoRequested && (
-        <Tooltip title="Additional info requested from tech">
+        <Tooltip title="Additional info requested from tech" color={TOOLTIP_BG} overlayInnerStyle={tipInner}>
           <InfoCircleFilled style={{ fontSize: token.fontSizeSM }} />
         </Tooltip>
       )}

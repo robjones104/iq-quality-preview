@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Fragment } from 'react';
+import { useState, useRef, Fragment } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -20,7 +20,7 @@ import { logs } from '@/data/logs';
 import { events as allEvents } from '@/data/events';
 import { ESCALATION_TYPE_OPTIONS } from '@/data/manageLists';
 import { CreateEscalationModal } from '@/components/CreateEscalationModal';
-import type { QualityEvent, EventStatus, RootCause, ActivityLog } from '@/data/types';
+import type { QualityEvent, EventStatus, RootCause, ActivityLog, EditHistoryEntry } from '@/data/types';
 const { Text, Paragraph } = Typography;
 
 const ROOT_CAUSE_OPTIONS = [
@@ -106,8 +106,42 @@ export default function EventDetailClient({ event }: { event: QualityEvent }) {
   const [newLogComment, setNewLogComment]     = useState('');
   const [validateOpen, setValidateOpen]       = useState(false);
   const [invalidateOpen, setInvalidateOpen]   = useState(false);
+  const [editHistory, setEditHistory]         = useState<EditHistoryEntry[]>(event.editHistory ?? []);
+  const [editForm]                            = Form.useForm();
+  const lastLoggedRootCause                   = useRef<string | null>(event.rootCause);
   const { token } = theme.useToken();
   const router = useRouter();
+
+  const logEditEntry = (field: string, from: string | null, to: string | null) => {
+    const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 16);
+    setEditHistory(prev => [...prev, {
+      id: `eh_${Date.now()}_${field}`,
+      timestamp,
+      editedBy: 'Current User',
+      role: 'Field Quality',
+      field,
+      from,
+      to,
+    }]);
+  };
+
+  const handleSaveEdits = () => {
+    const values = editForm.getFieldsValue();
+    const tracked: Array<[string, string, keyof typeof values]> = [
+      ['Discrepancy',       event.discrepancy,       'discrepancy'],
+      ['Product',           event.product,            'product'],
+      ['Door',              event.door,               'door'],
+      ['Job No.',           event.jobNo,              'jobNo'],
+      ['Issue Description', event.issueDescription,   'issueDescription'],
+    ];
+    for (const [label, original, key] of tracked) {
+      const next = String(values[key] ?? '');
+      if (next && next !== String(original)) {
+        logEditEntry(label, String(original), next);
+      }
+    }
+    setEditingProduct(false);
+  };
 
   const [hkMode, setHkMode] = useState<'entire' | 'components' | null>(() =>
     event.hardwareKit ? (event.hardwareKit.kitInfo === 'Entire Hardware Kit' ? 'entire' : 'components') : null
@@ -332,7 +366,7 @@ export default function EventDetailClient({ event }: { event: QualityEvent }) {
                   editingProduct ? (
                     <Space size={4}>
                       <Button type="text" size="small" icon={<CloseOutlined />} onClick={() => setEditingProduct(false)}>Cancel</Button>
-                      <Button size="small" icon={<SaveFilled />} onClick={() => setEditingProduct(false)}>Save</Button>
+                      <Button size="small" icon={<SaveFilled />} onClick={handleSaveEdits}>Save</Button>
                     </Space>
                   ) : (
                     <Button type="text" size="small" icon={<EditFilled style={{ fontSize: token.fontSizeSM }} />} onClick={() => setEditingProduct(true)}>
@@ -386,47 +420,60 @@ export default function EventDetailClient({ event }: { event: QualityEvent }) {
 
                       {sectionLabel('Product Issue')}
                       {editingProduct ? (
-                        <Form layout="vertical" size="small">
+                        <Form
+                          form={editForm}
+                          layout="vertical"
+                          size="small"
+                          initialValues={{
+                            discrepancy:      event.discrepancy,
+                            door:             event.door,
+                            jobNo:            event.jobNo,
+                            dfo:              String(event.dfo),
+                            elLine:           event.elLine != null ? String(event.elLine) : '',
+                            product:          event.product,
+                            issueDescription: event.issueDescription,
+                          }}
+                        >
                           <Row gutter={8}>
                             <Col flex={2}>
-                              <Form.Item label="Discrepancy" style={{ marginBottom: 10 }}>
-                                <Select defaultValue={event.discrepancy} options={[{ value: event.discrepancy, label: event.discrepancy }]} style={{ width: '100%' }} />
+                              <Form.Item name="discrepancy" label="Discrepancy" style={{ marginBottom: 10 }}>
+                                <Select options={[{ value: event.discrepancy, label: event.discrepancy }]} style={{ width: '100%' }} />
                               </Form.Item>
                             </Col>
                             <Col flex={1}>
-                              <Form.Item label="Door" style={{ marginBottom: 10 }}>
-                                <Select defaultValue={event.door} options={[{ value: event.door, label: event.door }]} style={{ width: '100%' }} />
+                              <Form.Item name="door" label="Door" style={{ marginBottom: 10 }}>
+                                <Select options={[{ value: event.door, label: event.door }]} style={{ width: '100%' }} />
                               </Form.Item>
                             </Col>
                           </Row>
                           <Row gutter={8}>
                             <Col style={{ width: 148 }}>
-                              <Form.Item label="Job No" style={{ marginBottom: 10 }}>
-                                <Input defaultValue={event.jobNo} maxLength={11} />
+                              <Form.Item name="jobNo" label="Job No" style={{ marginBottom: 10 }}>
+                                <Input maxLength={11} />
                               </Form.Item>
                             </Col>
                             {!event.jobNo.startsWith('WO') && (
                               <>
                                 <Col style={{ width: 60 }}>
-                                  <Form.Item label="DFO LIN" style={{ marginBottom: 10 }}>
-                                    <Input defaultValue={String(event.dfo)} maxLength={2} />
+                                  <Form.Item name="dfo" label="DFO LIN" style={{ marginBottom: 10 }}>
+                                    <Input maxLength={2} />
                                   </Form.Item>
                                 </Col>
                                 <Col style={{ width: 60 }}>
-                                  <Form.Item label="EL LIN" style={{ marginBottom: 10 }}>
-                                    <Input defaultValue={event.elLine != null ? String(event.elLine) : ''} maxLength={2} />
+                                  <Form.Item name="elLine" label="EL LIN" style={{ marginBottom: 10 }}>
+                                    <Input maxLength={2} />
                                   </Form.Item>
                                 </Col>
                               </>
                             )}
                             <Col flex={1}>
-                              <Form.Item label="Product" style={{ marginBottom: 10 }}>
-                                <Select defaultValue={event.product} options={[{ value: event.product, label: event.product }]} style={{ width: '100%' }} />
+                              <Form.Item name="product" label="Product" style={{ marginBottom: 10 }}>
+                                <Select options={[{ value: event.product, label: event.product }]} style={{ width: '100%' }} />
                               </Form.Item>
                             </Col>
                           </Row>
-                          <Form.Item label="Issue Description" style={{ marginBottom: 0 }}>
-                            <Input.TextArea defaultValue={event.issueDescription} rows={4} />
+                          <Form.Item name="issueDescription" label="Issue Description" style={{ marginBottom: 0 }}>
+                            <Input.TextArea rows={4} />
                           </Form.Item>
                         </Form>
                       ) : (
@@ -706,6 +753,34 @@ export default function EventDetailClient({ event }: { event: QualityEvent }) {
                       showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
                     }}
                   />
+
+                  {editHistory.length > 0 && (
+                    <div style={{ marginTop: 20 }}>
+                      <Text style={{ display: 'block', fontSize: token.fontSizeSM, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: token.colorTextTertiary, marginBottom: 10 }}>
+                        Edit History
+                      </Text>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {[...editHistory].reverse().map(entry => (
+                          <div key={entry.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '7px 10px', background: token.colorFillQuaternary, borderRadius: token.borderRadiusSM, borderLeft: `2px solid ${token.colorBorderSecondary}` }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 2 }}>
+                                <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600 }}>{entry.field}</Text>
+                                <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary }}>changed by</Text>
+                                <Text style={{ fontSize: token.fontSizeSM }}>{entry.editedBy}</Text>
+                                <Text style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary }}>· {entry.role}</Text>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary, textDecoration: 'line-through' }}>{entry.from ?? '—'}</Text>
+                                <Text style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary }}>→</Text>
+                                <Text style={{ fontSize: token.fontSizeSM }}>{entry.to ?? '—'}</Text>
+                              </div>
+                            </div>
+                            <Text style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary, flexShrink: 0 }}>{entry.timestamp}</Text>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
             </Card>
@@ -770,6 +845,11 @@ export default function EventDetailClient({ event }: { event: QualityEvent }) {
                         filterOption={false}
                         onSearch={setRcSearch}
                         onChange={(v: string | undefined) => {
+                          const next = v ?? null;
+                          if (next !== lastLoggedRootCause.current) {
+                            logEditEntry('Root Cause', lastLoggedRootCause.current, next);
+                            lastLoggedRootCause.current = next;
+                          }
                           if (!v) { setRootCause(null); setRcSearch(''); return; }
                           if (!rootCauseOptions.find(o => o.value === v)) {
                             setRootCauseOptions(prev => [...prev, { value: v, label: v }]);

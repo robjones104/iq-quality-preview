@@ -110,7 +110,7 @@ function SectionHeader({
   stats: { value: string | number; sub: string }[];
   active: boolean;
   onClick: () => void;
-  progress?: { pct: number; color?: string };
+  progress?: { pct: number; color?: string; resolved?: number; total?: number };
 }) {
   const { token } = theme.useToken();
   const ChevronIcon = active ? CaretDownFilled : CaretRightFilled;
@@ -156,14 +156,21 @@ function SectionHeader({
         {progress && (
           <>
             {stats.length > 0 && divider}
-            <Progress
-              percent={progress.pct}
-              showInfo={false}
-              size="small"
-              style={{ flex: 1, margin: 0, minWidth: 48 }}
-              strokeColor={progress.color ?? token.colorSuccess}
-              trailColor={token.colorFillSecondary}
-            />
+            <div style={{ flex: 1, minWidth: 48, display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <Progress
+                percent={progress.pct}
+                showInfo={false}
+                size="small"
+                style={{ margin: 0 }}
+                strokeColor={progress.color ?? token.colorSuccess}
+                trailColor={token.colorFillSecondary}
+              />
+              {progress.resolved !== undefined && progress.total !== undefined && (
+                <div style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary }}>
+                  {progress.resolved} resolved / {progress.total} total
+                </div>
+              )}
+            </div>
           </>
         )}
       </Flex>
@@ -262,27 +269,30 @@ export default function DashboardPage() {
   }, [filteredEvents]);
 
   const triageStats = useMemo(() => {
-    const resolved = filteredEvents.filter(e => e.status === 'Validated' || e.status === 'Invalidated').length;
-    const rate     = filteredEvents.length > 0 ? Math.round((resolved / filteredEvents.length) * 100) : 0;
-    return {
-      stats: [{ value: `${rate}%`, sub: 'events resolved' }],
-      progress: { pct: rate },
-    };
-  }, [filteredEvents, filteredOrders]);
-
-  const orderStats = useMemo(() => {
-    const total    = filteredOrders.length;
-    const open     = filteredOrders.filter(o => o.orderStatus === 'Open').length;
-    const approved = filteredOrders.filter(o => o.approved).length;
-    const closed   = filteredOrders.filter(o => o.orderStatus === 'Closed').length;
-    const pct      = total > 0 ? Math.round((closed / total) * 100) : 0;
+    const resolved      = filteredEvents.filter(e => e.status === 'Validated' || e.status === 'Invalidated').length;
+    const rate          = filteredEvents.length > 0 ? Math.round((resolved / filteredEvents.length) * 100) : 0;
+    const eventsEdited  = filteredEvents.filter(e => !!e.editHistory?.length).length;
+    const reclassRate   = filteredEvents.length > 0 ? Math.round((eventsEdited / filteredEvents.length) * 100) : 0;
     return {
       stats: [
-        { value: `${open} / ${total}`, sub: 'open / total' },
-        { value: approved,             sub: 'approved' },
-        { value: `${pct}%`,            sub: 'fulfilled' },
+        { value: `${rate}%`,       sub: 'events resolved' },
+        { value: `${reclassRate}%`, sub: 'events recategorized' },
       ],
-      progress: { pct },
+      progress: { pct: rate, resolved, total: filteredEvents.length },
+    };
+  }, [filteredEvents]);
+
+  const orderStats = useMemo(() => {
+    const total   = filteredOrders.length;
+    const pending = filteredOrders.filter(o => o.orderStatus === 'Open' && !o.approved && !o.declined).length;
+    const closed  = filteredOrders.filter(o => o.orderStatus === 'Closed').length;
+    const pct     = total > 0 ? Math.round((closed / total) * 100) : 0;
+    return {
+      stats: [
+        { value: pending,    sub: 'pending review' },
+        { value: `${pct}%`, sub: 'fulfilled' },
+      ],
+      progress: { pct, resolved: closed, total },
     };
   }, [filteredOrders]);
 
@@ -371,7 +381,7 @@ export default function DashboardPage() {
           <div>
             {activeSection === 'intake'  && <FieldIntake events={filteredEvents} dateRange={dateRange} />}
             {activeSection === 'triage'  && <TriageReview events={filteredEvents} />}
-            {activeSection === 'orders'  && <OrderFulfillment events={filteredEvents} />}
+            {activeSection === 'orders'  && <OrderFulfillment events={filteredEvents} orders={filteredOrders} />}
           </div>
         </Flex>
       </div>

@@ -17,6 +17,18 @@ export const SEED_TOKENS: ThemeConfig['token'] = {
   colorInfo:    '#006BB2',
 };
 
+// Overrides applied on top of SEED_TOKENS in dark mode only.
+// Uses Ant Design palette mid-range values — bright enough to read on dark surfaces.
+export const DARK_SEED_OVERRIDES: ThemeConfig['token'] = {
+  colorPrimary:         '#FFD20B',
+  colorTextLightSolid:  '#141414',
+  colorLink:            '#4096ff',
+  colorLinkHover:       '#69b1ff',
+  colorError:           '#ff4d4f',
+  colorSuccess:         '#52c41a',
+  colorWarning:         '#faad14',
+};
+
 // ---------------------------------------------------------------------------
 // BRAND CONSTANTS
 // Design decisions that don't map to AntD tokens.
@@ -79,8 +91,7 @@ export const DARK_COMPONENT_TOKENS: ThemeConfig['components'] = {
     cellPaddingInlineSM: 12,
   },
   Button: {
-    colorPrimary: '#FFD20B',
-    fontWeight:   600,
+    fontWeight: 600,
   },
 };
 

@@ -16,6 +16,16 @@ export type RootCause =
   | 'Engineering Issue'
   | 'Short Shipping';
 
+export interface EditHistoryEntry {
+  id: string;
+  timestamp: string;
+  editedBy: string;
+  role: string;
+  field: string;
+  from: string | null;
+  to: string | null;
+}
+
 export interface QualityEvent {
   id: string;
   date: string;
@@ -48,6 +58,7 @@ export interface QualityEvent {
     quantity: number;
   };
   tags?: string[];
+  editHistory?: EditHistoryEntry[];
 }
 
 export type EscalationType =
