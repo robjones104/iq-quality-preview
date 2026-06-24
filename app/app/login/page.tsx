@@ -1,27 +1,24 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, Input, Button, Form, Typography, theme } from 'antd';
+import { login } from '@/lib/auth';
 
 const { Title, Text } = Typography;
 
 export default function LoginPage() {
   const { token } = theme.useToken();
+  const router = useRouter();
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async ({ password }: { password: string }) => {
+  const handleSubmit = ({ password }: { password: string }) => {
     setLoading(true);
     setError(false);
 
-    const res = await fetch('/api/auth', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password }),
-    });
-
-    if (res.ok) {
-      window.location.href = '/';
+    if (login(password)) {
+      router.replace('/dashboard');
     } else {
       setError(true);
       setLoading(false);
