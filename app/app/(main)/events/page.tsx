@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import dayjs from 'dayjs';
-import { Table, Button, Select, Space, Tag, Typography, Tooltip, notification, theme } from 'antd';
+import { Table, Button, Select, Space, Tag, Typography, Tooltip, notification, theme, Grid, Pagination } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { MoreOutlined, CloseOutlined, SearchOutlined, ArrowLeftOutlined, ExportOutlined } from '@ant-design/icons';
 import { CopyableValue } from '@/components/CopyableValue';
@@ -13,6 +13,7 @@ import { orders } from '@/data/orders';
 import { DEFAULT_TAGS, ESCALATION_TYPE_OPTIONS } from '@/data/manageLists';
 import { CreateEscalationModal } from '@/components/CreateEscalationModal';
 import { StatusTag } from '@/components/StatusTag';
+import { EventCard } from '@/components/EventCard';
 
 const eventOrderIds = new Set(orders.map(o => o.eventId));
 
@@ -68,9 +69,12 @@ function EventsPageContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const screens = Grid.useBreakpoint();
+  const [cardPage, setCardPage] = useState(1);
+
   // Wrappers that keep local state and Zustand in sync
-  const setDateRange = (r: DateRange | null) => { setDateRangeLocal(r); setEventsDateRange(r); };
-  const setAppliedFilters = (f: Record<string, string[]>) => { setAppliedFiltersLocal(f); setEventsFilters(f); };
+  const setDateRange = (r: DateRange | null) => { setDateRangeLocal(r); setEventsDateRange(r); setCardPage(1); };
+  const setAppliedFilters = (f: Record<string, string[]>) => { setAppliedFiltersLocal(f); setEventsFilters(f); setCardPage(1); };
 
   const appliedFilters = appliedFiltersLocal;
 
@@ -348,65 +352,95 @@ function EventsPageContent() {
           </div>
         )}
 
-        {selectedEventKeys.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, padding: '6px 10px', background: token.colorFillSecondary, borderRadius: token.borderRadius, border: `1px solid ${token.colorBorderSecondary}` }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>{selectedEventKeys.length} selected</Text>
-              <Button type="link" size="small" style={{ padding: 0 }} onClick={() => setSelectedEventKeys([])}>Clear</Button>
+        {screens.lg === false ? (
+          <>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: screens.md ? '1fr 1fr' : '1fr',
+              gap: 12,
+              marginBottom: 16,
+            }}>
+              {filtered.slice((cardPage - 1) * 12, cardPage * 12).map(event => (
+                <EventCard key={event.id} event={event} hasOrder={eventOrderIds.has(event.id)} />
+              ))}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Select
-                showSearch
-                size="small"
-                placeholder="Apply tag..."
-                value={batchTagId}
-                onChange={handleApplyTag}
-                filterOption={(input, opt) => (opt?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                options={DEFAULT_TAGS.map(t => ({ value: t.id, label: t.name }))}
-                style={{ width: 160 }}
-              />
-              <Select
-                showSearch
-                size="small"
-                placeholder="Add to escalation..."
-                value={batchEscId}
-                onChange={handleAddToEscalation}
-                filterOption={(input, opt) => (opt?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                options={ESCALATION_TYPE_OPTIONS}
-                style={{ width: 260 }}
-              />
-              <Button size="small" icon={<ExportOutlined />} onClick={handleExportEvents}>
-                Export
-              </Button>
-            </div>
-          </div>
-        )}
+            {filtered.length > 12 && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Pagination
+                  current={cardPage}
+                  pageSize={12}
+                  total={filtered.length}
+                  onChange={setCardPage}
+                  showSizeChanger={false}
+                  showTotal={(total, range) => `${range[0]}-${range[1]} of ${total}`}
+                  size="small"
+                />
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {selectedEventKeys.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, padding: '6px 10px', background: token.colorFillSecondary, borderRadius: token.borderRadius, border: `1px solid ${token.colorBorderSecondary}` }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>{selectedEventKeys.length} selected</Text>
+                  <Button type="link" size="small" style={{ padding: 0 }} onClick={() => setSelectedEventKeys([])}>Clear</Button>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Select
+                    showSearch
+                    size="small"
+                    placeholder="Apply tag..."
+                    value={batchTagId}
+                    onChange={handleApplyTag}
+                    filterOption={(input, opt) => (opt?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                    options={DEFAULT_TAGS.map(t => ({ value: t.id, label: t.name }))}
+                    style={{ width: 160 }}
+                  />
+                  <Select
+                    showSearch
+                    size="small"
+                    placeholder="Add to escalation..."
+                    value={batchEscId}
+                    onChange={handleAddToEscalation}
+                    filterOption={(input, opt) => (opt?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                    options={ESCALATION_TYPE_OPTIONS}
+                    style={{ width: 260 }}
+                  />
+                  <Button size="small" icon={<ExportOutlined />} onClick={handleExportEvents}>
+                    Export
+                  </Button>
+                </div>
+              </div>
+            )}
 
-        <Table
-          dataSource={filtered}
-          columns={columns}
-          rowKey="id"
-          size="small"
-          onChange={(_p, tableFilters) => {
-            const next = { ...appliedFilters };
-            Object.entries(tableFilters).forEach(([k, vals]) => {
-              if (vals?.length) next[k] = vals as string[];
-              else delete next[k];
-            });
-            setAppliedFilters(next);
-          }}
-          rowSelection={{
-            type: 'checkbox',
-            selectedRowKeys: selectedEventKeys,
-            onChange: (keys) => setSelectedEventKeys(keys as string[]),
-          }}
-          pagination={{
-            pageSize: 10,
-            showSizeChanger: true,
-            pageSizeOptions: ['10', '25', '50', '100'],
-            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
-          }}
-        />
+            <Table
+              dataSource={filtered}
+              columns={columns}
+              rowKey="id"
+              size="small"
+              onChange={(_p, tableFilters) => {
+                const next = { ...appliedFilters };
+                Object.entries(tableFilters).forEach(([k, vals]) => {
+                  if (vals?.length) next[k] = vals as string[];
+                  else delete next[k];
+                });
+                setAppliedFilters(next);
+              }}
+              rowSelection={{
+                type: 'checkbox',
+                selectedRowKeys: selectedEventKeys,
+                onChange: (keys) => setSelectedEventKeys(keys as string[]),
+              }}
+              pagination={{
+                pageSize: 10,
+                showSizeChanger: true,
+                pageSizeOptions: ['10', '25', '50', '100'],
+                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
+              }}
+            />
+          </>
+        )}
       </div>
     </>
   );
