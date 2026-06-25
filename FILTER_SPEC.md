@@ -15,7 +15,9 @@ How date range and category filters flow across the iQ Quality portal.
 | `ordersDateRange` | Orders | Active date range on the orders list |
 | `ordersFilters` | Orders | Active category filters on the orders list |
 
-All keys live in `app/store/filterStore.ts` (Zustand, no persistence).
+All keys live in `app/store/filterStore.ts` (Zustand, persisted to `localStorage` under key `iq-quality-filters`).
+
+Date range values are serialized as ISO strings in storage and converted back to `dayjs` instances on rehydration via `onRehydrateStorage`. Category filter objects (`Record<string, string[]>`) serialize/deserialize as plain JSON with no special handling.
 
 ---
 
