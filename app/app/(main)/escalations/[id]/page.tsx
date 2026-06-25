@@ -2,6 +2,10 @@ import { escalations } from '@/data/escalations';
 import { events } from '@/data/events';
 import { EscalationDetailClient } from './EscalationDetailClient';
 
+export function generateStaticParams() {
+  return [...escalations.map((e) => ({ id: e.id })), { id: 'new' }];
+}
+
 type Props = {
   params: Promise<{ id: string }>;
 };
