@@ -4,6 +4,43 @@ export type FilterCategory = {
   options: string[];
 };
 
+export const PART_CATALOG: { partNumber: string; partDescription: string }[] = [
+  { partNumber: '413856-1', partDescription: 'Secondary Mounting Bracket Assembly - (MOTOR GEARBOX, GREENSTAR, NAR)' },
+  { partNumber: '413856-2', partDescription: 'Fastener Kit - (M-SERIES, ZINC, NAR)' },
+  { partNumber: '413856-3', partDescription: 'Seal Strip - (GREENSTAR, BOTTOM, NAR)' },
+  { partNumber: '413857-2', partDescription: 'Motor Gearbox Assembly - (STANDARD, 24V, NAR)' },
+  { partNumber: '413858-3', partDescription: 'Motor Gearbox Assembly - (VARIANT A, 24V, NAR)' },
+  { partNumber: '413859-1', partDescription: 'Motor Gearbox Assembly - (BATCH MG-4412, 24V, NAR)' },
+  { partNumber: '418220-1', partDescription: 'Locking Collar Assembly - (STANDARD, SS, NAR)' },
+  { partNumber: '418221-1', partDescription: 'Through-Bolt Set - (HM FRAME, 3/8IN, NAR)' },
+  { partNumber: '418222-1', partDescription: 'Mounting Screw Set - (M6 HEX, SS, NAR)' },
+  { partNumber: '418222-2', partDescription: 'Wall Anchor Kit - (TOGGLE BOLT, 3/8IN, NAR)' },
+  { partNumber: '421033-1', partDescription: 'Controller PCB Assembly - (STANDARD, 24VDC, NAR)' },
+  { partNumber: '421033-2', partDescription: 'Controller PCB Assembly - (FIRMWARE V2.1, 24VDC, NAR)' },
+  { partNumber: '421033-3', partDescription: 'Controller PCB Assembly - (FIRMWARE V3.0, 24VDC, NAR)' },
+  { partNumber: '421033-4', partDescription: 'Controller Wiring Harness - (24V, IP65, NAR)' },
+  { partNumber: '421034-1', partDescription: 'Controller PCB Assembly - (FIRMWARE V1.8, 24VDC, NAR)' },
+  { partNumber: '421035-1', partDescription: 'Controller PCB Assembly - (MAGIC ACCESS, 12VDC, NAR)' },
+  { partNumber: '421035-2', partDescription: 'Controller Mounting Bracket - (MAGIC ACCESS, STANDARD, NAR)' },
+  { partNumber: '425901-1', partDescription: 'Sensor Mounting Hardware Kit - (STANDARD, NAR)' },
+  { partNumber: '425902-1', partDescription: 'Activation Sensor Assembly - (IS 10000, STANDARD, NAR)' },
+  { partNumber: '430114-1', partDescription: 'Door Closer Spring - (STANDARD DUTY, SIZE 4, NAR)' },
+  { partNumber: '430114-2', partDescription: 'Strike Plate Assembly - (ANSI, SS, NAR)' },
+  { partNumber: '430115-1', partDescription: 'Exit Device Strike Plate - (ANSI A115.2, SS, NAR)' },
+  { partNumber: '435670-1', partDescription: 'Thermal Seal Insert - (HIGH TEMP, GREENSTAR, NAR)' },
+  { partNumber: '435670-2', partDescription: 'Air Infiltration Blocks - (LEAD STILE, SO/O, NAR)' },
+  { partNumber: '435671-1', partDescription: 'Threshold Profile - (DURA-STORM, STANDARD, NAR)' },
+  { partNumber: '437110-1', partDescription: 'LH Operator Assembly - (DURA-GLIDE 5200, LH, NAR)' },
+  { partNumber: '437110-2', partDescription: 'LH Guide Rail Assembly - (DURA-GLIDE 5200, 1200MM, NAR)' },
+  { partNumber: '440221-1', partDescription: 'Glass Panel - (TEMPERED, CLEAR, NAR)' },
+  { partNumber: '440222-1', partDescription: 'Tempered Glass Panel - (ALL GLASS 2000, CLEAR, NAR)' },
+  { partNumber: '440222-2', partDescription: 'Glass Retainer Clip - (STANDARD, SS, NAR)' },
+  { partNumber: '444512-1', partDescription: 'Jamb Harness Connector - (STANDARD, IP65, NAR)' },
+  { partNumber: '447801-1', partDescription: 'End Cap Assembly - (DURA-GLIDE 2000, ANODIZED, NAR)' },
+  { partNumber: '447801-2', partDescription: 'Retainer Clip Set - (HEADER END CAP, SS, NAR)' },
+  { partNumber: '450901-1', partDescription: 'Panel Assembly - (DURAGUARD 3000, ANODIZED, NAR)' },
+];
+
 export const DISCREPANCY_OPTIONS = [
   'Freight Damage',
   'Incorrect Build',

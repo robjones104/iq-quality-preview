@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEventStore } from '@/store/eventStore';
 import {
-  Button, Card, Col, Divider, Form, Input, Modal, Row, Select, Space, Switch,
+  Button, Card, Col, Divider, Drawer, Dropdown, Form, Grid, Input, List, Modal, Row, Select, Space, Switch,
   Table, Typography, theme,
 } from 'antd';
 import {
@@ -20,8 +20,9 @@ import { PageHeader } from '@/components/PageHeader';
 import { logs } from '@/data/logs';
 import { events as allEvents } from '@/data/events';
 import { ESCALATION_TYPE_OPTIONS } from '@/data/manageLists';
+import { DISCREPANCY_OPTIONS, DOOR_OPTIONS, PRODUCT_OPTIONS } from '@/data/filterOptions';
 import { CreateEscalationModal } from '@/components/CreateEscalationModal';
-import type { QualityEvent, EventStatus, RootCause, ActivityLog, EditHistoryEntry } from '@/data/types';
+import type { QualityEvent, EventStatus, RootCause, ActivityLog } from '@/data/types';
 const { Text, Paragraph } = Typography;
 
 const ROOT_CAUSE_OPTIONS = [
@@ -87,8 +88,8 @@ function generateHistoricalInsights(event: QualityEvent, pool: QualityEvent[]): 
 }
 
 
-export default function EventDetailClient({ event }: { event: QualityEvent }) {
-  const { mutations: evtMutations, patchEvent, pushActivityLog, pushEditHistory } = useEventStore();
+export default function EventDetailClient({ event, orderId }: { event: QualityEvent; orderId: string | null }) {
+  const { mutations: evtMutations, patchEvent, pushActivityLog } = useEventStore();
   const evtStored = evtMutations[event.id] ?? {};
 
   const [status, setStatus]                   = useState<EventStatus>(evtStored.status ?? event.status);
@@ -114,7 +115,7 @@ export default function EventDetailClient({ event }: { event: QualityEvent }) {
   const [historical, setHistorical]           = useState<string | null>(null);
   const [loadingHistorical, setLoadingHistorical] = useState(false);
   const [insightsStep, setInsightsStep]       = useState<null | 'summary' | 'historical'>(null);
-  const [activeTab, setActiveTab]             = useState<'details' | 'log'>('details');
+  const [activeTab, setActiveTab]             = useState<'details' | 'log' | 'photos'>('details');
   const [addingLog, setAddingLog]             = useState(false);
   const [newLogComment, setNewLogComment]     = useState('');
   const [validateOpen, setValidateOpen]       = useState(false);
@@ -139,10 +140,7 @@ export default function EventDetailClient({ event }: { event: QualityEvent }) {
   const [escConfirmOpen,    setEscConfirmOpen]    = useState(false);
   const [escSearch,         setEscSearch]         = useState('');
   const [expandedImg,       setExpandedImg]       = useState<number | null>(null);
-  const [editHistory, setEditHistory]         = useState<EditHistoryEntry[]>([
-    ...(event.editHistory ?? []),
-    ...(evtStored.editHistory ?? []),
-  ]);
+  const [analysisDrawerOpen, setAnalysisDrawerOpen] = useState(false);
   const eventSeedLogs = logs.filter(l => l.eventId === event.id);
   const [activityLog, setActivityLog] = useState<ActivityLog[]>(() => [
     ...eventSeedLogs,
@@ -150,12 +148,15 @@ export default function EventDetailClient({ event }: { event: QualityEvent }) {
   ]);
   const [editForm]                            = Form.useForm();
   const lastLoggedRootCause                   = useRef<string | null>(event.rootCause);
+  const dragStartY                             = useRef(0);
   const { token } = theme.useToken();
   const router = useRouter();
+  const screens = Grid.useBreakpoint();
+  const isMobile = !screens.md;
 
   const nowTs = () => new Date().toISOString().replace('T', ' ').slice(0, 16);
 
-  const addToActivityLog = (comment: string, forStatus?: EventStatus) => {
+  const addToActivityLog = (comment: string, forStatus?: EventStatus, editFrom?: string | null, editTo?: string | null) => {
     const entry: ActivityLog = {
       id: `al_${Date.now()}`,
       eventId: event.id,
@@ -164,25 +165,15 @@ export default function EventDetailClient({ event }: { event: QualityEvent }) {
       employee: 'Current User',
       status: forStatus ?? status,
       comment,
+      editFrom,
+      editTo,
     };
     setActivityLog(prev => [...prev, entry]);
     pushActivityLog(event.id, entry);
   };
 
   const logEditEntry = (field: string, from: string | null, to: string | null) => {
-    const timestamp = nowTs();
-    const entry: EditHistoryEntry = {
-      id: `eh_${Date.now()}_${field}`,
-      timestamp,
-      editedBy: 'Current User',
-      role: 'Field Quality',
-      field,
-      from,
-      to,
-    };
-    setEditHistory(prev => [...prev, entry]);
-    pushEditHistory(event.id, entry);
-    addToActivityLog(`${field} changed from "${from ?? '—'}" to "${to ?? '—'}".`);
+    addToActivityLog(`${field} updated`, undefined, from ?? '—', to ?? '—');
   };
 
   const handleSaveEdits = () => {
@@ -279,12 +270,209 @@ export default function EventDetailClient({ event }: { event: QualityEvent }) {
     { title: 'Role',     dataIndex: 'role',     key: 'role',     width: 160, render: (r: string)      => <Text style={{ fontSize: token.fontSizeSM }}>{r}</Text> },
     { title: 'Employee', dataIndex: 'employee', key: 'employee', width: 200, render: (e: string)      => <Text style={{ fontSize: token.fontSizeSM }}>{e}</Text> },
     { title: 'Status',   dataIndex: 'status',   key: 'status',   width: 168, render: (s: EventStatus) => <StatusTag status={s} /> },
-    { title: 'Comment',  dataIndex: 'comment',  key: 'comment',              render: (c: string)      => <Text style={{ fontSize: token.fontSizeSM }}>{c}</Text> },
-    { title: '',         key: 'options', width: 64, render: () => <Button type="text" size="small" icon={<MoreOutlined />} /> },
+    { title: 'Comment',  dataIndex: 'comment',  key: 'comment',              render: (c: string, row: ActivityLog) => (
+      <div>
+        <Text style={{ fontSize: token.fontSizeSM }}>{c}</Text>
+        {(row.editFrom != null || row.editTo != null) && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
+            <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary, textDecoration: 'line-through' }}>{row.editFrom}</Text>
+            <Text style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary }}>→</Text>
+            <Text style={{ fontSize: token.fontSizeSM }}>{row.editTo}</Text>
+          </div>
+        )}
+      </div>
+    ) },
+  ];
+
+  const photosContent = (
+    <>
+      <div style={{
+        flex: 1,
+        minHeight: 360,
+        background: token.colorFillTertiary,
+        border: `1px dashed ${token.colorBorderSecondary}`,
+        borderRadius: token.borderRadiusSM,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+        marginBottom: 8,
+        cursor: 'pointer',
+      }} onClick={() => setExpandedImg(0)}>
+        <PictureFilled style={{ fontSize: token.fontSizeHeading3, color: token.colorTextQuaternary }} />
+        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No photos attached</Text>
+        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Click to expand</Text>
+      </div>
+      <div style={{ display: 'flex', gap: 6 }}>
+        {[0, 1, 2].map(i => (
+          <div key={i} onClick={() => setExpandedImg(i)} style={{
+            flex: 1, aspectRatio: '1',
+            background: token.colorFillTertiary,
+            border: `1px solid ${token.colorBorderSecondary}`,
+            borderRadius: token.borderRadiusSM,
+            cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <PictureFilled style={{ fontSize: token.fontSizeSM, color: token.colorTextQuaternary }} />
+          </div>
+        ))}
+      </div>
+    </>
+  );
+
+  const analysisBody = (
+    <>
+      {insightsStep !== null ? (
+        <>
+          <Text style={{ fontSize: token.fontSizeSM, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: token.colorTextTertiary, display: 'block', marginBottom: 6 }}>
+            Summary
+          </Text>
+          <Paragraph style={{ fontSize: token.fontSizeSM, lineHeight: 1.8, margin: 0, marginBottom: 16 }}>{insights}</Paragraph>
+          {insightsStep === 'historical' ? (
+            <>
+              <Divider style={{ margin: '0 0 12px' }} />
+              <Text style={{ fontSize: token.fontSizeSM, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: token.colorTextTertiary, display: 'block', marginBottom: 6 }}>
+                Historical Analysis
+              </Text>
+              <Paragraph style={{ fontSize: token.fontSizeSM, lineHeight: 1.8, margin: 0, marginBottom: 16 }}>{historical}</Paragraph>
+              <Button block icon={<ArrowLeftOutlined />} onClick={handleViewSimilarEvents}>
+                View Similar Events
+              </Button>
+            </>
+          ) : (
+            <Button block icon={<StarFilled />} loading={loadingHistorical} onClick={handleGenerateHistorical}>
+              Generate Historical Insights
+            </Button>
+          )}
+        </>
+      ) : (
+        <>
+          <Form layout="vertical" size="small">
+            <Form.Item label="Root Cause" style={{ marginBottom: 10 }}>
+              <Select
+                showSearch
+                value={rootCause ?? undefined}
+                placeholder="Select or add root cause..."
+                filterOption={false}
+                onSearch={setRcSearch}
+                onChange={(v: string | undefined) => {
+                  if (!v) { setRootCause(null); patchEvent(event.id, { rootCause: null }); setRcSearch(''); return; }
+                  setPendingRootCause(v);
+                  setRcConfirmOpen(true);
+                }}
+                options={(() => {
+                  const q = rcSearch.toLowerCase();
+                  const matches = q
+                    ? rootCauseOptions.filter(o => o.value.toLowerCase().includes(q))
+                    : rootCauseOptions;
+                  const hasExact = rootCauseOptions.some(o => o.value.toLowerCase() === q);
+                  return q && !hasExact
+                    ? [...matches, { value: rcSearch, label: `+ Create "${rcSearch}"` }]
+                    : matches;
+                })()}
+                allowClear
+                onClear={() => { setRootCause(null); patchEvent(event.id, { rootCause: null }); setRcSearch(''); }}
+              />
+            </Form.Item>
+            <Form.Item label="Escalation" style={{ marginBottom: 10 }}>
+              <Select
+                showSearch
+                value={escalation ?? undefined}
+                placeholder="Link to escalation"
+                filterOption={false}
+                onSearch={setEscSearch}
+                onChange={(v: string | undefined) => {
+                  if (!v) { setEscalation(null); patchEvent(event.id, { escalation: null }); setEscSearch(''); return; }
+                  const isExisting = ESCALATION_OPTIONS.some(o => o.value === v);
+                  if (!isExisting) { setCreateEscOpen(true); setEscSearch(''); return; }
+                  setPendingEscalation(v);
+                  setEscConfirmOpen(true);
+                }}
+                options={(() => {
+                  const q = escSearch.toLowerCase();
+                  const matches = q
+                    ? ESCALATION_OPTIONS.filter(o => o.value.toLowerCase().includes(q))
+                    : ESCALATION_OPTIONS;
+                  const hasExact = ESCALATION_OPTIONS.some(o => o.value.toLowerCase() === q);
+                  return q && !hasExact
+                    ? [...matches, { value: escSearch, label: `+ Create "${escSearch}"` }]
+                    : matches;
+                })()}
+                allowClear
+              />
+            </Form.Item>
+            <Form.Item label="Tags" style={{ marginBottom: 0 }}>
+              <Select
+                mode="tags"
+                value={tags}
+                onChange={(t: string[]) => { setTags(t); patchEvent(event.id, { tags: t }); }}
+                placeholder="Add tags"
+                style={{ width: '100%' }}
+              />
+            </Form.Item>
+          </Form>
+
+          <Divider style={{ margin: '12px 0' }} />
+
+          <Space direction="vertical" style={{ width: '100%' }} size={8}>
+            <Button block icon={<StarFilled />} loading={loadingInsights} onClick={handleGenerateInsights}>
+              Generate AI Insights
+            </Button>
+            {reqInfoSent ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', background: token.colorFillTertiary, borderRadius: token.borderRadiusSM }}>
+                <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: token.fontSize }} />
+                <Text style={{ fontSize: token.fontSizeSM }}>Additional information requested from {event.reportedBy}</Text>
+              </div>
+            ) : reqInfoOpen ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <Input.TextArea
+                  autoFocus
+                  rows={4}
+                  placeholder="Describe what additional information is needed from the field tech..."
+                  value={reqInfoText}
+                  onChange={e => setReqInfoText(e.target.value)}
+                />
+                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                  <Button size="small" onClick={() => { setReqInfoOpen(false); setReqInfoText(''); }}>Cancel</Button>
+                  <Button
+                    size="small"
+                    type="primary"
+                    icon={<MessageFilled />}
+                    disabled={!reqInfoText.trim()}
+                    onClick={() => {
+                      setReqInfoOpen(false);
+                      setReqInfoText('');
+                      setReqInfoSent();
+                      addToActivityLog(`Additional information requested from ${event.reportedBy}.`);
+                    }}
+                  >
+                    Send Request
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Button block icon={<MessageFilled />} onClick={() => setReqInfoOpen(true)}>
+                Request Additional Information
+              </Button>
+            )}
+          </Space>
+        </>
+      )}
+    </>
+  );
+
+  const mobileActionItems = [
+    ...(status === 'Reported' ? [{ key: 'start-inv', icon: <SearchOutlined />, label: 'Start Investigation', onClick: () => setStartInvOpen(true) }] : []),
+    ...(status !== 'Reported' ? [{ key: 'reopen', icon: <RollbackOutlined />, label: 'Reopen', onClick: () => setReopenEvtOpen(true) }] : []),
+    ...(status === 'Validated' ? [{ key: 'escalate', icon: <ExclamationCircleFilled />, label: 'Escalate', onClick: () => router.push('/escalations/new') }] : []),
+    { type: 'divider' as const },
+    { key: 'invalidate', icon: <StopFilled />, label: 'Invalidate', disabled: status === 'Invalidated', onClick: () => setInvalidateOpen(true) },
+    { key: 'validate', icon: <CheckOutlined />, label: 'Validate', disabled: status === 'Validated', onClick: () => setValidateOpen(true) },
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', ...(isMobile ? {} : { height: '100vh', overflow: 'hidden' }) }}>
       <CreateEscalationModal
         open={createEscOpen}
         onCancel={() => setCreateEscOpen(false)}
@@ -304,51 +492,57 @@ export default function EventDetailClient({ event }: { event: QualityEvent }) {
           </div>
         }
         right={
-          <Space>
-            {status === 'Reported' && (
-              <Button icon={<SearchOutlined />} onClick={() => setStartInvOpen(true)}>
-                Start Investigation
+          isMobile ? (
+            <Dropdown menu={{ items: mobileActionItems }} trigger={['click']}>
+              <Button icon={<MoreOutlined />} />
+            </Dropdown>
+          ) : (
+            <Space>
+              {status === 'Reported' && (
+                <Button icon={<SearchOutlined />} onClick={() => setStartInvOpen(true)}>
+                  Start Investigation
+                </Button>
+              )}
+              {status === 'Under Investigation' && (
+                <Button type="text" icon={<RollbackOutlined />} onClick={() => setReopenEvtOpen(true)}>
+                  Reopen
+                </Button>
+              )}
+              {(status === 'Validated' || status === 'Invalidated') && (
+                <Button type="text" icon={<RollbackOutlined />} onClick={() => setReopenEvtOpen(true)}>
+                  Reopen
+                </Button>
+              )}
+              {status === 'Validated' && (
+                <Button icon={<ExclamationCircleFilled />} onClick={() => router.push('/escalations/new')}>
+                  Escalate
+                </Button>
+              )}
+              <Divider type="vertical" style={{ margin: '0 4px' }} />
+              <Button
+                icon={<StopFilled />}
+                disabled={status === 'Invalidated'}
+                onClick={() => setInvalidateOpen(true)}
+              >
+                Invalidate
               </Button>
-            )}
-            {status === 'Under Investigation' && (
-              <Button type="text" icon={<RollbackOutlined />} onClick={() => setReopenEvtOpen(true)}>
-                Reopen
+              <Button
+                icon={<CheckOutlined />}
+                type="primary"
+                disabled={status === 'Validated'}
+                onClick={() => setValidateOpen(true)}
+              >
+                Validate
               </Button>
-            )}
-            {(status === 'Validated' || status === 'Invalidated') && (
-              <Button type="text" icon={<RollbackOutlined />} onClick={() => setReopenEvtOpen(true)}>
-                Reopen
-              </Button>
-            )}
-            {status === 'Validated' && (
-              <Button icon={<ExclamationCircleFilled />} onClick={() => router.push('/escalations/new')}>
-                Escalate
-              </Button>
-            )}
-            <Divider type="vertical" style={{ margin: '0 4px' }} />
-            <Button
-              icon={<StopFilled />}
-              disabled={status === 'Invalidated'}
-              onClick={() => setInvalidateOpen(true)}
-            >
-              Invalidate
-            </Button>
-            <Button
-              icon={<CheckOutlined />}
-              type="primary"
-              disabled={status === 'Validated'}
-              onClick={() => setValidateOpen(true)}
-            >
-              Validate
-            </Button>
-          </Space>
+            </Space>
+          )
         }
       />
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '0 20px 16px', minHeight: 0 }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: isMobile ? undefined : 'hidden', padding: isMobile ? '0 12px 80px' : '0 20px 16px', minHeight: 0 }}>
 
         {/* Status strip */}
-        <div style={{ display: 'flex', alignItems: 'center', padding: '16px 0 12px', maxWidth: 560, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', padding: '16px 0 12px', maxWidth: isMobile ? undefined : 560, flexShrink: 0 }}>
           {stages.map((stage, i) => (
             <Fragment key={stage.label}>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flexShrink: 0 }}>
@@ -408,38 +602,41 @@ export default function EventDetailClient({ event }: { event: QualityEvent }) {
         </div>
 
         {/* Two-column layout filling remaining height */}
-        <div style={{ flex: 1, display: 'flex', gap: 16, minHeight: 0 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 16, minHeight: isMobile ? undefined : 0 }}>
 
           {/* Left: tabbed card (details + log) */}
-          <div style={{ flex: 3, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <div style={{ flex: isMobile ? undefined : 3, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             <Card
               size="small"
               tabList={[
-                { key: 'details', label: <span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Event Details</span> },
-                { key: 'log',     label: <span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Activity Log</span> },
+                { key: 'details', label: <span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>{isMobile ? 'Details' : 'Event Details'}</span> },
+                { key: 'log',     label: <span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>{isMobile ? 'Logs' : 'Activity Log'}</span> },
+                ...(isMobile ? [{ key: 'photos', label: <span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Photos</span> }] : []),
               ]}
               activeTabKey={activeTab}
-              onTabChange={(key) => setActiveTab(key as 'details' | 'log')}
+              onTabChange={(key) => setActiveTab(key as 'details' | 'log' | 'photos')}
               tabBarExtraContent={
                 activeTab === 'details' ? (
                   editingProduct ? (
-                    <Space size={4}>
+                    <Space size={isMobile ? 8 : 4}>
                       <Button type="text" size="small" icon={<CloseOutlined />} onClick={() => setEditingProduct(false)}>Cancel</Button>
-                      <Button type="primary" size="small" icon={<SaveFilled />} onClick={handleSaveEdits}>Save</Button>
+                      <Button type="primary" size="small" icon={<SaveFilled />} onClick={handleSaveEdits}>{!isMobile && 'Save'}</Button>
                     </Space>
                   ) : (
                     <Button type="text" size="small" icon={<EditFilled style={{ fontSize: token.fontSizeSM }} />} onClick={() => setEditingProduct(true)}>
-                      Edit
+                      {!isMobile && 'Edit'}
                     </Button>
                   )
-                ) : (
+                ) : activeTab === 'log' ? (
                   <Button type="text" size="small" icon={<PlusOutlined />} onClick={() => setAddingLog(v => !v)}>
-                    Add Log
+                    {!isMobile && 'Add Log'}
                   </Button>
-                )
+                ) : activeTab === 'photos' ? (
+                  <Button type="text" size="small" icon={<PlusOutlined />} />
+                ) : null
               }
-              style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
-              styles={{ body: { flex: 1, overflow: 'auto', padding: 16, minHeight: 0, display: 'flex', flexDirection: 'column' } }}
+              style={isMobile ? undefined : { flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
+              styles={{ body: isMobile ? { padding: 16, display: 'flex', flexDirection: 'column' } : { flex: 1, overflow: 'auto', padding: 16, minHeight: 0, display: 'flex', flexDirection: 'column' } }}
             >
               {activeTab === 'details' && (
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -457,18 +654,19 @@ export default function EventDetailClient({ event }: { event: QualityEvent }) {
                         borderRadius: token.borderRadiusSM,
                         flexWrap: 'wrap',
                       }}>
-                        {[
-                          { label: 'Reported By', value: event.reportedBy },
-                          { label: 'Branch',      value: event.branch },
-                          { label: 'Plant',       value: event.plant.split(' ')[0] },
-                          { label: 'Date',        value: reportedDate },
-                        ].map(({ label, value }, i, arr) => (
+                        {([
+                          { label: 'Reported By', node: <Text style={{ fontSize: token.fontSizeSM }}>{event.reportedBy}</Text> },
+                          { label: 'Branch',      node: <Text style={{ fontSize: token.fontSizeSM }}>{event.branch}</Text> },
+                          { label: 'Plant',       node: <Text style={{ fontSize: token.fontSizeSM }}>{event.plant.split(' ')[0]}</Text> },
+                          { label: 'Date',        node: <Text style={{ fontSize: token.fontSizeSM }}>{reportedDate}</Text> },
+                          ...(orderId ? [{ label: 'Order ID', node: <Link href={`/orders/${orderId}`} style={{ fontSize: token.fontSizeSM }}>{orderId}</Link> }] : []),
+                        ] as { label: string; node: React.ReactNode }[]).map(({ label, node }, i, arr) => (
                           <Fragment key={label}>
                             <div>
                               <Text style={{ display: 'block', fontSize: token.fontSizeXS, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: token.colorTextTertiary, marginBottom: 2 }}>
                                 {label}
                               </Text>
-                              <Text style={{ fontSize: token.fontSizeSM }}>{value}</Text>
+                              {node}
                             </div>
                             {i < arr.length - 1 && (
                               <div style={{ width: 1, background: token.colorBorderSecondary, alignSelf: 'stretch' }} />
@@ -496,12 +694,12 @@ export default function EventDetailClient({ event }: { event: QualityEvent }) {
                           <Row gutter={8}>
                             <Col flex={2}>
                               <Form.Item name="discrepancy" label="Discrepancy" style={{ marginBottom: 10 }}>
-                                <Select options={[{ value: event.discrepancy, label: event.discrepancy }]} style={{ width: '100%' }} />
+                                <Select options={DISCREPANCY_OPTIONS.map(v => ({ value: v, label: v }))} style={{ width: '100%' }} />
                               </Form.Item>
                             </Col>
                             <Col flex={1}>
                               <Form.Item name="door" label="Door" style={{ marginBottom: 10 }}>
-                                <Select options={[{ value: event.door, label: event.door }]} style={{ width: '100%' }} />
+                                <Select options={DOOR_OPTIONS.map(v => ({ value: v, label: v }))} style={{ width: '100%' }} />
                               </Form.Item>
                             </Col>
                           </Row>
@@ -513,13 +711,13 @@ export default function EventDetailClient({ event }: { event: QualityEvent }) {
                             </Col>
                             {!event.jobNo.startsWith('WO') && (
                               <>
-                                <Col style={{ width: 60 }}>
-                                  <Form.Item name="dfo" label="DFO LIN" style={{ marginBottom: 10 }}>
+                                <Col style={{ width: 76 }}>
+                                  <Form.Item name="dfo" label="DFO LIN" labelCol={{ style: { whiteSpace: 'nowrap' } }} style={{ marginBottom: 10 }}>
                                     <Input maxLength={2} />
                                   </Form.Item>
                                 </Col>
-                                <Col style={{ width: 60 }}>
-                                  <Form.Item name="elLine" label="EL LIN" style={{ marginBottom: 10 }}>
+                                <Col style={{ width: 76 }}>
+                                  <Form.Item name="elLine" label="EL LIN" labelCol={{ style: { whiteSpace: 'nowrap' } }} style={{ marginBottom: 10 }}>
                                     <Input maxLength={2} />
                                   </Form.Item>
                                 </Col>
@@ -527,7 +725,7 @@ export default function EventDetailClient({ event }: { event: QualityEvent }) {
                             )}
                             <Col flex={1}>
                               <Form.Item name="product" label="Product" style={{ marginBottom: 10 }}>
-                                <Select options={[{ value: event.product, label: event.product }]} style={{ width: '100%' }} />
+                                <Select options={PRODUCT_OPTIONS.map(v => ({ value: v, label: v }))} style={{ width: '100%' }} />
                               </Form.Item>
                             </Col>
                           </Row>
@@ -538,10 +736,20 @@ export default function EventDetailClient({ event }: { event: QualityEvent }) {
                       ) : (
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 24px' }}>
                           {displayField('Discrepancy', event.discrepancy, true)}
-                          <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 16 }}>
+                          <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, alignItems: 'flex-end' }}>
                             {displayField('Job No', event.jobNo, false, true)}
-                            {!event.jobNo.startsWith('WO') && displayField('DFO LIN', event.dfo, false, true)}
-                            {!event.jobNo.startsWith('WO') && event.elLine != null && displayField('EL LIN', event.elLine, false, true)}
+                            {!event.jobNo.startsWith('WO') && event.elLine != null && (
+                              <>
+                                <Text style={{ color: token.colorTextTertiary, paddingBottom: 3 }}>·</Text>
+                                {displayField('EL LIN', event.elLine, false, true)}
+                              </>
+                            )}
+                            {!event.jobNo.startsWith('WO') && (
+                              <>
+                                <Text style={{ color: token.colorTextTertiary, paddingBottom: 3 }}>|</Text>
+                                {displayField('DFO LIN', event.dfo, false, true)}
+                              </>
+                            )}
                           </div>
                           <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 24, flexWrap: 'wrap' }}>
                             {displayField('Product', event.product)}
@@ -721,8 +929,8 @@ export default function EventDetailClient({ event }: { event: QualityEvent }) {
                       </Row>
                     </Col>
 
-                    {/* Right: photos — full card height (~2/5) */}
-                    <Col xs={24} md={9} style={{ display: 'flex', flexDirection: 'column' }}>
+                    {/* Right: photos — desktop only (mobile uses Photos tab) */}
+                    {!isMobile && <Col xs={24} md={9} style={{ display: 'flex', flexDirection: 'column' }}>
                       <div style={{
                         flex: 1,
                         background: token.colorFillTertiary,
@@ -762,9 +970,15 @@ export default function EventDetailClient({ event }: { event: QualityEvent }) {
                       >
                         Upload Photo
                       </Button>
-                    </Col>
+                    </Col>}
 
                   </Row>
+                </div>
+              )}
+
+              {activeTab === 'photos' && (
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  {photosContent}
                 </div>
               )}
 
@@ -800,223 +1014,150 @@ export default function EventDetailClient({ event }: { event: QualityEvent }) {
                       </Space>
                     </div>
                   )}
-                  <Table
-                    dataSource={[...activityLog].reverse()}
-                    columns={logColumns}
-                    rowKey="id"
-                    size="small"
-                    locale={{ emptyText: 'No activity logged for this event yet.' }}
-                    pagination={{
-                      pageSize: 10,
-                      showSizeChanger: true,
-                      pageSizeOptions: ['10', '25', '50'],
-                      showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
-                    }}
-                  />
-
-                  {editHistory.length > 0 && (
-                    <div style={{ marginTop: 20 }}>
-                      <Text style={{ display: 'block', fontSize: token.fontSizeSM, fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', color: token.colorTextTertiary, marginBottom: 10 }}>
-                        Edit History
-                      </Text>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        {[...editHistory].reverse().map(entry => (
-                          <div key={entry.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '7px 10px', background: token.colorFillQuaternary, borderRadius: token.borderRadiusSM, borderLeft: `2px solid ${token.colorBorderSecondary}` }}>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 2 }}>
-                                <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600 }}>{entry.field}</Text>
-                                <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary }}>changed by</Text>
-                                <Text style={{ fontSize: token.fontSizeSM }}>{entry.editedBy}</Text>
-                                <Text style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary }}>· {entry.role}</Text>
-                              </div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary, textDecoration: 'line-through' }}>{entry.from ?? '—'}</Text>
-                                <Text style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary }}>→</Text>
-                                <Text style={{ fontSize: token.fontSizeSM }}>{entry.to ?? '—'}</Text>
-                              </div>
+                  {isMobile ? (
+                    <List
+                      dataSource={[...activityLog].reverse()}
+                      rowKey="id"
+                      locale={{ emptyText: 'No activity logged for this event yet.' }}
+                      pagination={{ pageSize: 10, simple: true }}
+                      renderItem={(entry: ActivityLog) => (
+                        <div style={{
+                          padding: '10px 12px',
+                          marginBottom: 8,
+                          background: token.colorFillQuaternary,
+                          borderRadius: token.borderRadiusSM,
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <StatusTag status={entry.status} />
+                              <Text style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary }}>{entry.date}</Text>
                             </div>
-                            <Text style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary, flexShrink: 0 }}>{entry.timestamp}</Text>
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </Card>
-          </div>
-
-          {/* Right: analysis card */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-            <Card
-              size="small"
-              title={
-                <span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>
-                  {insightsStep ? 'AI Insights' : 'Analysis'}
-                </span>
-              }
-              extra={
-                insightsStep ? (
-                  <Button type="text" size="small" icon={<ArrowLeftOutlined style={{ fontSize: token.fontSizeSM }} />} onClick={() => setInsightsStep(null)}>
-                    Back
-                  </Button>
-                ) : undefined
-              }
-              style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
-              styles={{ body: { flex: 1, overflow: 'auto', padding: 16, minHeight: 0 } }}
-            >
-              {insightsStep !== null ? (
-                <>
-                  <Text style={{ fontSize: token.fontSizeSM, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: token.colorTextTertiary, display: 'block', marginBottom: 6 }}>
-                    Summary
-                  </Text>
-                  <Paragraph style={{ fontSize: token.fontSizeSM, lineHeight: 1.8, margin: 0, marginBottom: 16 }}>{insights}</Paragraph>
-
-                  {insightsStep === 'historical' ? (
-                    <>
-                      <Divider style={{ margin: '0 0 12px' }} />
-                      <Text style={{ fontSize: token.fontSizeSM, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: token.colorTextTertiary, display: 'block', marginBottom: 6 }}>
-                        Historical Analysis
-                      </Text>
-                      <Paragraph style={{ fontSize: token.fontSizeSM, lineHeight: 1.8, margin: 0, marginBottom: 16 }}>{historical}</Paragraph>
-                      <Button block icon={<ArrowLeftOutlined />} onClick={handleViewSimilarEvents}>
-                        View Similar Events
-                      </Button>
-                    </>
-                  ) : (
-                    <Button
-                      block
-                      icon={<StarFilled />}
-                      loading={loadingHistorical}
-                      onClick={handleGenerateHistorical}
-                    >
-                      Generate Historical Insights
-                    </Button>
-                  )}
-                </>
-              ) : (
-                <>
-                  <Form layout="vertical" size="small">
-                    <Form.Item label="Root Cause" style={{ marginBottom: 10 }}>
-                      <Select
-                        showSearch
-                        value={rootCause ?? undefined}
-                        placeholder="Select or add root cause..."
-                        filterOption={false}
-                        onSearch={setRcSearch}
-                        onChange={(v: string | undefined) => {
-                          if (!v) { setRootCause(null); patchEvent(event.id, { rootCause: null }); setRcSearch(''); return; }
-                          setPendingRootCause(v);
-                          setRcConfirmOpen(true);
-                        }}
-                        options={(() => {
-                          const q = rcSearch.toLowerCase();
-                          const matches = q
-                            ? rootCauseOptions.filter(o => o.value.toLowerCase().includes(q))
-                            : rootCauseOptions;
-                          const hasExact = rootCauseOptions.some(o => o.value.toLowerCase() === q);
-                          return q && !hasExact
-                            ? [...matches, { value: rcSearch, label: `+ Create "${rcSearch}"` }]
-                            : matches;
-                        })()}
-                        allowClear
-                        onClear={() => { setRootCause(null); patchEvent(event.id, { rootCause: null }); setRcSearch(''); }}
-                      />
-                    </Form.Item>
-                    <Form.Item label="Escalation" style={{ marginBottom: 10 }}>
-                      <Select
-                        showSearch
-                        value={escalation ?? undefined}
-                        placeholder="Link to escalation"
-                        filterOption={false}
-                        onSearch={setEscSearch}
-                        onChange={(v: string | undefined) => {
-                          if (!v) { setEscalation(null); patchEvent(event.id, { escalation: null }); setEscSearch(''); return; }
-                          const isExisting = ESCALATION_OPTIONS.some(o => o.value === v);
-                          if (!isExisting) { setCreateEscOpen(true); setEscSearch(''); return; }
-                          setPendingEscalation(v);
-                          setEscConfirmOpen(true);
-                        }}
-                        options={(() => {
-                          const q = escSearch.toLowerCase();
-                          const matches = q
-                            ? ESCALATION_OPTIONS.filter(o => o.value.toLowerCase().includes(q))
-                            : ESCALATION_OPTIONS;
-                          const hasExact = ESCALATION_OPTIONS.some(o => o.value.toLowerCase() === q);
-                          return q && !hasExact
-                            ? [...matches, { value: escSearch, label: `+ Create "${escSearch}"` }]
-                            : matches;
-                        })()}
-                        allowClear
-                      />
-                    </Form.Item>
-                    <Form.Item label="Tags" style={{ marginBottom: 0 }}>
-                      <Select
-                        mode="tags"
-                        value={tags}
-                        onChange={(t: string[]) => { setTags(t); patchEvent(event.id, { tags: t }); }}
-                        placeholder="Add tags"
-                        style={{ width: '100%' }}
-                      />
-                    </Form.Item>
-                  </Form>
-
-                  <Divider style={{ margin: '12px 0' }} />
-
-                  <Space direction="vertical" style={{ width: '100%' }} size={8}>
-                    <Button
-                      block
-                      icon={<StarFilled />}
-                      loading={loadingInsights}
-                      onClick={handleGenerateInsights}
-                    >
-                      Generate AI Insights
-                    </Button>
-                    {reqInfoSent ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', background: token.colorFillTertiary, borderRadius: token.borderRadiusSM }}>
-                        <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: token.fontSize }} />
-                        <Text style={{ fontSize: token.fontSizeSM }}>Additional information requested from {event.reportedBy}</Text>
-                      </div>
-                    ) : reqInfoOpen ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <Input.TextArea
-                          autoFocus
-                          rows={4}
-                          placeholder="Describe what additional information is needed from the field tech..."
-                          value={reqInfoText}
-                          onChange={e => setReqInfoText(e.target.value)}
-                        />
-                        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                          <Button size="small" onClick={() => { setReqInfoOpen(false); setReqInfoText(''); }}>Cancel</Button>
-                          <Button
-                            size="small"
-                            type="primary"
-                            icon={<MessageFilled />}
-                            disabled={!reqInfoText.trim()}
-                            onClick={() => {
-                              setReqInfoOpen(false);
-                              setReqInfoText('');
-                              setReqInfoSent();
-                              addToActivityLog(`Additional information requested from ${event.reportedBy}.`);
-                            }}
-                          >
-                            Send Request
-                          </Button>
+                          <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextSecondary, display: 'block', marginBottom: 4 }}>
+                            {entry.employee} · {entry.role}
+                          </Text>
+                          <Text style={{ fontSize: token.fontSizeSM }}>{entry.comment}</Text>
+                          {(entry.editFrom != null || entry.editTo != null) && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
+                              <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary, textDecoration: 'line-through' }}>{entry.editFrom}</Text>
+                              <Text style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary }}>→</Text>
+                              <Text style={{ fontSize: token.fontSizeSM }}>{entry.editTo}</Text>
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    ) : (
-                      <Button block icon={<MessageFilled />} onClick={() => setReqInfoOpen(true)}>
-                        Request Additional Information
-                      </Button>
-                    )}
-                  </Space>
+                      )}
+                    />
+                  ) : (
+                    <Table
+                      dataSource={[...activityLog].reverse()}
+                      columns={logColumns}
+                      rowKey="id"
+                      size="small"
+                      locale={{ emptyText: 'No activity logged for this event yet.' }}
+                      scroll={{ x: 560 }}
+                      pagination={{
+                        pageSize: 10,
+                        showSizeChanger: true,
+                        pageSizeOptions: ['10', '25', '50'],
+                        showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
+                      }}
+                    />
+                  )}
+
                 </>
               )}
             </Card>
           </div>
+
+          {/* Right: analysis card — desktop only */}
+          {!isMobile && (
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              <Card
+                size="small"
+                title={
+                  <span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>
+                    {insightsStep ? 'AI Insights' : 'Analysis'}
+                  </span>
+                }
+                extra={
+                  insightsStep ? (
+                    <Button type="text" size="small" icon={<ArrowLeftOutlined style={{ fontSize: token.fontSizeSM }} />} onClick={() => setInsightsStep(null)}>
+                      Back
+                    </Button>
+                  ) : undefined
+                }
+                style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
+                styles={{ body: { flex: 1, overflow: 'auto', padding: 16, minHeight: 0 } }}
+              >
+                {analysisBody}
+              </Card>
+            </div>
+          )}
         </div>
 
       </div>
+
+      {/* Mobile: sticky Analysis bar + bottom-sheet Drawer */}
+      {isMobile && (
+        <>
+          <div style={{
+            position: 'fixed', bottom: 0, left: 0, right: 0,
+            padding: '10px 16px',
+            background: token.colorBgContainer,
+            borderTop: `1px solid ${token.colorBorderSecondary}`,
+            zIndex: 100,
+          }}>
+            <Button
+              block
+              type="primary"
+              icon={<StarFilled />}
+              onClick={() => setAnalysisDrawerOpen(true)}
+            >
+              Analysis
+            </Button>
+          </div>
+          <Drawer
+            placement="bottom"
+            open={analysisDrawerOpen}
+            onClose={() => setAnalysisDrawerOpen(false)}
+            maskClosable
+            closable
+            title={
+              <div
+                style={{ userSelect: 'none' }}
+                onTouchStart={(e) => { dragStartY.current = e.touches[0].clientY; }}
+                onTouchEnd={(e) => {
+                  if (e.changedTouches[0].clientY - dragStartY.current > 60) setAnalysisDrawerOpen(false);
+                }}
+              >
+                {insightsStep ? 'AI Insights' : 'Analysis'}
+              </div>
+            }
+            extra={
+              insightsStep ? (
+                <Button type="text" size="small" icon={<ArrowLeftOutlined style={{ fontSize: token.fontSizeSM }} />} onClick={() => setInsightsStep(null)}>
+                  Back
+                </Button>
+              ) : undefined
+            }
+            styles={{
+              wrapper: { borderRadius: '12px 12px 0 0', overflow: 'hidden' },
+              body: { padding: 16, overflowY: 'auto', maxHeight: '75vh' },
+            }}
+          >
+            <div
+              style={{ display: 'flex', justifyContent: 'center', marginBottom: 12, marginTop: -4, cursor: 'grab' }}
+              onTouchStart={(e) => { dragStartY.current = e.touches[0].clientY; }}
+              onTouchEnd={(e) => {
+                if (e.changedTouches[0].clientY - dragStartY.current > 60) setAnalysisDrawerOpen(false);
+              }}
+            >
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: token.colorFill }} />
+            </div>
+            {analysisBody}
+          </Drawer>
+        </>
+      )}
 
       {/* VALIDATE MODAL */}
       <Modal
