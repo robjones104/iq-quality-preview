@@ -95,4 +95,6 @@ export interface ActivityLog {
   employee: string;
   status: EventStatus;
   comment: string;
+  editFrom?: string | null;
+  editTo?: string | null;
 }
