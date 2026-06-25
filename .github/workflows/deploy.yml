@@ -1,8 +1,6 @@
 name: Deploy to GitHub Pages
 
 on:
-  push:
-    branches: [kunal/github-pages]
   workflow_dispatch:
 
 permissions:
@@ -37,7 +35,6 @@ jobs:
         working-directory: app
         env:
           GITHUB_PAGES: true
-          NEXT_PUBLIC_PREVIEW_PASSWORD: ${{ secrets.PREVIEW_PASSWORD }}
 
       - uses: actions/upload-pages-artifact@v3
         with:
