@@ -29,13 +29,14 @@ function applyFilters(list: QualityEvent[], dateRange: DateRange | null, applied
       const d = dayjs(e.date);
       if (d.isBefore(dateRange[0], 'day') || d.isAfter(dateRange[1], 'day')) return false;
     }
+    const matchStatus      = !applied.status?.length      || applied.status.includes(e.status);
     const matchDiscrepancy = !applied.discrepancy?.length || applied.discrepancy.includes(e.discrepancy);
     const matchProduct     = !applied.product?.length     || applied.product.includes(e.product);
     const matchRootCause   = !applied.rootCause?.length   || (e.rootCause !== null && applied.rootCause.includes(e.rootCause));
     const matchBranch      = !applied.branch?.length      || applied.branch.includes(e.branch);
     const matchPlant       = !applied.plant?.length       || applied.plant.includes(e.plant);
     const matchReportedBy  = !applied.reportedBy?.length  || applied.reportedBy.includes(e.reportedBy);
-    return matchDiscrepancy && matchProduct && matchRootCause && matchBranch && matchPlant && matchReportedBy;
+    return matchStatus && matchDiscrepancy && matchProduct && matchRootCause && matchBranch && matchPlant && matchReportedBy;
   });
 }
 
@@ -215,12 +216,40 @@ const SMART_SEARCH_OPTIONS = EVENT_FILTER_CATEGORIES.map(cat => ({
   options: cat.options.map(opt => ({ value: `${cat.key}::${opt}`, label: opt })),
 }));
 
+// Builds a URL that carries the active dashboard date range and category filters
+// so the destination page (events/orders) opens pre-filtered to match what the
+// user was looking at on the dashboard. Base string can include existing params
+// (e.g. "?status=Reported") — those keys are preserved and not double-encoded.
+function buildKpiHref(
+  base: string,
+  dateRange: DateRange | null,
+  appliedFilters: Record<string, string[]>,
+): string {
+  const sepIdx = base.indexOf('?');
+  const basePath = sepIdx === -1 ? base : base.slice(0, sepIdx);
+  const params = new URLSearchParams(sepIdx === -1 ? '' : base.slice(sepIdx + 1));
+  const existingKeys = new Set(params.keys());
+
+  if (dateRange) {
+    params.set('from', dateRange[0].format('YYYY-MM-DD'));
+    params.set('to', dateRange[1].format('YYYY-MM-DD'));
+  }
+
+  for (const [key, vals] of Object.entries(appliedFilters)) {
+    if (!existingKeys.has(key) && vals.length) {
+      params.set(key, vals.join(','));
+    }
+  }
+
+  const q = params.toString();
+  return q ? `${basePath}?${q}` : basePath;
+}
+
 export default function DashboardPage() {
   const { token } = theme.useToken();
   const screens = Grid.useBreakpoint();
   const sidePadding = screens.xxl ? '5%' : screens.xl ? '3.5%' : screens.md === false ? '20px' : `${token.paddingMD + 20}px`;
-  const { dateRange, setDateRange } = useFilterStore();
-  const [appliedFilters, setAppliedFilters] = useState<Record<string, string[]>>({});
+  const { dateRange, setDateRange, dashboardFilters: appliedFilters, setDashboardFilters: setAppliedFilters } = useFilterStore();
   const [activeSection, setActiveSection] = useState<Section>('triage');
 
   const selectValue = EVENT_FILTER_CATEGORIES.flatMap(cat =>
@@ -281,10 +310,10 @@ export default function DashboardPage() {
   const isWaiting  = (e: QualityEvent) => !!e.additionalInfoRequested;
 
   const kpis = [
-    { title: 'Total Events',        count: filteredEvents.length,                    prior: priorEvents?.length ?? null, accent: token.colorTextSecondary, href: undefined,                             icon: <AppstoreFilled /> },
-    { title: 'Reported',            count: filteredEvents.filter(isReported).length,  prior: prior(isReported),           accent: token.colorPrimary,       href: '/events?status=Reported',             icon: <FormOutlined /> },
-    { title: 'Under Investigation', count: filteredEvents.filter(isUnderInv).length,  prior: prior(isUnderInv),           accent: token.colorWarning,       href: '/events?status=Under+Investigation',  icon: <SearchOutlined /> },
-    { title: 'Waiting on Tech',     count: filteredEvents.filter(isWaiting).length,   prior: prior(isWaiting),            accent: token.colorTextSecondary,  href: '/events?flag=additionalInfo',         icon: <HourglassFilled /> },
+    { title: 'Total Events',        count: filteredEvents.length,                    prior: priorEvents?.length ?? null, accent: token.colorTextSecondary, href: buildKpiHref('/events', dateRange, appliedFilters),                                          icon: <AppstoreFilled /> },
+    { title: 'Reported',            count: filteredEvents.filter(isReported).length,  prior: prior(isReported),           accent: token.colorPrimary,       href: buildKpiHref('/events?status=Reported', dateRange, appliedFilters),                        icon: <FormOutlined /> },
+    { title: 'Under Investigation', count: filteredEvents.filter(isUnderInv).length,  prior: prior(isUnderInv),           accent: token.colorWarning,       href: buildKpiHref('/events?status=Under+Investigation', dateRange, appliedFilters),            icon: <SearchOutlined /> },
+    { title: 'Waiting on Tech',     count: filteredEvents.filter(isWaiting).length,   prior: prior(isWaiting),            accent: token.colorTextSecondary,  href: buildKpiHref('/events?flag=additionalInfo', dateRange, appliedFilters),                  icon: <HourglassFilled /> },
   ];
 
   const intakeStats = useMemo(() => {

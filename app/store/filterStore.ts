@@ -3,9 +3,11 @@ import dayjs from 'dayjs';
 import type { DateRange } from '@/components/DateRangeFilter';
 
 type FilterStore = {
-  // Dashboard date range — owned by the dashboard page only
+  // Dashboard state — persists for KPI card navigation carry-over
   dateRange: DateRange | null;
   setDateRange: (range: DateRange | null) => void;
+  dashboardFilters: Record<string, string[]>;
+  setDashboardFilters: (f: Record<string, string[]>) => void;
   // Events page state — persists through event-detail navigation
   eventsDateRange: DateRange | null;
   setEventsDateRange: (range: DateRange | null) => void;
@@ -21,6 +23,8 @@ type FilterStore = {
 export const useFilterStore = create<FilterStore>()((set) => ({
   dateRange: [dayjs().subtract(30, 'day'), dayjs()],
   setDateRange: (dateRange) => set({ dateRange }),
+  dashboardFilters: {},
+  setDashboardFilters: (dashboardFilters) => set({ dashboardFilters }),
   eventsDateRange: [dayjs().subtract(30, 'day'), dayjs()],
   setEventsDateRange: (eventsDateRange) => set({ eventsDateRange }),
   eventsFilters: {},
