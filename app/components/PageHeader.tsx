@@ -10,6 +10,8 @@ import {
   DatabaseFilled, BellFilled, SettingFilled, ProfileFilled,
 } from '@ant-design/icons';
 import { useThemeStore } from '@/store/themeStore';
+import { useFilterStore } from '@/store/filterStore';
+import dayjs from 'dayjs';
 
 const { useBreakpoint } = Grid;
 
@@ -27,6 +29,20 @@ export function PageHeader({ left, center, right }: Props) {
   const { darkMode, toggle } = useThemeStore();
 
   const close = () => setMobileNavOpen(false);
+  const { dateRange } = useFilterStore();
+
+  const navHref = (base: string): string => {
+    if ((base !== '/events' && base !== '/orders') || !dateRange) return base;
+    const isDefault =
+      dateRange[0].isSame(dayjs().subtract(30, 'day'), 'day') &&
+      dateRange[1].isSame(dayjs(), 'day');
+    if (isDefault) return base;
+    const p = new URLSearchParams({
+      from: dateRange[0].format('YYYY-MM-DD'),
+      to:   dateRange[1].format('YYYY-MM-DD'),
+    });
+    return `${base}?${p.toString()}`;
+  };
 
   const activeKey = (() => {
     if (pathname === '/' || pathname === '/dashboard') return '/dashboard';
@@ -41,9 +57,9 @@ export function PageHeader({ left, center, right }: Props) {
   })();
 
   const menuItems = [
-    { key: '/dashboard',          icon: <HomeFilled />,     label: <Link href="/dashboard"          onClick={close}>Home</Link> },
-    { key: '/events',             icon: <CalendarFilled />, label: <Link href="/events"             onClick={close}>Events</Link> },
-    { key: '/orders',             icon: <ShoppingFilled />, label: <Link href="/orders"             onClick={close}>Orders</Link> },
+    { key: '/dashboard',          icon: <HomeFilled />,     label: <Link href="/dashboard"              onClick={close}>Home</Link> },
+    { key: '/events',             icon: <CalendarFilled />, label: <Link href={navHref('/events')}  onClick={close}>Events</Link> },
+    { key: '/orders',             icon: <ShoppingFilled />, label: <Link href={navHref('/orders')}  onClick={close}>Orders</Link> },
     { key: '/users',              icon: <ContactsFilled />, label: <Link href="/users"              onClick={close}>Users</Link> },
     { key: '/manage/root-causes', icon: <DatabaseFilled />, label: <Link href="/manage/root-causes" onClick={close}>Manage Lists</Link> },
     { type: 'divider' as const },

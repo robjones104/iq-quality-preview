@@ -37,13 +37,17 @@ function EventsPageContent() {
   const branchParam      = searchParams.get('branch');
   const discrepancyParam = searchParams.get('discrepancy');
   const productParam     = searchParams.get('product');
+  const doorParam        = searchParams.get('door');
+  const rootCauseParam   = searchParams.get('rootCause');
+  const plantParam       = searchParams.get('plant');
+  const reportedByParam  = searchParams.get('reportedBy');
   const fromParam        = searchParams.get('from');
   const toParam          = searchParams.get('to');
   const backToParam      = searchParams.get('backTo');
 
   const { eventsDateRange, setEventsDateRange, eventsFilters, setEventsFilters } = useFilterStore();
 
-  // Initialize from URL params (matrix nav) or persisted Zustand value
+  // Initialize from URL params (matrix nav / KPI card carry-over) or persisted Zustand value
   const [dateRange, setDateRangeLocal] = useState<DateRange | null>(() => {
     if (fromParam && toParam) return [dayjs(fromParam), dayjs(toParam)] as DateRange;
     return eventsDateRange;
@@ -54,18 +58,19 @@ function EventsPageContent() {
     if (branchParam)      fromUrl.branch      = branchParam.split(',');
     if (discrepancyParam) fromUrl.discrepancy = discrepancyParam.split(',');
     if (productParam)     fromUrl.product     = productParam.split(',');
+    if (doorParam)        fromUrl.door        = doorParam.split(',');
+    if (rootCauseParam)   fromUrl.rootCause   = rootCauseParam.split(',');
+    if (plantParam)       fromUrl.plant       = plantParam.split(',');
+    if (reportedByParam)  fromUrl.reportedBy  = reportedByParam.split(',');
     return Object.keys(fromUrl).length ? fromUrl : eventsFilters;
   });
 
-  // Sync URL-param initializations to Zustand so they survive event-detail navigation
+  // Sync date range from URL params so it survives event-detail navigation.
+  // Category filters from URL params are intentionally NOT written to Zustand —
+  // they are one-time navigation context (KPI cards, chart clicks) and must not
+  // contaminate the user's persistent filter state on direct navigation.
   useEffect(() => {
     if (fromParam && toParam) setEventsDateRange([dayjs(fromParam), dayjs(toParam)] as DateRange);
-    const fromUrl: Record<string, string[]> = {};
-    if (statusParam)      fromUrl.status      = statusParam.split(',');
-    if (branchParam)      fromUrl.branch      = branchParam.split(',');
-    if (discrepancyParam) fromUrl.discrepancy = discrepancyParam.split(',');
-    if (productParam)     fromUrl.product     = productParam.split(',');
-    if (Object.keys(fromUrl).length) setEventsFilters(fromUrl);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

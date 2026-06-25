@@ -91,12 +91,9 @@ function OrdersPageContent() {
     return Object.keys(fromUrl).length ? fromUrl : ordersFilters;
   });
 
+  // Same rule as events page: only sync date range, not category filters.
   useEffect(() => {
     if (fromParam && toParam) setOrdersDateRange([dayjs(fromParam), dayjs(toParam)] as DateRange);
-    const fromUrl: Record<string, string[]> = {};
-    if (orderStatusParam) fromUrl.orderStatus = orderStatusParam.split(',');
-    if (decisionParam)    fromUrl.decision    = decisionParam.split(',');
-    if (Object.keys(fromUrl).length) setOrdersFilters(fromUrl);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

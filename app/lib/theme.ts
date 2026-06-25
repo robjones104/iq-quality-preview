@@ -93,6 +93,9 @@ export const DARK_COMPONENT_TOKENS: ThemeConfig['components'] = {
   Button: {
     fontWeight: 600,
   },
+  Tooltip: {
+    colorBgSpotlight: '#EBEBEB',
+  },
 };
 
 // ---------------------------------------------------------------------------

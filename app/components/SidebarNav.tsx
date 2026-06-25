@@ -16,7 +16,9 @@ import {
 } from '@ant-design/icons';
 import { Grid, Switch, Tooltip, theme } from 'antd';
 import { useThemeStore } from '@/store/themeStore';
+import { useFilterStore } from '@/store/filterStore';
 import { NAV_TOP, NAV_BOTTOM } from '@/lib/nav';
+import dayjs from 'dayjs';
 
 // Icon mapping — keyed to label strings from lib/nav.ts
 const ICON_MAP: Record<string, React.ComponentType<{ style?: React.CSSProperties }>> = {
@@ -29,12 +31,34 @@ const ICON_MAP: Record<string, React.ComponentType<{ style?: React.CSSProperties
   'Profile': ProfileFilled,
 };
 
+// Pages that carry the active dashboard date range when navigating from the sidebar
+const DATE_CARRY_PAGES = new Set(['/events', '/orders']);
+
+const DEFAULT_RANGE_DAYS = 30;
+
 export function SidebarNav() {
   const pathname = usePathname();
   const { darkMode, toggle } = useThemeStore();
   const { token } = theme.useToken();
   const screens = Grid.useBreakpoint();
   const expanded = !!screens.xxl;
+  const { dateRange } = useFilterStore();
+
+  // Build the link href for pages in DATE_CARRY_PAGES.
+  // Appends from/to only when dateRange differs from the default 30-day window,
+  // so a plain default range doesn't litter every nav link with params.
+  const navHref = (base: string): string => {
+    if (!DATE_CARRY_PAGES.has(base) || !dateRange) return base;
+    const isDefault =
+      dateRange[0].isSame(dayjs().subtract(DEFAULT_RANGE_DAYS, 'day'), 'day') &&
+      dateRange[1].isSame(dayjs(), 'day');
+    if (isDefault) return base;
+    const p = new URLSearchParams({
+      from: dateRange[0].format('YYYY-MM-DD'),
+      to:   dateRange[1].format('YYYY-MM-DD'),
+    });
+    return `${base}?${p.toString()}`;
+  };
 
   const isActive = (href: string) => {
     if (href === '/dashboard') return pathname === '/dashboard' || pathname === '/';
@@ -48,14 +72,14 @@ export function SidebarNav() {
   const activeNavColor = isDark ? YELLOW : token.colorText;
   const activeBorder   = `3px solid ${YELLOW}`;
 
-  const navButton = (href: string, label: string) => {
+  const navButton = (href: string, label: string, linkHref?: string) => {
     const active = isActive(href);
     const Icon = ICON_MAP[label];
     if (!Icon) return null;
     const link = (
       <Link
         key={href}
-        href={href}
+        href={linkHref ?? href}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -126,7 +150,7 @@ return (
           </svg>
         )}
 
-        {NAV_TOP.map(({ href, label }) => navButton(href, label))}
+        {NAV_TOP.map(({ href, label }) => navButton(href, label, navHref(href)))}
 
         {/* Manage Lists — direct link */}
         {(() => {
