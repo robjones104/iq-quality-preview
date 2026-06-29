@@ -101,7 +101,7 @@ export function ManageListsClient({
     const newItem: ListItem = {
       id: nextId(type === 'root-causes' ? 'rc' : 'tag', type === 'root-causes' ? rootCauses : tags),
       name: newItemName.trim(),
-      createdBy: 'Rob Jones',
+      createdBy: 'Theron K. Aldwick',
       createdAt: new Date().toISOString().slice(0, 10),
       isSystem: false,
     };

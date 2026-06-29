@@ -16,7 +16,7 @@ const ESC_001: Escalation = {
   fieldAction:
     'If you encounter a missing plate lock assembly, please submit an iQ Quality event.',
   eventIds: ['QE_2392', 'QE_2391', 'QE_2388'],
-  createdBy: 'Marcus Delacroix',
+  createdBy: 'Bertram M. Foxhollow',
   createdAt: '2026-05-20T09:00:00',
   updatedAt: '2026-05-28T14:30:00',
   closedAt: '2026-05-28T14:30:00',
@@ -37,7 +37,7 @@ const ESC_002: Escalation = {
   fieldAction:
     'If you encounter a header with motor/gearbox holes that appear mislocated, please submit a Quality Event and include photos with a tape measure indicating the location.',
   eventIds: ['QE_2385', 'QE_2381', 'QE_2379', 'QE_2376'],
-  createdBy: 'Marcus Delacroix',
+  createdBy: 'Bertram M. Foxhollow',
   createdAt: '2026-05-15T10:00:00',
   updatedAt: '2026-06-01T11:00:00',
   closedAt: '2026-06-01T11:00:00',
@@ -57,7 +57,7 @@ const ESC_003: Escalation = {
   fieldAction:
     'Do not attempt field reprogramming. Submit a Quality Event immediately if you encounter a controller that will not power up on your site voltage.',
   eventIds: ['QE_2400', 'QE_2393'],
-  createdBy: 'Dana Okonkwo',
+  createdBy: 'Caspian T. Moorwick',
   createdAt: '2026-06-20T11:00:00',
   updatedAt: '2026-06-20T11:00:00',
 };
