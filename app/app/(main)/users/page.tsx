@@ -108,7 +108,7 @@ export default function UsersPage() {
         role:    values.role,
         branch,
         status:  'Pending',
-        addedBy: 'Pat Nguyen',
+        addedBy: 'Corvus M. Aldsworth',
         addedAt: new Date().toISOString().slice(0, 10),
       };
       setUsers(prev => [...prev, newUser]);

@@ -39,7 +39,7 @@ function genDate(r: number): string {
 }
 
 const ASSIGNEES = [
-  'Cameron Reyes', 'Jordan Takeda', 'Dana Okonkwo', 'Priya Sharma', 'Elliot Vance',
+  'Callum V. Blackswood', 'Rosamund T. Holloway', 'Caspian T. Moorwick', 'Imogen R. Moorstone', 'Warwick T. Blackwold',
 ] as const;
 
 const QTY_TYPES = ['Piece', 'Length'] as const;
@@ -133,7 +133,7 @@ const SEED_EVENTS: QualityEvent[] = [
     branch: 'Atlanta', plant: 'FAR (Farmington)', product: 'Motor Gearbox',
     discrepancy: 'Missing Installed Component', door: 'Dura_Glide Greenstar 3000',
     issueDescription: 'Motor gearbox assembly delivered without secondary mounting bracket. Configuration requires both primary and secondary brackets per spec.',
-    assignee: 'Cameron Reyes', reportedBy: 'Anastasia M. Williams', reportedAt: '2026-06-05T15:44:00',
+    assignee: 'Callum V. Blackswood', reportedBy: 'Lysandra T. Pemberton', reportedAt: '2026-06-05T15:44:00',
     tags: ['Urgent', 'Supplier Follow-up'],
     additionalInfoRequested: true,
     additionalInfoNote: 'Please confirm whether the secondary mounting bracket was present at delivery and provide a photo of the bracket mounting location on the unit.',
@@ -149,7 +149,7 @@ const SEED_EVENTS: QualityEvent[] = [
     branch: 'Atlanta', plant: 'FAR (Farmington)', product: 'Motor Gearbox',
     discrepancy: 'Freight Damage', door: 'Dura_Glide Greenstar 3000',
     issueDescription: 'Motor gearbox shaft has visible scoring marks indicating pre-installation damage.',
-    assignee: 'Cameron Reyes', reportedBy: 'James Carter', reportedAt: '2026-06-05T14:22:00',
+    assignee: 'Callum V. Blackswood', reportedBy: 'Phineas K. Dunfield', reportedAt: '2026-06-05T14:22:00',
   },
   {
     id: 'QE_2388', date: '2026-06-04', jobNo: 'SO109819034', dfo: 1, elLine: 3,
@@ -157,10 +157,10 @@ const SEED_EVENTS: QualityEvent[] = [
     branch: 'Memphis', plant: 'FAR (Farmington)', product: 'Motor Gearbox',
     discrepancy: 'Incorrect Build', door: 'Dura_Glide 3000 Series',
     issueDescription: 'Received Motor Gearbox variant B instead of variant A. Supplier packing list matches variant A.',
-    assignee: 'Jordan Takeda', reportedBy: 'Bartholomew T. Henderson', reportedAt: '2026-06-04T09:15:00',
+    assignee: 'Rosamund T. Holloway', reportedBy: 'Peregrine J. Merriweather', reportedAt: '2026-06-04T09:15:00',
     editHistory: [
-      { id: 'eh_2388_1', timestamp: '2026-06-04 10:08', editedBy: 'Jordan Takeda', role: 'Field Quality', field: 'Discrepancy', from: 'Will not Operate', to: 'Incorrect Build' },
-      { id: 'eh_2388_2', timestamp: '2026-06-04 10:31', editedBy: 'Jordan Takeda', role: 'Field Quality', field: 'Root Cause', from: null, to: 'Supplier Issue' },
+      { id: 'eh_2388_1', timestamp: '2026-06-04 10:08', editedBy: 'Rosamund T. Holloway', role: 'Field Quality', field: 'Discrepancy', from: 'Will not Operate', to: 'Incorrect Build' },
+      { id: 'eh_2388_2', timestamp: '2026-06-04 10:31', editedBy: 'Rosamund T. Holloway', role: 'Field Quality', field: 'Root Cause', from: null, to: 'Supplier Issue' },
     ],
   },
   {
@@ -169,10 +169,10 @@ const SEED_EVENTS: QualityEvent[] = [
     branch: 'Dallas', plant: 'FAR (Farmington)', product: 'Controller',
     discrepancy: 'Will not Operate', door: 'Dura_Glide 3000 Series',
     issueDescription: 'Three units from batch #ECB-2206 failed power-on self-test. All shipped from same supplier lot.',
-    assignee: 'Jordan Takeda', reportedBy: 'Evangeline M. Rodriguez', reportedAt: '2026-06-04T08:30:00',
+    assignee: 'Rosamund T. Holloway', reportedBy: 'Seraphina M. Duncastle', reportedAt: '2026-06-04T08:30:00',
     editHistory: [
-      { id: 'eh_2385_1', timestamp: '2026-06-04 09:14', editedBy: 'Jordan Takeda', role: 'Field Quality', field: 'Discrepancy', from: 'Incorrect Build', to: 'Will not Operate' },
-      { id: 'eh_2385_2', timestamp: '2026-06-04 09:45', editedBy: 'Jordan Takeda', role: 'Field Quality', field: 'Root Cause', from: 'Factory Issue', to: 'Supplier Issue' },
+      { id: 'eh_2385_1', timestamp: '2026-06-04 09:14', editedBy: 'Rosamund T. Holloway', role: 'Field Quality', field: 'Discrepancy', from: 'Incorrect Build', to: 'Will not Operate' },
+      { id: 'eh_2385_2', timestamp: '2026-06-04 09:45', editedBy: 'Rosamund T. Holloway', role: 'Field Quality', field: 'Root Cause', from: 'Factory Issue', to: 'Supplier Issue' },
     ],
   },
   {
@@ -181,7 +181,7 @@ const SEED_EVENTS: QualityEvent[] = [
     branch: 'Chicago', plant: 'MTC (Mount Comfort)', product: 'Hardware Kit',
     discrepancy: 'Missing Hardware', door: 'Dura_Glide 2000 Series',
     issueDescription: 'Hardware kit missing locking collar. Unable to complete installation without this component.',
-    assignee: 'Dana Okonkwo', reportedBy: 'Cornelius J. Washington', reportedAt: '2026-06-03T11:44:00',
+    assignee: 'Caspian T. Moorwick', reportedBy: 'Oberon M. Ravensdale', reportedAt: '2026-06-03T11:44:00',
     hardwareKit: { kitInfo: 'Entire Hardware Kit', serialNumber: 'HK-55021-B', quantityType: 'Piece', quantity: 1 },
   },
   {
@@ -190,10 +190,10 @@ const SEED_EVENTS: QualityEvent[] = [
     branch: 'Indianapolis', plant: 'MTC (Mount Comfort)', product: 'Complete Door Package',
     discrepancy: 'Loose Component', door: 'Procare 8500',
     issueDescription: 'Door closer installed at incorrect spring tension setting. Customer reports door slamming.',
-    assignee: 'Dana Okonkwo', reportedBy: 'Maximilian J. Kowalski', reportedAt: '2026-06-03T10:05:00',
+    assignee: 'Caspian T. Moorwick', reportedBy: 'Ptolemy J. Foxmere', reportedAt: '2026-06-03T10:05:00',
     editHistory: [
-      { id: 'eh_2379_1', timestamp: '2026-06-03 11:20', editedBy: 'Dana Okonkwo', role: 'Field Quality', field: 'Discrepancy', from: 'Machining', to: 'Loose Component' },
-      { id: 'eh_2379_2', timestamp: '2026-06-03 11:38', editedBy: 'Dana Okonkwo', role: 'Field Quality', field: 'Root Cause', from: null, to: 'Installation Error' },
+      { id: 'eh_2379_1', timestamp: '2026-06-03 11:20', editedBy: 'Caspian T. Moorwick', role: 'Field Quality', field: 'Discrepancy', from: 'Machining', to: 'Loose Component' },
+      { id: 'eh_2379_2', timestamp: '2026-06-03 11:38', editedBy: 'Caspian T. Moorwick', role: 'Field Quality', field: 'Root Cause', from: null, to: 'Installation Error' },
     ],
   },
   {
@@ -202,10 +202,10 @@ const SEED_EVENTS: QualityEvent[] = [
     branch: 'New York', plant: 'MTC (Mount Comfort)', product: 'Sensors',
     discrepancy: 'Missing Installed Component', door: 'Dura_Glide 5200',
     issueDescription: 'Sensor shipped without installation screws. Customer ordered full installation kit.',
-    assignee: 'Priya Sharma', reportedBy: 'Alexandrina M. Vasquez', reportedAt: '2026-06-02T16:20:00',
+    assignee: 'Imogen R. Moorstone', reportedBy: 'Chrysanthemum R. Aldgate', reportedAt: '2026-06-02T16:20:00',
     editHistory: [
-      { id: 'eh_2376_1', timestamp: '2026-06-02 17:05', editedBy: 'Priya Sharma', role: 'Field Quality', field: 'Discrepancy', from: 'Missing Hardware', to: 'Missing Installed Component' },
-      { id: 'eh_2376_2', timestamp: '2026-06-02 17:05', editedBy: 'Priya Sharma', role: 'Field Quality', field: 'Root Cause', from: null, to: 'Short Shipping' },
+      { id: 'eh_2376_1', timestamp: '2026-06-02 17:05', editedBy: 'Imogen R. Moorstone', role: 'Field Quality', field: 'Discrepancy', from: 'Missing Hardware', to: 'Missing Installed Component' },
+      { id: 'eh_2376_2', timestamp: '2026-06-02 17:05', editedBy: 'Imogen R. Moorstone', role: 'Field Quality', field: 'Root Cause', from: null, to: 'Short Shipping' },
     ],
   },
   {
@@ -214,10 +214,10 @@ const SEED_EVENTS: QualityEvent[] = [
     branch: 'New Jersey', plant: 'MTC (Mount Comfort)', product: 'Glass',
     discrepancy: 'Visual', door: 'All Glass 2000',
     issueDescription: 'Glass panel delivered with hairline crack along lower edge. Customer spec requires flawless finish.',
-    assignee: 'Priya Sharma', reportedBy: 'Bartholomew J. Sanders', reportedAt: '2026-06-02T13:45:00',
+    assignee: 'Imogen R. Moorstone', reportedBy: 'Thaddeus V. Foxbury', reportedAt: '2026-06-02T13:45:00',
     editHistory: [
-      { id: 'eh_2373_1', timestamp: '2026-06-02 14:30', editedBy: 'Priya Sharma', role: 'Field Quality', field: 'Discrepancy', from: 'Freight Damage', to: 'Visual' },
-      { id: 'eh_2373_2', timestamp: '2026-06-02 14:55', editedBy: 'Priya Sharma', role: 'Field Quality', field: 'Product', from: 'Glass Panel', to: 'Glass' },
+      { id: 'eh_2373_1', timestamp: '2026-06-02 14:30', editedBy: 'Imogen R. Moorstone', role: 'Field Quality', field: 'Discrepancy', from: 'Freight Damage', to: 'Visual' },
+      { id: 'eh_2373_2', timestamp: '2026-06-02 14:55', editedBy: 'Imogen R. Moorstone', role: 'Field Quality', field: 'Product', from: 'Glass Panel', to: 'Glass' },
     ],
   },
   {
@@ -227,7 +227,7 @@ const SEED_EVENTS: QualityEvent[] = [
     branch: 'New England', plant: 'MTC (Mount Comfort)', product: 'Controller',
     discrepancy: 'Will not Operate', door: 'Dura_Glide 2000 Series',
     issueDescription: 'Controller fails to register credentials after firmware update. Affects 6 units in same shipment.',
-    assignee: 'Priya Sharma', reportedBy: 'Theodora Ann Whitfield', reportedAt: '2026-06-01T14:00:00',
+    assignee: 'Imogen R. Moorstone', reportedBy: 'Wilhelmina J. Thornmere', reportedAt: '2026-06-01T14:00:00',
   },
   {
     id: 'QE_2367', date: '2026-06-01', jobNo: 'SO109802736', dfo: 1, elLine: 3,
@@ -235,9 +235,9 @@ const SEED_EVENTS: QualityEvent[] = [
     branch: 'Houston', plant: 'FAR (Farmington)', product: 'Threshold',
     discrepancy: 'Thermal Event', door: 'Dura_Glide Greenstar 3000',
     issueDescription: 'Threshold seal deforming under high-heat conditions. Interior temperatures exceeding 95°F cause seal to gap.',
-    assignee: 'Elliot Vance', reportedBy: 'Montgomery Richardson', reportedAt: '2026-06-01T10:30:00',
+    assignee: 'Warwick T. Blackwold', reportedBy: 'Ignatius C. Ashfield', reportedAt: '2026-06-01T10:30:00',
     editHistory: [
-      { id: 'eh_2367_1', timestamp: '2026-06-01 11:44', editedBy: 'Elliot Vance', role: 'Field Quality', field: 'Root Cause', from: 'Factory Issue', to: 'Engineering Issue' },
+      { id: 'eh_2367_1', timestamp: '2026-06-01 11:44', editedBy: 'Warwick T. Blackwold', role: 'Field Quality', field: 'Root Cause', from: 'Factory Issue', to: 'Engineering Issue' },
     ],
   },
   {
@@ -246,10 +246,10 @@ const SEED_EVENTS: QualityEvent[] = [
     branch: 'Los Angeles', plant: 'MTC (Mount Comfort)', product: 'Hardware Kit',
     discrepancy: 'Missing Hardware', door: 'M-Force Swing Door',
     issueDescription: 'Hardware kit shipped without through-bolt set. Required for hollow metal door frame installation.',
-    assignee: 'Elliot Vance', reportedBy: 'Monica Diaz', reportedAt: '2026-05-31T15:10:00',
+    assignee: 'Warwick T. Blackwold', reportedBy: 'Seraphine K. Foxfield', reportedAt: '2026-05-31T15:10:00',
     editHistory: [
-      { id: 'eh_2364_1', timestamp: '2026-05-31 16:00', editedBy: 'Elliot Vance', role: 'Field Quality', field: 'Discrepancy', from: 'Incorrect Build', to: 'Missing Hardware' },
-      { id: 'eh_2364_2', timestamp: '2026-05-31 16:20', editedBy: 'Elliot Vance', role: 'Field Quality', field: 'Root Cause', from: 'Factory Issue', to: 'Short Shipping' },
+      { id: 'eh_2364_1', timestamp: '2026-05-31 16:00', editedBy: 'Warwick T. Blackwold', role: 'Field Quality', field: 'Discrepancy', from: 'Incorrect Build', to: 'Missing Hardware' },
+      { id: 'eh_2364_2', timestamp: '2026-05-31 16:20', editedBy: 'Warwick T. Blackwold', role: 'Field Quality', field: 'Root Cause', from: 'Factory Issue', to: 'Short Shipping' },
     ],
   },
   {
@@ -259,7 +259,7 @@ const SEED_EVENTS: QualityEvent[] = [
     branch: 'San Francisco', plant: 'MTC (Mount Comfort)', product: 'Jamb',
     discrepancy: 'Machining', door: 'Dura_Glide 3000 Series',
     issueDescription: 'Jamb machining tolerance out of spec. Wiring harness connector does not seat correctly.',
-    assignee: 'Elliot Vance', reportedBy: 'Janet Wallace', reportedAt: '2026-05-31T11:55:00',
+    assignee: 'Warwick T. Blackwold', reportedBy: 'Iolanthe B. Ashwell', reportedAt: '2026-05-31T11:55:00',
   },
   {
     id: 'QE_2358', date: '2026-05-30', jobNo: 'SO109795847', dfo: 2, elLine: 1,
@@ -267,10 +267,10 @@ const SEED_EVENTS: QualityEvent[] = [
     branch: 'Detroit', plant: 'MTC (Mount Comfort)', product: 'Controller',
     discrepancy: 'Incorrect Build', door: 'Procare 8300',
     issueDescription: 'Controllers built to incorrect firmware version. Entire shipment of 24 units affected.',
-    assignee: 'Dana Okonkwo', reportedBy: 'Brian Kennedy', reportedAt: '2026-05-30T09:00:00',
+    assignee: 'Caspian T. Moorwick', reportedBy: 'Marchmont R. Fenwick', reportedAt: '2026-05-30T09:00:00',
     editHistory: [
-      { id: 'eh_2358_1', timestamp: '2026-05-30 10:15', editedBy: 'Dana Okonkwo', role: 'Field Quality', field: 'Discrepancy', from: 'Will not Operate', to: 'Incorrect Build' },
-      { id: 'eh_2358_2', timestamp: '2026-05-30 11:02', editedBy: 'Dana Okonkwo', role: 'Field Quality', field: 'Root Cause', from: null, to: 'Supplier Issue' },
+      { id: 'eh_2358_1', timestamp: '2026-05-30 10:15', editedBy: 'Caspian T. Moorwick', role: 'Field Quality', field: 'Discrepancy', from: 'Will not Operate', to: 'Incorrect Build' },
+      { id: 'eh_2358_2', timestamp: '2026-05-30 11:02', editedBy: 'Caspian T. Moorwick', role: 'Field Quality', field: 'Root Cause', from: null, to: 'Supplier Issue' },
     ],
   },
   {
@@ -279,11 +279,11 @@ const SEED_EVENTS: QualityEvent[] = [
     branch: 'Dallas', plant: 'FAR (Farmington)', product: 'Motor Gearbox',
     discrepancy: 'Will not Operate', door: 'Dura_Glide Greenstar 3000',
     issueDescription: 'Motor gearbox units from batch #MG-4412 drawing excessive current. Risk of controller board damage.',
-    assignee: 'Jordan Takeda', reportedBy: 'Paul Dumont', reportedAt: '2026-05-30T08:15:00',
+    assignee: 'Rosamund T. Holloway', reportedBy: 'Aldhelm P. Ravencroft', reportedAt: '2026-05-30T08:15:00',
     editHistory: [
-      { id: 'eh_2355_1', timestamp: '2026-05-30 09:30', editedBy: 'Jordan Takeda', role: 'Field Quality', field: 'Discrepancy', from: 'Freight Damage', to: 'Will not Operate' },
-      { id: 'eh_2355_2', timestamp: '2026-05-30 09:55', editedBy: 'Jordan Takeda', role: 'Field Quality', field: 'Root Cause', from: 'Ordering Error', to: 'Factory Issue' },
-      { id: 'eh_2355_3', timestamp: '2026-05-30 10:10', editedBy: 'Jordan Takeda', role: 'Field Quality', field: 'Product', from: 'Controller', to: 'Motor Gearbox' },
+      { id: 'eh_2355_1', timestamp: '2026-05-30 09:30', editedBy: 'Rosamund T. Holloway', role: 'Field Quality', field: 'Discrepancy', from: 'Freight Damage', to: 'Will not Operate' },
+      { id: 'eh_2355_2', timestamp: '2026-05-30 09:55', editedBy: 'Rosamund T. Holloway', role: 'Field Quality', field: 'Root Cause', from: 'Ordering Error', to: 'Factory Issue' },
+      { id: 'eh_2355_3', timestamp: '2026-05-30 10:10', editedBy: 'Rosamund T. Holloway', role: 'Field Quality', field: 'Product', from: 'Controller', to: 'Motor Gearbox' },
     ],
   },
   {
@@ -292,10 +292,10 @@ const SEED_EVENTS: QualityEvent[] = [
     branch: 'Minneapolis', plant: 'MTC (Mount Comfort)', product: 'Complete Door Package',
     discrepancy: 'Loose Component', door: 'Dura_Glide 2000 Series',
     issueDescription: 'Exit device strike plate misaligned by 3mm causing intermittent latch failure under load.',
-    assignee: 'Dana Okonkwo', reportedBy: 'Heather Cox', reportedAt: '2026-05-29T14:30:00',
+    assignee: 'Caspian T. Moorwick', reportedBy: 'Allegra C. Moorgate', reportedAt: '2026-05-29T14:30:00',
     editHistory: [
-      { id: 'eh_2352_1', timestamp: '2026-05-29 16:05', editedBy: 'Dana Okonkwo', role: 'Field Quality', field: 'Root Cause', from: null, to: 'Factory Issue' },
-      { id: 'eh_2352_2', timestamp: '2026-05-29 17:22', editedBy: 'Dana Okonkwo', role: 'Field Quality', field: 'Root Cause', from: 'Factory Issue', to: 'Installation Error' },
+      { id: 'eh_2352_1', timestamp: '2026-05-29 16:05', editedBy: 'Caspian T. Moorwick', role: 'Field Quality', field: 'Root Cause', from: null, to: 'Factory Issue' },
+      { id: 'eh_2352_2', timestamp: '2026-05-29 17:22', editedBy: 'Caspian T. Moorwick', role: 'Field Quality', field: 'Root Cause', from: 'Factory Issue', to: 'Installation Error' },
     ],
   },
 
@@ -306,7 +306,7 @@ const SEED_EVENTS: QualityEvent[] = [
     branch: 'Baltimore', plant: 'FAR (Farmington)', product: 'Controller',
     discrepancy: 'Will not Operate', door: 'Dura_Glide Greenstar 2000',
     issueDescription: 'Two controllers failed power-on self-test after installation. LED sequence indicates hardware fault at boot. Both units are from the same packing lot #ECB-2309.',
-    assignee: 'Cameron Reyes', reportedBy: 'Raymond J. Caldwell', reportedAt: '2026-06-17T08:15:00',
+    assignee: 'Callum V. Blackswood', reportedBy: 'Remington J. Dunwall', reportedAt: '2026-06-17T08:15:00',
     tags: ['Controller', 'Power Failure'],
     partsRequest: [
       { partNumber: '421033-3', quantityType: 'Piece', quantity: 2, description: 'Controller PCB Assembly — replacement for two units that failed power-on self-test from lot #ECB-2309.' },
@@ -320,7 +320,7 @@ const SEED_EVENTS: QualityEvent[] = [
     branch: 'Denver', plant: 'MTC (Mount Comfort)', product: 'Motor Gearbox',
     discrepancy: 'Freight Damage', door: 'Dura_Glide 3000 Series',
     issueDescription: 'Motor gearbox housing cracked along the casting seam. Damage pattern is consistent with a lateral impact during transit. Unit is non-functional.',
-    assignee: 'Jordan Takeda', reportedBy: 'Cordelia M. Fontaine', reportedAt: '2026-06-17T09:42:00',
+    assignee: 'Rosamund T. Holloway', reportedBy: 'Persephone T. Whitmore', reportedAt: '2026-06-17T09:42:00',
     tags: ['Freight Damage', 'Urgent'],
     additionalInfoRequested: true,
     additionalInfoNote: 'Please provide photos of the original shipping carton to document transit damage for the supplier freight claim.',
@@ -335,7 +335,7 @@ const SEED_EVENTS: QualityEvent[] = [
     branch: 'St.Louis', plant: 'FAR (Farmington)', product: 'Hardware Kit',
     discrepancy: 'Missing Hardware', door: 'Procare 8300 A',
     issueDescription: 'Hardware kit arrived with mounting screws short by 6 units. Packing slip indicates full quantity was packed. Installation stalled pending replacement.',
-    assignee: 'Dana Okonkwo', reportedBy: 'Beaumont C. Okafor', reportedAt: '2026-06-17T10:30:00',
+    assignee: 'Caspian T. Moorwick', reportedBy: 'Balthazar C. Dunmoor', reportedAt: '2026-06-17T10:30:00',
     tags: ['Short Shipping', 'Urgent'],
     partsRequest: [
       { partNumber: '418222-1', quantityType: 'Set', quantity: 1, description: 'Mounting Screw Set — replacement for short-shipped hardware kit. 6-unit deficiency confirmed against packing slip.' },
@@ -349,7 +349,7 @@ const SEED_EVENTS: QualityEvent[] = [
     branch: 'Cleveland', plant: 'MTC (Mount Comfort)', product: 'Sensors',
     discrepancy: 'Missing Installed Component', door: 'IS 10000',
     issueDescription: 'IS 10000 sensor package missing activation sensor at delivery. Only the presence sensor was included. Activation sensor is listed on the packing slip.',
-    assignee: 'Priya Sharma', reportedBy: 'Wilhelmina T. Horton', reportedAt: '2026-06-17T13:05:00',
+    assignee: 'Imogen R. Moorstone', reportedBy: 'Alcyone R. Foxbourne', reportedAt: '2026-06-17T13:05:00',
     additionalInfoRequested: true,
     additionalInfoNote: 'Please confirm which sensor model is installed at the sister opening on the same job, and attach a photo of the packing slip.',
     partsRequest: [
@@ -363,7 +363,7 @@ const SEED_EVENTS: QualityEvent[] = [
     branch: 'Orlando', plant: 'FAR (Farmington)', product: 'Complete Door Package',
     discrepancy: 'Incorrect Build', door: 'Dura_Glide 5200',
     issueDescription: 'Door package delivered with a right-hand operator. Job specification clearly calls for left-hand. Unit cannot be installed as delivered; customer has a hard installation deadline.',
-    assignee: 'Elliot Vance', reportedBy: 'Montgomery C. Wallace', reportedAt: '2026-06-18T07:55:00',
+    assignee: 'Warwick T. Blackwold', reportedBy: 'Ebenezer C. Moorwick', reportedAt: '2026-06-18T07:55:00',
     tags: ['Build Error', 'Urgent'],
     additionalInfoRequested: true,
     additionalInfoNote: 'Can you confirm the hand-of-door spec on the original order paperwork and send a photo of the unit label as delivered?',
@@ -379,7 +379,7 @@ const SEED_EVENTS: QualityEvent[] = [
     branch: 'Detroit', plant: 'MTC (Mount Comfort)', product: 'Glass',
     discrepancy: 'Visual', door: 'All Glass 2000',
     issueDescription: 'Glass panel has a stress fracture originating at the top drill location. Fracture propagated after thermal cycling during morning sun exposure. Full panel replacement required.',
-    assignee: 'Jordan Takeda', reportedBy: 'Bartholomew R. Sinclair', reportedAt: '2026-06-18T10:20:00',
+    assignee: 'Rosamund T. Holloway', reportedBy: 'Archibald R. Graymoor', reportedAt: '2026-06-18T10:20:00',
     tags: ['Glass', 'Factory'],
     partsRequest: [
       { partNumber: '440222-1', quantityType: 'Piece', quantity: 1, description: 'Tempered Glass Panel — replacement for factory-defective panel with stress fracture from lot #GP-0618.' },
@@ -393,7 +393,7 @@ const SEED_EVENTS: QualityEvent[] = [
     branch: 'Salt Lake City', plant: 'FAR (Farmington)', product: 'Threshold',
     discrepancy: 'Machining', door: 'Dura_Storm',
     issueDescription: 'Threshold profile is 2.1mm undersized at the center span, creating a visible light gap. Does not meet weather seal performance spec for Dura-Storm installation.',
-    assignee: 'Cameron Reyes', reportedBy: 'Evangeline C. Holbrook', reportedAt: '2026-06-18T14:35:00',
+    assignee: 'Callum V. Blackswood', reportedBy: 'Amaranth C. Dunhill', reportedAt: '2026-06-18T14:35:00',
     partsRequest: [
       { partNumber: '435671-1', quantityType: 'Piece', quantity: 1, description: 'Threshold Profile — replacement for undersized Dura-Storm profile; 2.1mm shortfall at center confirmed by field caliper measurement.' },
     ],
@@ -405,7 +405,7 @@ const SEED_EVENTS: QualityEvent[] = [
     branch: 'New Orleans', plant: 'FAR (Farmington)', product: 'Controller',
     discrepancy: 'Incorrect Build', door: 'Magic Access',
     issueDescription: 'Controllers configured for 24V operation but job specification requires 12V. Units cannot be reprogrammed in the field without a factory reset tool. Both units from same FAR build run.',
-    assignee: 'Dana Okonkwo', reportedBy: 'Archibald M. Tran', reportedAt: '2026-06-20T08:10:00',
+    assignee: 'Caspian T. Moorwick', reportedBy: 'Oswald M. Fenwick', reportedAt: '2026-06-20T08:10:00',
     tags: ['Controller', 'Build Error'],
     partsRequest: [
       { partNumber: '421035-1', quantityType: 'Piece', quantity: 2, description: 'Controller PCB Assembly — 12VDC replacement for two controllers incorrectly configured for 24V on Magic Access installation.' },
@@ -419,7 +419,7 @@ const SEED_EVENTS: QualityEvent[] = [
     branch: 'Indianapolis', plant: 'MTC (Mount Comfort)', product: 'Header',
     discrepancy: 'Loose Component', door: 'Dura_Glide 2000 Series',
     issueDescription: 'Header end cap is separating from the housing during door operation. Audible rattle present; end cap can be manually displaced without tools. Retainer clip appears undersized.',
-    assignee: 'Priya Sharma', reportedBy: 'Dominique A. Marchand', reportedAt: '2026-06-20T09:47:00',
+    assignee: 'Imogen R. Moorstone', reportedBy: 'Tiberius A. Ravensbrook', reportedAt: '2026-06-20T09:47:00',
     tags: ['Loose Component'],
     additionalInfoRequested: true,
     additionalInfoNote: 'Can you confirm the part number stamped on the existing end cap and whether the issue is present on both ends of the header?',
@@ -435,7 +435,7 @@ const SEED_EVENTS: QualityEvent[] = [
     branch: 'Atlanta', plant: 'FAR (Farmington)', product: 'Panel',
     discrepancy: 'Visual', door: 'Duraguard 3000',
     issueDescription: 'Field report cited surface discoloration on Duraguard 3000 panel in lower quadrant. On-site inspection confirmed discoloration is protective film residue not removed at installation. No manufacturing defect present.',
-    assignee: 'Elliot Vance', reportedBy: 'Josephine T. Blanchard', reportedAt: '2026-06-20T11:25:00',
+    assignee: 'Warwick T. Blackwold', reportedBy: 'Calliope T. Ashwick', reportedAt: '2026-06-20T11:25:00',
     partsRequest: [
       { partNumber: '450901-1', quantityType: 'Piece', quantity: 1, description: 'Panel Assembly — ordered during initial investigation; order cancelled after event was invalidated.' },
     ],

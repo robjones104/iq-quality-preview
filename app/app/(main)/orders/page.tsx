@@ -48,11 +48,11 @@ const ORDERS_SMART_SEARCH_OPTIONS = ORDER_STATUS_FILTER.map(cat => ({
 }));
 
 const PROCUREMENT_CONTACTS = [
-  { value: 'sarah.chen@allegion.com',     label: 'Sarah Chen — sarah.chen@allegion.com' },
-  { value: 'james.kowalski@allegion.com', label: 'James Kowalski — james.kowalski@allegion.com' },
-  { value: 'lisa.okafor@allegion.com',    label: 'Lisa Okafor — lisa.okafor@allegion.com' },
-  { value: 'derek.pham@allegion.com',     label: 'Derek Pham — derek.pham@allegion.com' },
-  { value: 'procurement@allegion.com',    label: 'Procurement Team — procurement@allegion.com' },
+  { value: 'sophronia.aldwick@allegion.com', label: 'Sophronia T. Aldwick — sophronia.aldwick@allegion.com' },
+  { value: 'ptolemy.dunholm@allegion.com',   label: 'Ptolemy R. Dunholm — ptolemy.dunholm@allegion.com' },
+  { value: 'leontine.foxmere@allegion.com',  label: 'Leontine M. Foxmere — leontine.foxmere@allegion.com' },
+  { value: 'aldhelm.blackhill@allegion.com', label: 'Aldhelm V. Blackhill — aldhelm.blackhill@allegion.com' },
+  { value: 'procurement@allegion.com',       label: 'Procurement Team — procurement@allegion.com' },
 ];
 
 const eventMap = new Map(events.map(e => [e.id, e]));
