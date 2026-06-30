@@ -1,9 +1,10 @@
 'use client';
 
 import React, { Fragment, useRef, useMemo, useState } from 'react';
-import { Button, Card, Col, Flex, Grid, Progress, Row, Segmented, Select, Statistic, Tag, Space, Typography, theme } from 'antd';
+import { AutoComplete, Button, Card, Col, Flex, Grid, Input, Progress, Row, Segmented, Select, Statistic, Tag, Space, Typography, theme } from 'antd';
 import { CloseOutlined, CaretDownFilled, CaretRightFilled, AppstoreFilled, FormOutlined, SearchOutlined, HourglassFilled } from '@ant-design/icons';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import dayjs from 'dayjs';
 import { PageHeader } from '@/components/PageHeader';
 import { FilterPanel } from '@/components/FilterPanel';
@@ -211,10 +212,6 @@ function SectionHeader({
   );
 }
 
-const SMART_SEARCH_OPTIONS = EVENT_FILTER_CATEGORIES.map(cat => ({
-  label: cat.label,
-  options: cat.options.map(opt => ({ value: `${cat.key}::${opt}`, label: opt })),
-}));
 
 // Builds a URL that carries the active dashboard date range and category filters
 // so the destination page (events/orders) opens pre-filtered to match what the
@@ -252,20 +249,61 @@ export default function DashboardPage() {
   const { dateRange, setDateRange, dashboardFilters: appliedFilters, setDashboardFilters: setAppliedFilters } = useFilterStore();
   const [activeSection, setActiveSection] = useState<Section>('triage');
 
-  const selectValue = EVENT_FILTER_CATEGORIES.flatMap(cat =>
-    (appliedFilters[cat.key] ?? []).map(v => `${cat.key}::${v}`)
-  );
+  const router = useRouter();
+  const [searchText, setSearchText] = useState('');
 
-  const handleSmartSearch = (values: string[]) => {
-    const next: Record<string, string[]> = {};
-    for (const v of values) {
-      const sep = v.indexOf('::');
-      const key = v.slice(0, sep);
-      const val = v.slice(sep + 2);
-      if (!next[key]) next[key] = [];
-      next[key].push(val);
+  const searchOptions = useMemo(() => {
+    const q = searchText.trim().toLowerCase();
+    if (!q) return [];
+    const matchingEvents = events
+      .filter(e => e.id.toLowerCase().includes(q) || e.jobNo.toLowerCase().includes(q))
+      .slice(0, 4)
+      .map(e => ({
+        value: `nav::event::${e.id}`,
+        label: (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{e.id}</span>
+            <span style={{ fontSize: 11, color: '#8c8c8c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.jobNo} · {e.discrepancy}</span>
+          </div>
+        ),
+      }));
+    const matchingOrders = orders
+      .filter(o => o.id.toLowerCase().includes(q) || o.jobNo.toLowerCase().includes(q) || o.eventId.toLowerCase().includes(q))
+      .slice(0, 4)
+      .map(o => ({
+        value: `nav::order::${o.id}`,
+        label: (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{o.id}</span>
+            <span style={{ fontSize: 11, color: '#8c8c8c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.jobNo} · {o.eventId}</span>
+          </div>
+        ),
+      }));
+    const filterOpts = EVENT_FILTER_CATEGORIES.flatMap(cat =>
+      cat.options
+        .filter(opt => opt.toLowerCase().includes(q))
+        .map(opt => ({ value: `filter::${cat.key}::${opt}`, label: `${cat.label}: ${opt}` }))
+    );
+    return [
+      ...(matchingEvents.length > 0 ? [{ label: 'Go to Event', options: matchingEvents }] : []),
+      ...(matchingOrders.length > 0 ? [{ label: 'Go to Order', options: matchingOrders }] : []),
+      ...(filterOpts.length > 0 ? [{ label: 'Filter by', options: filterOpts }] : []),
+    ];
+  }, [searchText]);
+
+  const handleSearchSelect = (value: string) => {
+    setSearchText('');
+    if (value.startsWith('nav::event::')) {
+      router.push(`/events/${value.slice('nav::event::'.length)}`);
+    } else if (value.startsWith('nav::order::')) {
+      router.push(`/orders/${value.slice('nav::order::'.length)}`);
+    } else if (value.startsWith('filter::')) {
+      const rest = value.slice('filter::'.length);
+      const sep  = rest.indexOf('::');
+      const key  = rest.slice(0, sep);
+      const val  = rest.slice(sep + 2);
+      setAppliedFilters({ ...appliedFilters, [key]: [...new Set([...(appliedFilters[key] ?? []), val])] });
     }
-    setAppliedFilters(next);
   };
 
   const chips = EVENT_FILTER_CATEGORIES.flatMap((cat) =>
@@ -367,19 +405,17 @@ export default function DashboardPage() {
       <PageHeader
         left={<DateRangeFilter value={dateRange} onChange={setDateRange} />}
         center={
-          <Select
-            mode="multiple"
-            showSearch
-            optionFilterProp="label"
-            placeholder="Search branch, product, discrepancy..."
-            options={SMART_SEARCH_OPTIONS}
-            value={selectValue}
-            onChange={handleSmartSearch}
-            maxTagCount="responsive"
+          <AutoComplete
+            value={searchText}
+            onChange={setSearchText}
+            onSelect={handleSearchSelect}
+            options={searchOptions}
+            placeholder="Search event ID, order ID, job no., branch, product..."
             style={{ width: '100%' }}
-            suffixIcon={<SearchOutlined style={{ color: token.colorTextQuaternary }} />}
             allowClear
-          />
+          >
+            <Input suffix={<SearchOutlined style={{ color: token.colorTextQuaternary }} />} />
+          </AutoComplete>
         }
         right={
           <FilterPanel
