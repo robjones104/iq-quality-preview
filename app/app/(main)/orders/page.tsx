@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import dayjs from 'dayjs';
 import {
-  Dropdown, Form, Input, List, Modal, Select,
+  AutoComplete, Dropdown, Form, Input, List, Modal, Select,
   Switch, Table, Tabs, Button, Tag, Tooltip, Typography, theme, Grid,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
@@ -13,7 +13,7 @@ import {
   SearchOutlined, SendOutlined,
 } from '@ant-design/icons';
 import { CopyableValue } from '@/components/CopyableValue';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { orders } from '@/data/orders';
 import { events } from '@/data/events';
@@ -42,10 +42,6 @@ const ORDER_STATUS_FILTER = [
   ),
 ];
 
-const ORDERS_SMART_SEARCH_OPTIONS = ORDER_STATUS_FILTER.map(cat => ({
-  label: cat.label,
-  options: cat.options.map(opt => ({ value: `${cat.key}::${opt}`, label: opt })),
-}));
 
 const PROCUREMENT_CONTACTS = [
   { value: 'sophronia.aldwick@allegion.com', label: 'Sophronia T. Aldwick — sophronia.aldwick@allegion.com' },
@@ -104,20 +100,46 @@ function OrdersPageContent() {
 
   const { token } = theme.useToken();
 
-  const ordersSelectValue = ORDER_STATUS_FILTER.flatMap(cat =>
-    (appliedFiltersLocal[cat.key] ?? []).map(v => `${cat.key}::${v}`)
-  );
+  const router = useRouter();
+  const [searchText, setSearchText] = useState('');
 
-  const handleOrdersSmartSearch = (values: string[]) => {
-    const next: Record<string, string[]> = {};
-    for (const v of values) {
-      const sep = v.indexOf('::');
-      const key = v.slice(0, sep);
-      const val = v.slice(sep + 2);
-      if (!next[key]) next[key] = [];
-      next[key].push(val);
+  const searchOptions = useMemo(() => {
+    const q = searchText.trim().toLowerCase();
+    if (!q) return [];
+    const matchingOrders = orderRows
+      .filter(o => o.id.toLowerCase().includes(q) || o.jobNo.toLowerCase().includes(q) || o.eventId.toLowerCase().includes(q))
+      .slice(0, 5)
+      .map(o => ({
+        value: `nav::order::${o.id}`,
+        label: (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{o.id}</span>
+            <span style={{ fontSize: 11, color: '#8c8c8c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.jobNo} · {o.discrepancy}</span>
+          </div>
+        ),
+      }));
+    const filterOpts = ORDER_STATUS_FILTER.flatMap(cat =>
+      cat.options
+        .filter(opt => opt.toLowerCase().includes(q))
+        .map(opt => ({ value: `filter::${cat.key}::${opt}`, label: `${cat.label}: ${opt}` }))
+    );
+    return [
+      ...(matchingOrders.length > 0 ? [{ label: 'Go to Order', options: matchingOrders }] : []),
+      ...(filterOpts.length > 0 ? [{ label: 'Filter by', options: filterOpts }] : []),
+    ];
+  }, [searchText]);
+
+  const handleSearchSelect = (value: string) => {
+    setSearchText('');
+    if (value.startsWith('nav::order::')) {
+      router.push(`/orders/${value.slice('nav::order::'.length)}`);
+    } else if (value.startsWith('filter::')) {
+      const rest = value.slice('filter::'.length);
+      const sep  = rest.indexOf('::');
+      const key  = rest.slice(0, sep);
+      const val  = rest.slice(sep + 2);
+      setAppliedFilters({ ...appliedFiltersLocal, [key]: [...new Set([...(appliedFiltersLocal[key] ?? []), val])] });
     }
-    setAppliedFilters(next);
   };
 
   const chips = ORDER_STATUS_FILTER.flatMap((cat) =>
@@ -633,19 +655,17 @@ function OrdersPageContent() {
       <PageHeader
         left={<DateRangeFilter value={dateRange} onChange={setDateRange} />}
         center={
-          <Select
-            mode="multiple"
-            showSearch
-            optionFilterProp="label"
-            placeholder="Search order status, branch, product..."
-            options={ORDERS_SMART_SEARCH_OPTIONS}
-            value={ordersSelectValue}
-            onChange={handleOrdersSmartSearch}
-            maxTagCount="responsive"
+          <AutoComplete
+            value={searchText}
+            onChange={setSearchText}
+            onSelect={handleSearchSelect}
+            options={searchOptions}
+            placeholder="Search order ID, job no., branch, status..."
             style={{ width: '100%' }}
-            suffixIcon={<SearchOutlined style={{ color: token.colorTextQuaternary }} />}
             allowClear
-          />
+          >
+            <Input suffix={<SearchOutlined style={{ color: token.colorTextQuaternary }} />} />
+          </AutoComplete>
         }
         right={
           <FilterPanel

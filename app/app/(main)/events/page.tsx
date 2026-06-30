@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import dayjs from 'dayjs';
-import { Table, Button, Select, Space, Tag, Typography, Tooltip, notification, theme, Grid, List } from 'antd';
+import { AutoComplete, Input, Table, Button, Select, Space, Tag, Typography, Tooltip, notification, theme, Grid, List } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { MoreOutlined, CloseOutlined, SearchOutlined, ArrowLeftOutlined, ExportOutlined } from '@ant-design/icons';
 import { CopyableValue } from '@/components/CopyableValue';
@@ -17,10 +17,6 @@ import { EventCard } from '@/components/EventCard';
 
 const eventOrderIds = new Set(orders.map(o => o.eventId));
 
-const EVENTS_SMART_SEARCH_OPTIONS = EVENT_FILTER_CATEGORIES.map(cat => ({
-  label: cat.label,
-  options: cat.options.map(opt => ({ value: `${cat.key}::${opt}`, label: opt })),
-}));
 import { FilterPanel } from '@/components/FilterPanel';
 import { PageHeader } from '@/components/PageHeader';
 import { DateRangeFilter } from '@/components/DateRangeFilter';
@@ -123,20 +119,46 @@ function EventsPageContent() {
     setSelectedEventKeys([]);
   };
 
-  const selectValue = EVENT_FILTER_CATEGORIES.flatMap(cat =>
-    (appliedFilters[cat.key] ?? []).map(v => `${cat.key}::${v}`)
-  );
+  const router = useRouter();
+  const [searchText, setSearchText] = useState('');
 
-  const handleSmartSearch = (values: string[]) => {
-    const next: Record<string, string[]> = {};
-    for (const v of values) {
-      const sep = v.indexOf('::');
-      const key = v.slice(0, sep);
-      const val = v.slice(sep + 2);
-      if (!next[key]) next[key] = [];
-      next[key].push(val);
+  const searchOptions = useMemo(() => {
+    const q = searchText.trim().toLowerCase();
+    if (!q) return [];
+    const matchingEvents = events
+      .filter(e => e.id.toLowerCase().includes(q) || e.jobNo.toLowerCase().includes(q))
+      .slice(0, 5)
+      .map(e => ({
+        value: `nav::event::${e.id}`,
+        label: (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{e.id}</span>
+            <span style={{ fontSize: 11, color: '#8c8c8c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.jobNo} · {e.discrepancy}</span>
+          </div>
+        ),
+      }));
+    const filterOpts = EVENT_FILTER_CATEGORIES.flatMap(cat =>
+      cat.options
+        .filter(opt => opt.toLowerCase().includes(q))
+        .map(opt => ({ value: `filter::${cat.key}::${opt}`, label: `${cat.label}: ${opt}` }))
+    );
+    return [
+      ...(matchingEvents.length > 0 ? [{ label: 'Go to Event', options: matchingEvents }] : []),
+      ...(filterOpts.length > 0 ? [{ label: 'Filter by', options: filterOpts }] : []),
+    ];
+  }, [searchText]);
+
+  const handleSearchSelect = (value: string) => {
+    setSearchText('');
+    if (value.startsWith('nav::event::')) {
+      router.push(`/events/${value.slice('nav::event::'.length)}`);
+    } else if (value.startsWith('filter::')) {
+      const rest = value.slice('filter::'.length);
+      const sep  = rest.indexOf('::');
+      const key  = rest.slice(0, sep);
+      const val  = rest.slice(sep + 2);
+      setAppliedFilters({ ...appliedFilters, [key]: [...new Set([...(appliedFilters[key] ?? []), val])] });
     }
-    setAppliedFilters(next);
   };
 
   const chips = EVENT_FILTER_CATEGORIES.flatMap((cat) =>
@@ -325,19 +347,17 @@ function EventsPageContent() {
         }
         center={
           !backToParam && (
-            <Select
-              mode="multiple"
-              showSearch
-              optionFilterProp="label"
-              placeholder="Search branch, product, status..."
-              options={EVENTS_SMART_SEARCH_OPTIONS}
-              value={selectValue}
-              onChange={handleSmartSearch}
-              maxTagCount="responsive"
+            <AutoComplete
+              value={searchText}
+              onChange={setSearchText}
+              onSelect={handleSearchSelect}
+              options={searchOptions}
+              placeholder="Search event ID, job no., branch, status..."
               style={{ width: '100%' }}
-              suffixIcon={<SearchOutlined style={{ color: token.colorTextQuaternary }} />}
               allowClear
-            />
+            >
+              <Input suffix={<SearchOutlined style={{ color: token.colorTextQuaternary }} />} />
+            </AutoComplete>
           )
         }
         right={

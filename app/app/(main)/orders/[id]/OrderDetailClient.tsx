@@ -4,8 +4,8 @@ import { useState, Fragment } from 'react';
 import Link from 'next/link';
 import { useOrderStore } from '@/store/orderStore';
 import {
-  Button, Card, Col, Divider, Dropdown, Form, Grid, Input, List, Modal,
-  Row, Select, Space, Switch, Table, Tag, Typography, theme,
+  Button, Card, Col, Divider, Dropdown, Form, Grid, Input, InputNumber, List, Modal,
+  Radio, Row, Select, Slider, Space, Switch, Table, Tag, Typography, theme,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -123,10 +123,15 @@ export function OrderDetailClient({ order, event }: Props) {
   const [reopenSuccess,      setReopenSuccess]      = useState(false);
   const [procurementSuccess, setProcurementSuccess] = useState(false);
 
+  const isMissingHardware = event.discrepancy === 'Missing Hardware';
+  const isSO = !order.jobNo.startsWith('WO');
+
   // Part modal
   const [partForm]          = Form.useForm();
   const [partModalOpen, setPartModalOpen] = useState(false);
   const [editingSeqNo, setEditingSeqNo]   = useState<number | null>(null);
+  const watchedKitInfo  = Form.useWatch('hardwareKitInfo', partForm);
+  const watchedQuantity = (Form.useWatch('quantity', partForm) as number | undefined) ?? 1;
 
   const addLog = (content: string, auto = true, atStatus?: Status) => {
     const entry: LogEntry = {
@@ -205,55 +210,65 @@ export function OrderDetailClient({ order, event }: Props) {
   const openAddPart = () => {
     setEditingSeqNo(null);
     partForm.resetFields();
+    partForm.setFieldsValue({
+      jobNo:       order.jobNo,
+      elLineItem:  isSO ? (event.elLine ?? undefined) : undefined,
+      quantity:    1,
+    });
     setPartModalOpen(true);
   };
 
   const openEditPart = (part: OrderPart) => {
     setEditingSeqNo(part.seqNo);
     partForm.setFieldsValue({
-      configId:       part.configId,
-      dfoLineItem:    part.dfoLineItem,
-      door:           part.door,
-      partNumber:     part.partNumber,
+      jobNo:           part.jobNo ?? order.jobNo,
+      elLineItem:      part.elLineItem ?? (isSO ? (event.elLine ?? undefined) : undefined),
+      dfoLineItem:     part.dfoLineItem,
+      door:            part.door,
+      partNumber:      part.partNumber,
       partDescription: part.partDescription,
-      quantityType:   part.quantityType,
-      quantity:       part.quantity,
+      quantityType:    part.quantityType,
+      quantity:        part.quantity,
       hardwareKitInfo: part.hardwareKitInfo ?? '',
-      serialNumber:   part.serialNumber ?? '',
+      serialNumber:    part.serialNumber ?? '',
     });
     setPartModalOpen(true);
   };
 
   const handleSavePart = () => {
     partForm.validateFields().then(values => {
+      const showSerial = isMissingHardware && watchedKitInfo === 'Entire Hardware Kit';
       if (editingSeqNo === null) {
         const newSeqNo = Math.max(...parts.map(p => p.seqNo), 0) + 1;
         const newPart: OrderPart = {
           seqNo:           newSeqNo,
-          configId:        values.configId,
+          jobNo:           values.jobNo || undefined,
+          configId:        `${values.jobNo || order.jobNo}.${newSeqNo}`,
+          elLineItem:      isSO ? (Number(values.elLineItem) || undefined) : undefined,
           dfoLineItem:     Number(values.dfoLineItem),
           door:            values.door,
           partNumber:      values.partNumber,
           partDescription: values.partDescription,
           quantityType:    values.quantityType,
           quantity:        Number(values.quantity),
-          hardwareKitInfo: values.hardwareKitInfo || undefined,
-          serialNumber:    values.serialNumber || undefined,
+          hardwareKitInfo: isMissingHardware ? (values.hardwareKitInfo || undefined) : undefined,
+          serialNumber:    showSerial ? (values.serialNumber || undefined) : undefined,
         };
         setParts(prev => [...prev, newPart]);
         addLog(`Part added: ${values.partNumber} — ${values.partDescription} (×${values.quantity} ${values.quantityType})`);
       } else {
         setParts(prev => prev.map(p => p.seqNo === editingSeqNo ? {
           ...p,
-          configId:        values.configId,
+          jobNo:           values.jobNo || undefined,
+          elLineItem:      isSO ? (Number(values.elLineItem) || undefined) : undefined,
           dfoLineItem:     Number(values.dfoLineItem),
           door:            values.door,
           partNumber:      values.partNumber,
           partDescription: values.partDescription,
           quantityType:    values.quantityType,
           quantity:        Number(values.quantity),
-          hardwareKitInfo: values.hardwareKitInfo || undefined,
-          serialNumber:    values.serialNumber || undefined,
+          hardwareKitInfo: isMissingHardware ? (values.hardwareKitInfo || undefined) : undefined,
+          serialNumber:    showSerial ? (values.serialNumber || undefined) : undefined,
         } : p));
         addLog(`Part ${values.partNumber} updated.`);
       }
@@ -286,6 +301,7 @@ export function OrderDetailClient({ order, event }: Props) {
         <Text style={{
           display: 'block', fontSize: token.fontSizeXS, fontWeight: 600, letterSpacing: '0.5px',
           textTransform: 'uppercase', marginBottom: 2, color: token.colorTextTertiary,
+          whiteSpace: 'nowrap',
         }}>
           {label}
         </Text>
@@ -499,6 +515,8 @@ export function OrderDetailClient({ order, event }: Props) {
                   {!isMobile && <div style={{ width: 1, background: token.colorBorderSecondary, alignSelf: 'stretch' }} />}
                   {([
                     { label: 'Discrepancy',  node: <Text style={{ fontSize: token.fontSizeSM }}>{event.discrepancy}</Text> },
+                    { label: 'Product',      node: <Text style={{ fontSize: token.fontSizeSM }}>{event.product}</Text> },
+                    { label: 'Door',         node: <Text style={{ fontSize: token.fontSizeSM }}>{event.door}</Text> },
                     { label: 'Last Updated', node: <Text style={{ fontSize: token.fontSizeSM }}>{order.lastUpdated}</Text> },
                     { label: 'Event ID',     node: <Link href={`/events/${event.id}`} style={{ fontSize: token.fontSizeSM }}>{event.id}</Link> },
                   ] as { label: string; node: React.ReactNode }[]).map(({ label, node }, i, arr) => (
@@ -541,6 +559,11 @@ export function OrderDetailClient({ order, event }: Props) {
                       </div>
                       {displayField('Part Description', part.partDescription)}
                       <div style={{ display: 'flex', gap: 16 }}>
+                        {displayField('Job No.', part.jobNo ?? order.jobNo, true)}
+                        {isSO && displayField('EL LIN', part.elLineItem ?? event.elLine, true)}
+                        {displayField('DFO LIN', part.dfoLineItem, true)}
+                      </div>
+                      <div style={{ display: 'flex', gap: 16 }}>
                         {displayField('Door Type', part.door)}
                         {displayField('Quantity', part.quantityType === 'Length' ? `${part.quantity} in.` : `${part.quantity} ${part.quantityType}`)}
                       </div>
@@ -561,18 +584,23 @@ export function OrderDetailClient({ order, event }: Props) {
                       gap: 0,
                     }}>
                       {/* Section 1: Part identity */}
-                      <div style={{ flex: 3, paddingRight: 20, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', gap: 12 }}>
+                      <div style={{ flex: 3, paddingRight: 16, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', gap: 12 }}>
                         {displayField('Part #', part.partNumber, true)}
                         {displayField('Part Description', part.partDescription)}
                       </div>
-                      <div style={{ width: 1, background: token.colorBorderSecondary, alignSelf: 'stretch', margin: '0 4px' }} />
+                      <div style={{ width: 1, background: token.colorBorderSecondary, alignSelf: 'stretch' }} />
                       {/* Section 2: Location */}
-                      <div style={{ flex: 1, padding: '0 20px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', gap: 12 }}>
+                      <div style={{ flex: 2, padding: '0 16px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', gap: 12 }}>
                         {displayField('Door Type', part.door)}
+                        <div style={{ display: 'flex', gap: 12 }}>
+                          {displayField('Job No.', part.jobNo ?? order.jobNo, true)}
+                          {isSO && displayField('EL LIN', part.elLineItem ?? event.elLine, true)}
+                          {displayField('DFO LIN', part.dfoLineItem, true)}
+                        </div>
                       </div>
-                      <div style={{ width: 1, background: token.colorBorderSecondary, alignSelf: 'stretch', margin: '0 4px' }} />
+                      <div style={{ width: 1, background: token.colorBorderSecondary, alignSelf: 'stretch' }} />
                       {/* Section 3: Fulfillment */}
-                      <div style={{ flex: 2.5, paddingLeft: 20, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', gap: 12 }}>
+                      <div style={{ flex: 2.5, paddingLeft: 16, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', gap: 12 }}>
                         <div style={{ display: 'flex', gap: 20 }}>
                           {displayField('Quantity Type', part.quantityType)}
                           {displayField('Quantity', part.quantityType === 'Length' ? `${part.quantity} in.` : String(part.quantity))}
@@ -1004,18 +1032,28 @@ export function OrderDetailClient({ order, event }: Props) {
         width={540}
       >
         <Form form={partForm} layout="vertical" size="small" style={{ marginTop: 8 }}>
+          {/* Row 1 — Order context */}
           <Row gutter={8}>
-            <Col flex={1}>
-              <Form.Item label="Config ID" name="configId" rules={[{ required: true, message: 'Required' }]} style={{ marginBottom: 10 }}>
-                <Input placeholder="e.g. SO109823809.1" />
+            <Col style={{ width: 148 }}>
+              <Form.Item label="Job No." name="jobNo" rules={[{ required: true, message: 'Required' }]} style={{ marginBottom: 10 }}>
+                <Input />
               </Form.Item>
             </Col>
-            <Col style={{ width: 72 }}>
-              <Form.Item label="DFO" name="dfoLineItem" rules={[{ required: true, message: 'Required' }]} style={{ marginBottom: 10 }}>
-                <Input type="number" min={1} />
+            {isSO && (
+              <Col style={{ width: 76 }}>
+                <Form.Item label="EL LIN" name="elLineItem" style={{ marginBottom: 10 }}>
+                  <InputNumber min={1} controls={false} style={{ width: '100%' }} />
+                </Form.Item>
+              </Col>
+            )}
+            <Col style={{ width: 80 }}>
+              <Form.Item label={<span style={{ whiteSpace: 'nowrap' }}>DFO LIN</span>} name="dfoLineItem" rules={[{ required: true, message: 'Required' }]} style={{ marginBottom: 10 }}>
+                <InputNumber min={1} controls={false} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
           </Row>
+
+          {/* Row 2 — Door Type */}
           <Form.Item label="Door Type" name="door" rules={[{ required: true, message: 'Required' }]} style={{ marginBottom: 10 }}>
             <Select
               showSearch
@@ -1024,6 +1062,8 @@ export function OrderDetailClient({ order, event }: Props) {
               options={DOOR_OPTIONS.map(v => ({ value: v, label: v }))}
             />
           </Form.Item>
+
+          {/* Row 3 — Part # + Part Description */}
           <Row gutter={8}>
             <Col flex={1}>
               <Form.Item label="Part #" name="partNumber" rules={[{ required: true, message: 'Required' }]} style={{ marginBottom: 10 }}>
@@ -1040,38 +1080,69 @@ export function OrderDetailClient({ order, event }: Props) {
               </Form.Item>
             </Col>
             <Col flex={1}>
-              <Form.Item label="Hardware Kit Information" name="hardwareKitInfo" style={{ marginBottom: 10 }}>
-                <Select allowClear placeholder="None"
-                  options={['Entire Hardware Kit', 'Components within Hardware Kit'].map(v => ({ value: v, label: v }))}
+              <Form.Item label="Part Description" name="partDescription" rules={[{ required: true, message: 'Required' }]} style={{ marginBottom: 10 }}>
+                <Select
+                  showSearch
+                  placeholder="Select or auto-filled"
+                  optionFilterProp="label"
+                  options={PART_CATALOG.map(p => ({ value: p.partDescription, label: p.partDescription }))}
                 />
               </Form.Item>
             </Col>
-            <Col flex={1}>
-              <Form.Item label="Serial #" name="serialNumber" style={{ marginBottom: 10 }}>
-                <Input placeholder="Optional" />
-              </Form.Item>
-            </Col>
           </Row>
-          <Form.Item label="Part Description" name="partDescription" rules={[{ required: true, message: 'Required' }]} style={{ marginBottom: 10 }}>
-            <Select
-              showSearch
-              placeholder="Select or auto-filled from Part #"
-              optionFilterProp="label"
-              options={PART_CATALOG.map(p => ({ value: p.partDescription, label: p.partDescription }))}
-            />
+
+          {/* Row 4 — Hardware Kit (only for Missing Hardware events) */}
+          {isMissingHardware && (
+            <Row gutter={8}>
+              <Col flex={1}>
+                <Form.Item label="Hardware Kit Information" name="hardwareKitInfo" style={{ marginBottom: 10 }}>
+                  <Select
+                    allowClear
+                    placeholder="None"
+                    options={['Entire Hardware Kit', 'Components within Hardware Kit'].map(v => ({ value: v, label: v }))}
+                  />
+                </Form.Item>
+              </Col>
+              {watchedKitInfo === 'Entire Hardware Kit' && (
+                <Col flex={1}>
+                  <Form.Item label="Serial #" name="serialNumber" style={{ marginBottom: 10 }}>
+                    <Input placeholder="Enter serial number" />
+                  </Form.Item>
+                </Col>
+              )}
+            </Row>
+          )}
+
+          {/* Row 5 — Quantity Type + Quantity */}
+          <Form.Item label="Quantity Type" name="quantityType" rules={[{ required: true, message: 'Required' }]} style={{ marginBottom: 10 }}>
+            <Radio.Group buttonStyle="solid" size="small">
+              <Radio.Button value="Piece">Piece</Radio.Button>
+              <Radio.Button value="Length">Length</Radio.Button>
+            </Radio.Group>
           </Form.Item>
-          <Row gutter={8}>
-            <Col flex={1}>
-              <Form.Item label="Quantity Type" name="quantityType" rules={[{ required: true, message: 'Required' }]} style={{ marginBottom: 0 }}>
-                <Select options={['Piece', 'Length'].map(v => ({ value: v, label: v }))} />
-              </Form.Item>
-            </Col>
-            <Col style={{ width: 88 }}>
-              <Form.Item label="Quantity" name="quantity" rules={[{ required: true, message: 'Required' }]} style={{ marginBottom: 0 }}>
-                <Input type="number" min={1} />
-              </Form.Item>
-            </Col>
-          </Row>
+          <Form.Item label="Quantity" style={{ marginBottom: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <Slider
+                  min={1}
+                  max={100}
+                  value={watchedQuantity}
+                  onChange={(v) => partForm.setFieldValue('quantity', v)}
+                  marks={{ 1: '1', 25: '25', 50: '50', 75: '75', 100: '100' }}
+                />
+              </div>
+              <InputNumber
+                min={1}
+                max={100}
+                value={watchedQuantity}
+                onChange={(v) => partForm.setFieldValue('quantity', v ?? 1)}
+                style={{ width: 68 }}
+              />
+            </div>
+            <Form.Item name="quantity" noStyle rules={[{ required: true, message: 'Required' }]}>
+              <Input type="hidden" />
+            </Form.Item>
+          </Form.Item>
         </Form>
       </Modal>
 

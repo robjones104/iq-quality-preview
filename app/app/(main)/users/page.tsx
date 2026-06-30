@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-  Badge, Button, Form, Input, Modal, Popconfirm,
-  Select, Table, Typography, theme,
+  AutoComplete, Badge, Button, Form, Input, Modal, Popconfirm,
+  Select, Table, Tag, Typography, theme,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { DeleteFilled, EditFilled, PlusOutlined, SearchOutlined } from '@ant-design/icons';
+import { CloseOutlined, DeleteFilled, EditFilled, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { PageHeader } from '@/components/PageHeader';
 import {
   users as SEED_USERS,
@@ -16,15 +16,9 @@ import {
 } from '@/data/users';
 import type { AppUser, UserRole, UserStatus } from '@/data/users';
 
-const USERS_SMART_SEARCH_OPTIONS = [
-  {
-    label: 'Role',
-    options: ROLE_OPTIONS.map(r => ({ value: `role::${r.value}`, label: r.label })),
-  },
-  {
-    label: 'Status',
-    options: ['Active', 'Inactive', 'Pending'].map(s => ({ value: `status::${s}`, label: s })),
-  },
+const USER_FILTER_CATEGORIES = [
+  { key: 'role',   label: 'Role',   options: ROLE_OPTIONS.map(r => r.label as string) },
+  { key: 'status', label: 'Status', options: ['Active', 'Inactive', 'Pending'] },
 ];
 
 const { Text } = Typography;
@@ -46,20 +40,43 @@ export default function UsersPage() {
   const [form]                      = Form.useForm<FormValues>();
   const selectedRole                = Form.useWatch('role', form) as UserRole | undefined;
 
-  const usersSelectValue = Object.entries(userFilters).flatMap(([key, vals]) =>
-    vals.map(v => `${key}::${v}`)
+  const [searchText, setSearchText] = useState('');
+
+  const searchOptions = useMemo(() => {
+    const q = searchText.trim().toLowerCase();
+    if (!q) return [];
+    const filterOpts = USER_FILTER_CATEGORIES.flatMap(cat =>
+      cat.options
+        .filter(opt => opt.toLowerCase().includes(q))
+        .map(opt => ({ value: `filter::${cat.key}::${opt}`, label: `${cat.label}: ${opt}` }))
+    );
+    return filterOpts.length > 0 ? [{ label: 'Filter by', options: filterOpts }] : [];
+  }, [searchText]);
+
+  const handleSearchSelect = (value: string) => {
+    setSearchText('');
+    if (value.startsWith('filter::')) {
+      const rest = value.slice('filter::'.length);
+      const sep  = rest.indexOf('::');
+      const key  = rest.slice(0, sep);
+      const val  = rest.slice(sep + 2);
+      setUserFilters(prev => ({ ...prev, [key]: [...new Set([...(prev[key] ?? []), val])] }));
+    }
+  };
+
+  const chips = USER_FILTER_CATEGORIES.flatMap(cat =>
+    (userFilters[cat.key] ?? []).map(val => `${cat.label}: ${val}`)
   );
 
-  const handleUsersSmartSearch = (values: string[]) => {
-    const next: Record<string, string[]> = {};
-    for (const v of values) {
-      const sep = v.indexOf('::');
-      const key = v.slice(0, sep);
-      const val = v.slice(sep + 2);
-      if (!next[key]) next[key] = [];
-      next[key].push(val);
-    }
-    setUserFilters(next);
+  const removeChip = (chip: string) => {
+    const [catLabel, val] = chip.split(': ');
+    const cat = USER_FILTER_CATEGORIES.find(c => c.label === catLabel);
+    if (!cat) return;
+    setUserFilters(prev => {
+      const next = { ...prev };
+      next[cat.key] = (next[cat.key] ?? []).filter(v => v !== val);
+      return next;
+    });
   };
 
   const filtered = users.filter(u => {
@@ -224,29 +241,39 @@ export default function UsersPage() {
             User Management
           </Text>
         }
+        center={
+          <AutoComplete
+            value={searchText}
+            onChange={setSearchText}
+            onSelect={handleSearchSelect}
+            options={searchOptions}
+            placeholder="Filter by role or status..."
+            style={{ width: '100%' }}
+            allowClear
+          >
+            <Input suffix={<SearchOutlined style={{ color: token.colorTextQuaternary }} />} />
+          </AutoComplete>
+        }
         right={
-          <div style={{ display: 'flex', gap: 8 }}>
-            <Select
-              mode="multiple"
-              showSearch
-              optionFilterProp="label"
-              placeholder="Filter by role or status..."
-              options={USERS_SMART_SEARCH_OPTIONS}
-              value={usersSelectValue}
-              onChange={handleUsersSmartSearch}
-              maxTagCount="responsive"
-              style={{ width: 260 }}
-              suffixIcon={<SearchOutlined style={{ color: token.colorTextQuaternary }} />}
-              allowClear
-            />
-            <Button type="primary" icon={<PlusOutlined />} onClick={openAdd}>
-              Invite User
-            </Button>
-          </div>
+          <Button type="primary" icon={<PlusOutlined />} onClick={openAdd}>
+            Invite User
+          </Button>
         }
       />
 
       <div style={{ padding: '16px 20px' }}>
+        {chips.length > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: token.marginXS, marginBottom: token.margin }}>
+            {chips.map(chip => (
+              <Tag key={chip} closable onClose={() => removeChip(chip)} closeIcon={<CloseOutlined />} style={{ margin: 0 }}>
+                {chip}
+              </Tag>
+            ))}
+            <Button type="link" size="small" onClick={() => setUserFilters({})} style={{ padding: '0 4px' }}>
+              Clear all
+            </Button>
+          </div>
+        )}
         <Table
           dataSource={filtered}
           rowKey="id"

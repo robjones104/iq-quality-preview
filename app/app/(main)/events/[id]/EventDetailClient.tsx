@@ -6,11 +6,11 @@ import { useRouter } from 'next/navigation';
 import { useEventStore } from '@/store/eventStore';
 import {
   Button, Card, Col, Divider, Drawer, Dropdown, Form, Grid, Input, List, Modal, Row, Select, Space, Switch,
-  Table, Typography, theme,
+  Table, Typography, Upload, theme,
 } from 'antd';
 import {
-  ArrowLeftOutlined, CheckCircleFilled, CheckOutlined, CloseCircleFilled, CloseOutlined, EditFilled, ExclamationCircleFilled,
-  FileAddFilled, MessageFilled, MoreOutlined, PictureFilled, PlusOutlined,
+  ArrowLeftOutlined, CheckCircleFilled, CheckOutlined, CloseCircleFilled, CloseOutlined, DeleteOutlined, EditFilled, ExclamationCircleFilled,
+  FileAddFilled, FileExcelOutlined, MessageFilled, MoreOutlined, FileOutlined, FilePdfOutlined, FileWordOutlined, InboxOutlined, PaperClipOutlined, PictureFilled, PlusOutlined,
   RollbackOutlined, SaveFilled, SearchOutlined, StarFilled, StopFilled, ToolFilled,
 } from '@ant-design/icons';
 import { CopyableValue } from '@/components/CopyableValue';
@@ -20,7 +20,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { logs } from '@/data/logs';
 import { events as allEvents } from '@/data/events';
 import { ESCALATION_TYPE_OPTIONS } from '@/data/manageLists';
-import { DISCREPANCY_OPTIONS, DOOR_OPTIONS, PRODUCT_OPTIONS } from '@/data/filterOptions';
+import { DISCREPANCY_OPTIONS, DOOR_OPTIONS, PART_CATALOG, PRODUCT_OPTIONS } from '@/data/filterOptions';
 import { CreateEscalationModal } from '@/components/CreateEscalationModal';
 import type { QualityEvent, EventStatus, RootCause, ActivityLog } from '@/data/types';
 const { Text, Paragraph } = Typography;
@@ -115,7 +115,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   const [historical, setHistorical]           = useState<string | null>(null);
   const [loadingHistorical, setLoadingHistorical] = useState(false);
   const [insightsStep, setInsightsStep]       = useState<null | 'summary' | 'historical'>(null);
-  const [activeTab, setActiveTab]             = useState<'details' | 'log' | 'photos'>('details');
+  const [activeTab, setActiveTab]             = useState<'details' | 'log' | 'photos' | 'attachments'>('details');
   const [addingLog, setAddingLog]             = useState(false);
   const [newLogComment, setNewLogComment]     = useState('');
   const [validateOpen, setValidateOpen]       = useState(false);
@@ -147,7 +147,16 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
     ...(evtStored.activityLogAdditions ?? []),
   ]);
   const [editForm]                            = Form.useForm();
-  const lastLoggedRootCause                   = useRef<string | null>(event.rootCause);
+  const lastLoggedRootCause = useRef<string | null>(event.rootCause);
+  const lastSavedValues = useRef({
+    discrepancy:      event.discrepancy,
+    product:          event.product,
+    door:             event.door,
+    jobNo:            event.jobNo,
+    issueDescription: event.issueDescription,
+  });
+  const [attachments, setAttachments] = useState<Array<{ uid: string; name: string; size: number; date: string; blobUrl: string }>>([]);
+  const [previewFile, setPreviewFile] = useState<{ name: string; blobUrl: string } | null>(null);
   const dragStartY                             = useRef(0);
   const { token } = theme.useToken();
   const router = useRouter();
@@ -178,19 +187,24 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
 
   const handleSaveEdits = () => {
     const values = editForm.getFieldsValue();
-    const tracked: Array<[string, string, keyof typeof values]> = [
-      ['Discrepancy',       event.discrepancy,       'discrepancy'],
-      ['Product',           event.product,            'product'],
-      ['Door',              event.door,               'door'],
-      ['Job No.',           event.jobNo,              'jobNo'],
-      ['Issue Description', event.issueDescription,   'issueDescription'],
+    const prev = lastSavedValues.current;
+    const tracked: Array<[string, string, string]> = [
+      ['Discrepancy',       prev.discrepancy,      String(values.discrepancy      ?? prev.discrepancy)],
+      ['Product',           prev.product,           String(values.product           ?? prev.product)],
+      ['Door',              prev.door,              String(values.door              ?? prev.door)],
+      ['Job No.',           prev.jobNo,             String(values.jobNo             ?? prev.jobNo)],
+      ['Issue Description', prev.issueDescription,  String(values.issueDescription  ?? prev.issueDescription)],
     ];
-    for (const [label, original, key] of tracked) {
-      const next = String(values[key] ?? '');
-      if (next && next !== String(original)) {
-        logEditEntry(label, String(original), next);
-      }
+    for (const [label, from, to] of tracked) {
+      if (to !== from) logEditEntry(label, from || '—', to || '—');
     }
+    lastSavedValues.current = {
+      discrepancy:      String(values.discrepancy      ?? prev.discrepancy),
+      product:          String(values.product           ?? prev.product),
+      door:             String(values.door              ?? prev.door),
+      jobNo:            String(values.jobNo             ?? prev.jobNo),
+      issueDescription: String(values.issueDescription  ?? prev.issueDescription),
+    };
     setEditingProduct(false);
   };
 
@@ -200,6 +214,8 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   const [hkComponents, setHkComponents] = useState<Array<{ partNumber: string; description: string }>>(
     [{ partNumber: '', description: '' }]
   );
+  const [editPartNumber, setEditPartNumber] = useState<string>('');
+  const [editPartDescription, setEditPartDescription] = useState<string>('');
 
   const stepIdx      = STATUS_STEP[status];
   const reportedDate = event.reportedAt.replace('T', ' ').substring(0, 16);
@@ -609,12 +625,13 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
             <Card
               size="small"
               tabList={[
-                { key: 'details', label: <span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>{isMobile ? 'Details' : 'Event Details'}</span> },
-                { key: 'log',     label: <span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>{isMobile ? 'Logs' : 'Activity Log'}</span> },
+                { key: 'details',     label: <span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>{isMobile ? 'Details' : 'Event Details'}</span> },
+                { key: 'log',         label: <span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>{isMobile ? 'Logs' : 'Activity Log'}</span> },
+                { key: 'attachments', label: <span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}><PaperClipOutlined style={{ marginRight: 4 }} />Attachments{attachments.length > 0 ? ` (${attachments.length})` : ''}</span> },
                 ...(isMobile ? [{ key: 'photos', label: <span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Photos</span> }] : []),
               ]}
               activeTabKey={activeTab}
-              onTabChange={(key) => setActiveTab(key as 'details' | 'log' | 'photos')}
+              onTabChange={(key) => setActiveTab(key as 'details' | 'log' | 'photos' | 'attachments')}
               tabBarExtraContent={
                 activeTab === 'details' ? (
                   editingProduct ? (
@@ -633,7 +650,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                   </Button>
                 ) : activeTab === 'photos' ? (
                   <Button type="text" size="small" icon={<PlusOutlined />} />
-                ) : null
+                ) : activeTab === 'attachments' ? null : null
               }
               style={isMobile ? undefined : { flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
               styles={{ body: isMobile ? { padding: 16, display: 'flex', flexDirection: 'column' } : { flex: 1, overflow: 'auto', padding: 16, minHeight: 0, display: 'flex', flexDirection: 'column' } }}
@@ -781,12 +798,38 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                               )}
                               {editingProduct ? (
                                 <Form layout="vertical" size="small">
-                                  <Form.Item label="Part #" style={{ marginBottom: 10 }}>
-                                    <Input defaultValue={event.partsRequest[selectedPartIdx].partNumber} />
-                                  </Form.Item>
-                                  <Form.Item label="Parts Description" style={{ marginBottom: 10 }}>
-                                    <Input.TextArea defaultValue={event.partsRequest[selectedPartIdx].description} rows={2} />
-                                  </Form.Item>
+                                  <Row gutter={8}>
+                                    <Col flex={1}>
+                                      <Form.Item label="Part #" style={{ marginBottom: 10 }}>
+                                        <Select
+                                          showSearch
+                                          value={editPartNumber || event.partsRequest[selectedPartIdx].partNumber}
+                                          options={PART_CATALOG.map(p => ({ value: p.partNumber, label: p.partNumber }))}
+                                          onChange={v => {
+                                            setEditPartNumber(v);
+                                            const match = PART_CATALOG.find(p => p.partNumber === v);
+                                            if (match) setEditPartDescription(match.partDescription);
+                                          }}
+                                          style={{ width: '100%' }}
+                                        />
+                                      </Form.Item>
+                                    </Col>
+                                    <Col flex={2}>
+                                      <Form.Item label="Part Description" style={{ marginBottom: 10 }}>
+                                        <Select
+                                          showSearch
+                                          value={editPartDescription || event.partsRequest[selectedPartIdx].description}
+                                          options={PART_CATALOG.map(p => ({ value: p.partDescription, label: p.partDescription }))}
+                                          onChange={v => {
+                                            setEditPartDescription(v);
+                                            const match = PART_CATALOG.find(p => p.partDescription === v);
+                                            if (match) setEditPartNumber(match.partNumber);
+                                          }}
+                                          style={{ width: '100%' }}
+                                        />
+                                      </Form.Item>
+                                    </Col>
+                                  </Row>
                                   <Row gutter={8}>
                                     <Col flex={1}>
                                       <Form.Item label="Quantity Type" style={{ marginBottom: 0 }}>
@@ -981,6 +1024,103 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                   {photosContent}
                 </div>
               )}
+
+              {activeTab === 'attachments' && (() => {
+                const fmtSize = (b: number) => b < 1024 ? `${b} B` : b < 1048576 ? `${(b / 1024).toFixed(1)} KB` : `${(b / 1048576).toFixed(1)} MB`;
+                const fileIcon = (name: string) => {
+                  const ext = name.split('.').pop()?.toLowerCase();
+                  if (ext === 'pdf') return <FilePdfOutlined style={{ fontSize: 20, color: '#ff4d4f' }} />;
+                  if (['xlsx', 'xls', 'csv'].includes(ext ?? '')) return <FileExcelOutlined style={{ fontSize: 20, color: '#52c41a' }} />;
+                  if (['doc', 'docx'].includes(ext ?? '')) return <FileWordOutlined style={{ fontSize: 20, color: '#1677ff' }} />;
+                  return <FileOutlined style={{ fontSize: 20, color: token.colorTextTertiary }} />;
+                };
+                return (
+                  <>
+                  <Modal
+                    open={previewFile !== null}
+                    onCancel={() => setPreviewFile(null)}
+                    footer={null}
+                    title={<Text style={{ fontSize: token.fontSizeSM, fontWeight: 500 }} ellipsis={{ tooltip: previewFile?.name }}>{previewFile?.name}</Text>}
+                    width="80vw"
+                    styles={{ body: { padding: 0, overflow: 'hidden', borderRadius: token.borderRadiusSM } }}
+                    destroyOnClose
+                  >
+                    {(() => {
+                      if (!previewFile) return null;
+                      const ext = previewFile.name.split('.').pop()?.toLowerCase() ?? '';
+                      const isImage = ['png','jpg','jpeg'].includes(ext);
+                      const isEmbeddable = ['pdf','txt','csv'].includes(ext);
+                      if (isImage) return (
+                        <img src={previewFile.blobUrl} alt={previewFile.name} style={{ width: '100%', maxHeight: '80vh', objectFit: 'contain', display: 'block' }} />
+                      );
+                      if (isEmbeddable) return (
+                        <iframe src={previewFile.blobUrl} style={{ width: '100%', height: '75vh', border: 'none', display: 'block' }} title={previewFile.name} />
+                      );
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '48px 24px' }}>
+                          <FileOutlined style={{ fontSize: 48, color: token.colorTextTertiary }} />
+                          <Text style={{ color: token.colorTextSecondary }}>Preview not available for this file type.</Text>
+                          <a href={previewFile.blobUrl} download={previewFile.name}>
+                            <Button type="primary">Download</Button>
+                          </a>
+                        </div>
+                      );
+                    })()}
+                  </Modal>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <Upload.Dragger
+                      multiple
+                      accept=".pdf,.png,.jpg,.jpeg,.csv,.txt,.xlsx,.xls,.doc,.docx,.ppt,.pptx"
+                      showUploadList={false}
+                      beforeUpload={(file) => {
+                        const blobUrl = URL.createObjectURL(file);
+                        const att = { uid: `att_${Date.now()}_${file.name}`, name: file.name, size: file.size, date: nowTs(), blobUrl };
+                        setAttachments(prev => [...prev, att]);
+                        addToActivityLog(`Attachment added: ${file.name}`);
+                        return false;
+                      }}
+                      style={{ borderRadius: token.borderRadiusSM }}
+                    >
+                      <p style={{ margin: 0, paddingBottom: 4 }}><InboxOutlined style={{ fontSize: 24, color: token.colorPrimary }} /></p>
+                      <p style={{ margin: 0, fontSize: token.fontSizeSM, color: token.colorText }}>Drag files here or <span style={{ color: token.colorPrimary }}>click to upload</span></p>
+                      <p style={{ margin: '4px 0 0', fontSize: token.fontSizeXS, color: token.colorTextTertiary }}>
+                        Preview in-app: PDF, PNG, JPG, CSV, TXT
+                      </p>
+                      <p style={{ margin: '2px 0 0', fontSize: token.fontSizeXS, color: token.colorTextQuaternary }}>
+                        Download only: Excel, Word, PowerPoint
+                      </p>
+                    </Upload.Dragger>
+                    {attachments.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {attachments.map(att => (
+                          <div key={att.uid} style={{
+                            display: 'flex', alignItems: 'center', gap: 10,
+                            padding: '8px 12px',
+                            background: token.colorFillQuaternary,
+                            borderRadius: token.borderRadiusSM,
+                            border: `1px solid ${token.colorBorderSecondary}`,
+                            cursor: 'pointer',
+                          }}
+                            onClick={() => setPreviewFile({ name: att.name, blobUrl: att.blobUrl })}
+                          >
+                            {fileIcon(att.name)}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <Text style={{ fontSize: token.fontSizeSM, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: token.colorPrimary }}>{att.name}</Text>
+                              <Text style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary }}>{fmtSize(att.size)} · {att.date}</Text>
+                            </div>
+                            <Button
+                              type="text" size="small" icon={<DeleteOutlined />}
+                              style={{ color: token.colorTextTertiary, flexShrink: 0 }}
+                              onClick={(e) => { e.stopPropagation(); setAttachments(prev => prev.filter(a => a.uid !== att.uid)); }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  </>
+                );
+              })()}
 
               {activeTab === 'log' && (
                 <>

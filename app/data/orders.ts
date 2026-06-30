@@ -2,6 +2,8 @@ export type OrderStatus = 'Open' | 'Closed';
 
 export interface OrderPart {
   seqNo: number;
+  jobNo?: string;
+  elLineItem?: number;
   hardwareKitInfo?: string;
   serialNumber?: string;
   configId: string;
@@ -227,19 +229,19 @@ const HAND_CRAFTED_ORDERS: Order[] = [
 
   // ── Jun 16–20 2026 ────────────────────────────────────────────────────────
   {
-    id: 'QE_2403_Order', eventId: 'QE_2393', orderStatus: 'Open', jobNo: 'SO110011201', lastUpdated: '06-16-2026 09:12',
+    id: 'QE_2393_Order_2', eventId: 'QE_2393', orderStatus: 'Open', jobNo: 'SO110011201', lastUpdated: '06-16-2026 09:12',
     parts: [
       { seqNo: 1, configId: 'SO110011201.1', dfoLineItem: 1, door: 'Dura_Glide 3000 Series', partNumber: '413856-1', quantityType: 'Piece', quantity: 2, partDescription: 'Motor Gearbox Assembly - (STANDARD, 24V, NAR)' },
     ],
   },
   {
-    id: 'QE_2404_Order', eventId: 'QE_2394', orderStatus: 'Closed', jobNo: 'SO110011898', lastUpdated: '06-16-2026 14:35', approved: true, assignedToProcurement: true,
+    id: 'QE_2394_Order_2', eventId: 'QE_2394', orderStatus: 'Closed', jobNo: 'SO110011898', lastUpdated: '06-16-2026 14:35', approved: true, assignedToProcurement: true,
     parts: [
       { seqNo: 1, configId: 'SO110011898.1', dfoLineItem: 2, door: 'Procare 8500', partNumber: '430114-1', quantityType: 'Piece', quantity: 1, partDescription: 'Door Closer Spring - (STANDARD DUTY, SIZE 3, NAR)' },
     ],
   },
   {
-    id: 'QE_2405_Order', eventId: 'QE_2395', orderStatus: 'Closed', jobNo: 'SO110012544', lastUpdated: '06-16-2026 16:48', declined: true,
+    id: 'QE_2395_Order_2', eventId: 'QE_2395', orderStatus: 'Closed', jobNo: 'SO110012544', lastUpdated: '06-16-2026 16:48', declined: true,
     parts: [
       { seqNo: 1, configId: 'SO110012544.1', dfoLineItem: 1, door: 'Dura_Glide 2000 Series', partNumber: '421033-1', quantityType: 'Piece', quantity: 1, partDescription: 'Controller PCB Assembly - (STANDARD, 24VDC, NAR)' },
     ],
@@ -291,19 +293,19 @@ const HAND_CRAFTED_ORDERS: Order[] = [
     ],
   },
   {
-    id: 'QE_2406_Order', eventId: 'QE_2399', orderStatus: 'Closed', jobNo: 'SO110019112', lastUpdated: '06-19-2026 09:27', approved: true, assignedToProcurement: true,
+    id: 'QE_2399_Order_2', eventId: 'QE_2399', orderStatus: 'Closed', jobNo: 'SO110019112', lastUpdated: '06-19-2026 09:27', approved: true, assignedToProcurement: true,
     parts: [
       { seqNo: 1, configId: 'SO110019112.1', dfoLineItem: 1, door: 'Dura_Glide Greenstar 3000', partNumber: '435670-1', quantityType: 'Piece', quantity: 1, partDescription: 'Thermal Seal Insert - (HIGH TEMP, GREENSTAR, NAR)' },
     ],
   },
   {
-    id: 'QE_2407_Order', eventId: 'QE_2398', orderStatus: 'Open', jobNo: 'WO110019445', lastUpdated: '06-19-2026 11:03',
+    id: 'QE_2398_Order_2', eventId: 'QE_2398', orderStatus: 'Open', jobNo: 'WO110019445', lastUpdated: '06-19-2026 11:03',
     parts: [
       { seqNo: 1, configId: 'WO110019445.1', dfoLineItem: 2, door: 'Dura_Glide 3000 Series', partNumber: '444512-1', quantityType: 'Piece', quantity: 1, partDescription: 'Jamb Harness Connector - (STANDARD, IP65, NAR)' },
     ],
   },
   {
-    id: 'QE_2408_Order', eventId: 'QE_2397', orderStatus: 'Closed', jobNo: 'SO110019780', lastUpdated: '06-19-2026 15:51', declined: true,
+    id: 'QE_2397_Order_2', eventId: 'QE_2397', orderStatus: 'Closed', jobNo: 'SO110019780', lastUpdated: '06-19-2026 15:51', declined: true,
     parts: [
       { seqNo: 1, configId: 'SO110019780.1', dfoLineItem: 3, door: 'M-Force Swing Door', partNumber: '418221-1', quantityType: 'Piece', quantity: 1, partDescription: 'Through-Bolt Set - (HM FRAME, 3/8IN, NAR)' },
     ],
@@ -331,68 +333,68 @@ const HAND_CRAFTED_ORDERS: Order[] = [
 
   // ── Jun 21–24 2026 ────────────────────────────────────────────────────────
   {
-    id: 'QE_2409_Order', eventId: 'QE_2401', orderStatus: 'Closed', jobNo: 'SO110022101', lastUpdated: '06-21-2026 09:18', approved: true, assignedToProcurement: true,
+    id: 'QE_2401_Order_2', eventId: 'QE_2401', orderStatus: 'Closed', jobNo: 'SO110022101', lastUpdated: '06-21-2026 09:18', approved: true, assignedToProcurement: true,
     parts: [
       { seqNo: 1, configId: 'SO110022101.1', dfoLineItem: 1, door: 'Dura_Glide Greenstar 3000', partNumber: '413856-2', quantityType: 'Piece', quantity: 1, partDescription: 'Fastener Kit - (M-SERIES, ZINC, NAR)' },
     ],
   },
   {
-    id: 'QE_2410_Order', eventId: 'QE_2402', orderStatus: 'Open', jobNo: 'WO110022498', lastUpdated: '06-21-2026 13:44',
+    id: 'QE_2402_Order_2', eventId: 'QE_2402', orderStatus: 'Open', jobNo: 'WO110022498', lastUpdated: '06-21-2026 13:44',
     parts: [
       { seqNo: 1, configId: 'WO110022498.1', dfoLineItem: 2, door: 'Dura_Glide 5200', partNumber: '437110-1', quantityType: 'Piece', quantity: 1, partDescription: 'LH Operator Assembly - (DURA-GLIDE 5200, LH, NAR)' },
     ],
   },
   {
-    id: 'QE_2411_Order', eventId: 'QE_2400', orderStatus: 'Closed', jobNo: 'SO110022895', lastUpdated: '06-22-2026 08:55', declined: true,
+    id: 'QE_2400_Order_2', eventId: 'QE_2400', orderStatus: 'Closed', jobNo: 'SO110022895', lastUpdated: '06-22-2026 08:55', declined: true,
     parts: [
       { seqNo: 1, configId: 'SO110022895.1', dfoLineItem: 3, door: 'Procare 8300', partNumber: '421034-1', quantityType: 'Piece', quantity: 2, partDescription: 'Controller PCB Assembly - (FIRMWARE V1.8, 24VDC, NAR)' },
     ],
   },
   {
-    id: 'QE_2412_Order', eventId: 'QE_2399', orderStatus: 'Closed', jobNo: 'SO110023292', lastUpdated: '06-22-2026 11:30', approved: true,
+    id: 'QE_2399_Order_3', eventId: 'QE_2399', orderStatus: 'Closed', jobNo: 'SO110023292', lastUpdated: '06-22-2026 11:30', approved: true,
     parts: [
       { seqNo: 1, configId: 'SO110023292.1', dfoLineItem: 1, door: 'All Glass 2000', partNumber: '440221-1', quantityType: 'Piece', quantity: 1, partDescription: 'Glass Panel - (TEMPERED, CLEAR, NAR)' },
     ],
   },
   {
-    id: 'QE_2413_Order', eventId: 'QE_2396', orderStatus: 'Open', jobNo: 'SO110023689', lastUpdated: '06-22-2026 15:07',
+    id: 'QE_2396_Order_2', eventId: 'QE_2396', orderStatus: 'Open', jobNo: 'SO110023689', lastUpdated: '06-22-2026 15:07',
     parts: [
       { seqNo: 1, configId: 'SO110023689.1', dfoLineItem: 2, door: 'IS 10000', partNumber: '425902-1', quantityType: 'Piece', quantity: 1, partDescription: 'Activation Sensor Assembly - (IS 10000, STANDARD, NAR)' },
     ],
   },
   {
-    id: 'QE_2414_Order', eventId: 'QE_2394', orderStatus: 'Open', jobNo: 'WO110024086', lastUpdated: '06-23-2026 08:33',
+    id: 'QE_2394_Order_3', eventId: 'QE_2394', orderStatus: 'Open', jobNo: 'WO110024086', lastUpdated: '06-23-2026 08:33',
     parts: [
       { seqNo: 1, configId: 'WO110024086.1', dfoLineItem: 1, door: 'Dura_Glide 3000 Series', partNumber: '413856-3', quantityType: 'Piece', quantity: 2, partDescription: 'Motor Gearbox Assembly - (DURA-GLIDE 3000, 24V, NAR)' },
     ],
   },
   {
-    id: 'QE_2415_Order', eventId: 'QE_2393', orderStatus: 'Closed', jobNo: 'SO110024483', lastUpdated: '06-23-2026 10:19', approved: true, assignedToProcurement: true,
+    id: 'QE_2393_Order_3', eventId: 'QE_2393', orderStatus: 'Closed', jobNo: 'SO110024483', lastUpdated: '06-23-2026 10:19', approved: true, assignedToProcurement: true,
     parts: [
       { seqNo: 1, configId: 'SO110024483.1', dfoLineItem: 2, door: 'Dura_Glide Greenstar 2000', partNumber: '421033-3', quantityType: 'Piece', quantity: 1, partDescription: 'Controller PCB Assembly - (FIRMWARE V3.0, 24VDC, NAR)' },
     ],
   },
   {
-    id: 'QE_2416_Order', eventId: 'QE_2397', orderStatus: 'Open', jobNo: 'WO110024880', lastUpdated: '06-23-2026 14:52',
+    id: 'QE_2397_Order_3', eventId: 'QE_2397', orderStatus: 'Open', jobNo: 'WO110024880', lastUpdated: '06-23-2026 14:52',
     parts: [
       { seqNo: 1, configId: 'WO110024880.1', dfoLineItem: 1, door: 'Dura_Glide 5200', partNumber: '437110-2', quantityType: 'Piece', quantity: 1, partDescription: 'LH Guide Rail Assembly - (DURA-GLIDE 5200, 1200MM, NAR)' },
       { seqNo: 2, configId: 'WO110024880.2', dfoLineItem: 1, door: 'Dura_Glide 5200', partNumber: '437110-1', quantityType: 'Piece', quantity: 1, partDescription: 'LH Operator Assembly - (DURA-GLIDE 5200, LH, NAR)' },
     ],
   },
   {
-    id: 'QE_2417_Order', eventId: 'QE_2392', orderStatus: 'Open', jobNo: 'SO110025277', lastUpdated: '06-24-2026 08:14',
+    id: 'QE_2392_Order_2', eventId: 'QE_2392', orderStatus: 'Open', jobNo: 'SO110025277', lastUpdated: '06-24-2026 08:14',
     parts: [
       { seqNo: 1, configId: 'SO110025277.1', dfoLineItem: 1, door: 'Dura_Glide Greenstar 3000', partNumber: '413856-1', quantityType: 'Piece', quantity: 3, partDescription: 'Secondary Mounting Bracket Assembly - (MOTOR GEARBOX, GREENSTAR, NAR)' },
     ],
   },
   {
-    id: 'QE_2418_Order', eventId: 'QE_2395', orderStatus: 'Closed', jobNo: 'SO110025674', lastUpdated: '06-24-2026 10:45', approved: true,
+    id: 'QE_2395_Order_3', eventId: 'QE_2395', orderStatus: 'Closed', jobNo: 'SO110025674', lastUpdated: '06-24-2026 10:45', approved: true,
     parts: [
       { seqNo: 1, configId: 'SO110025674.1', dfoLineItem: 3, door: 'Procare 8300 A', partNumber: '418222-1', quantityType: 'Piece', quantity: 1, partDescription: 'Mounting Screw Set - (M6 HEX, SS, NAR)' },
     ],
   },
   {
-    id: 'QE_2419_Order', eventId: 'QE_2391', orderStatus: 'Open', jobNo: 'WO110026071', lastUpdated: '06-24-2026 13:28',
+    id: 'QE_2391_Order_2', eventId: 'QE_2391', orderStatus: 'Open', jobNo: 'WO110026071', lastUpdated: '06-24-2026 13:28',
     parts: [
       { seqNo: 1, configId: 'WO110026071.1', dfoLineItem: 2, door: 'Dura_Glide Greenstar 3000', partNumber: '413857-2', quantityType: 'Piece', quantity: 1, partDescription: 'Motor Gearbox Assembly - (STANDARD, 24V, NAR)' },
     ],
