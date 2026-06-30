@@ -44,6 +44,8 @@ function EventsPageContent() {
   const fromParam        = searchParams.get('from');
   const toParam          = searchParams.get('to');
   const backToParam      = searchParams.get('backTo');
+  const tagParam         = searchParams.get('tag');
+  const idsParam         = searchParams.get('ids');
 
   const { eventsDateRange, setEventsDateRange, eventsFilters, setEventsFilters } = useFilterStore();
 
@@ -150,12 +152,17 @@ function EventsPageContent() {
     setAppliedFilters(next);
   };
 
+  const tagFilter = tagParam?.split(',').filter(Boolean) ?? [];
+  const idsFilter = idsParam?.split(',').filter(Boolean) ?? [];
+
   const filtered = events.filter((e) => {
     if (dateRange) {
       const d = dayjs(e.date);
       if (d.isBefore(dateRange[0], 'day') || d.isAfter(dateRange[1], 'day')) return false;
     }
     if (flagParam === 'additionalInfo' && !e.additionalInfoRequested) return false;
+    if (tagFilter.length && !tagFilter.some(t => e.tags?.includes(t))) return false;
+    if (idsFilter.length && !idsFilter.includes(e.id)) return false;
     const matchStatus      = !appliedFilters.status?.length      || appliedFilters.status.includes(e.status);
     const matchDiscrepancy = !appliedFilters.discrepancy?.length || appliedFilters.discrepancy.includes(e.discrepancy);
     const matchDoor        = !appliedFilters.door?.length        || appliedFilters.door.includes(e.door);

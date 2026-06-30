@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  Button, Divider, Input, Popconfirm, Table, Tabs, Tag, Typography, theme,
+  Button, Input, Popconfirm, Table, Tabs, Tag, Typography, theme,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -11,8 +11,7 @@ import {
   PlusOutlined,
 } from '@ant-design/icons';
 import { PageHeader } from '@/components/PageHeader';
-import { StatusTag } from '@/components/StatusTag';
-import type { QualityEvent, EventStatus } from '@/data/types';
+import type { QualityEvent } from '@/data/types';
 import type { Escalation } from '@/data/escalations';
 import type { ListItem } from '@/data/manageLists';
 
@@ -39,11 +38,6 @@ export function ManageListsClient({
   const [activeTab, setActiveTab] = useState(defaultTab);
   const [rootCauses, setRootCauses] = useState<ListItem[]>(initialRootCauses);
   const [tags, setTags] = useState<ListItem[]>(initialTags);
-  const [selectedItem, setSelectedItem] = useState<{
-    type: 'root-cause' | 'tag' | 'escalation';
-    name: string;
-    id: string;
-  } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
   const [addingTo, setAddingTo] = useState<'root-causes' | 'tags' | null>(null);
@@ -79,10 +73,6 @@ export function ManageListsClient({
     setList(list.map(item =>
       item.id === editingId ? { ...item, name: editingName } : item,
     ));
-    // If the selected item was the one being edited, update its name in state too
-    if (selectedItem?.id === editingId) {
-      setSelectedItem(prev => prev ? { ...prev, name: editingName } : null);
-    }
     setEditingId(null);
     setEditingName('');
   };
@@ -93,7 +83,6 @@ export function ManageListsClient({
     setList: React.Dispatch<React.SetStateAction<ListItem[]>>,
   ) => {
     setList(prev => prev.filter(item => item.id !== id));
-    if (selectedItem?.id === id) setSelectedItem(null);
   };
 
   const addItem = (type: 'root-causes' | 'tags') => {
@@ -117,7 +106,6 @@ export function ManageListsClient({
     setKeys: React.Dispatch<React.SetStateAction<React.Key[]>>,
   ) => {
     setList(prev => prev.filter(item => !keys.includes(item.id)));
-    if (selectedItem && keys.includes(selectedItem.id)) setSelectedItem(null);
     setKeys([]);
   };
 
@@ -360,7 +348,6 @@ export function ManageListsClient({
             okButtonProps={{ danger: true }}
             onConfirm={e => {
               e?.stopPropagation();
-              if (selectedItem?.id === row.id) setSelectedItem(null);
             }}
             onCancel={e => e?.stopPropagation()}
           >
@@ -376,22 +363,6 @@ export function ManageListsClient({
       ),
     },
   ];
-
-  // ── Derived panel data ─────────────────────────────────────────────────────
-
-  const panelEvents: QualityEvent[] = (() => {
-    if (!selectedItem) return [];
-    if (selectedItem.type === 'root-cause') {
-      return events.filter(e => e.rootCause === selectedItem.name);
-    }
-    if (selectedItem.type === 'tag') {
-      return events.filter(e => e.tags?.includes(selectedItem.name));
-    }
-    // escalation
-    const esc = escalations.find(e => e.id === selectedItem.id);
-    if (!esc) return [];
-    return events.filter(e => esc.eventIds.includes(e.id));
-  })();
 
   // ── Add-row UI ─────────────────────────────────────────────────────────────
 
@@ -440,13 +411,8 @@ export function ManageListsClient({
         rowSelection={{ selectedRowKeys: selectedRootCauseKeys, onChange: setSelectedRootCauseKeys }}
         columns={listColumns('root-causes', rootCauses, setRootCauses)}
         onRow={record => ({
-          onClick: () =>
-            setSelectedItem({ type: 'root-cause', name: record.name, id: record.id }),
-          style: {
-            cursor: 'pointer',
-            background:
-              selectedItem?.id === record.id ? token.colorPrimaryBg : undefined,
-          },
+          onClick: () => router.push('/events?rootCause=' + encodeURIComponent(record.name)),
+          style: { cursor: 'pointer' },
         })}
       />
       {addRowUI('root-causes')}
@@ -464,13 +430,8 @@ export function ManageListsClient({
         rowSelection={{ selectedRowKeys: selectedTagKeys, onChange: setSelectedTagKeys }}
         columns={listColumns('tags', tags, setTags)}
         onRow={record => ({
-          onClick: () =>
-            setSelectedItem({ type: 'tag', name: record.name, id: record.id }),
-          style: {
-            cursor: 'pointer',
-            background:
-              selectedItem?.id === record.id ? token.colorPrimaryBg : undefined,
-          },
+          onClick: () => router.push('/events?tag=' + encodeURIComponent(record.name)),
+          style: { cursor: 'pointer' },
         })}
       />
       {addRowUI('tags')}
@@ -486,112 +447,15 @@ export function ManageListsClient({
         pagination={false}
         columns={escalationColumns}
         onRow={record => ({
-          onClick: () =>
-            setSelectedItem({ type: 'escalation', name: record.title, id: record.id }),
-          style: {
-            cursor: 'pointer',
-            background:
-              selectedItem?.id === record.id ? token.colorPrimaryBg : undefined,
+          onClick: () => {
+            const ids = record.eventIds.join(',');
+            router.push(ids ? '/events?ids=' + ids : '/events');
           },
-        })}
-      />
-    </div>
-  );
-
-  // ── Right panel ────────────────────────────────────────────────────────────
-
-  const rightPanel = selectedItem ? (
-    <div
-      style={{
-        width: 380,
-        flexShrink: 0,
-        borderLeft: `1px solid ${token.colorBorderSecondary}`,
-        padding: '16px',
-        overflow: 'auto',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 12,
-      }}
-    >
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {sectionLabel(
-            selectedItem.type === 'escalation'
-              ? 'Escalation'
-              : selectedItem.type === 'root-cause'
-              ? 'Root Cause'
-              : 'Tag',
-          )}
-          <Text style={{ fontSize: token.fontSize, fontWeight: 600, color: token.colorText }}>
-            {selectedItem.name}
-          </Text>
-        </div>
-        <Button
-          type="text"
-          size="small"
-          icon={<CloseOutlined />}
-          onClick={() => setSelectedItem(null)}
-          style={{ color: token.colorTextTertiary }}
-        />
-      </div>
-
-      <Divider style={{ margin: '4px 0' }} />
-
-      {/* Count */}
-      <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
-        {panelEvents.length} event{panelEvents.length !== 1 ? 's' : ''}
-      </Text>
-
-      {/* Events table */}
-      <Table
-        dataSource={panelEvents}
-        rowKey="id"
-        size="small"
-        pagination={panelEvents.length > 10 ? { pageSize: 10, size: 'small' } : false}
-        locale={{ emptyText: 'No events found.' }}
-        columns={[
-          {
-            title: 'Event',
-            dataIndex: 'id',
-            key: 'id',
-            width: 100,
-            render: (id: string) => (
-              <Link
-                href={`/events/${id}`}
-                style={{ fontFamily: 'monospace', fontSize: token.fontSizeSM, color: token.colorPrimary }}
-              >
-                {id}
-              </Link>
-            ),
-          },
-          {
-            title: 'Status',
-            dataIndex: 'status',
-            key: 'status',
-            width: 80,
-            render: (s: EventStatus) => <StatusTag status={s} />,
-          },
-          {
-            title: 'Branch',
-            dataIndex: 'branch',
-            key: 'branch',
-            render: (b: string) => <Text style={{ fontSize: token.fontSizeSM }}>{b}</Text>,
-          },
-          {
-            title: 'Product',
-            dataIndex: 'product',
-            key: 'product',
-            render: (p: string) => <Text style={{ fontSize: token.fontSizeSM }}>{p}</Text>,
-          },
-        ]}
-        onRow={record => ({
-          onClick: () => router.push(`/events/${record.id}`),
           style: { cursor: 'pointer' },
         })}
       />
     </div>
-  ) : null;
+  );
 
   // ── Header action — varies by active tab ──────────────────────────────────
 
@@ -636,7 +500,6 @@ export function ManageListsClient({
             activeKey={activeTab}
             onChange={key => {
               setActiveTab(key as typeof activeTab);
-              setSelectedItem(null);
               setSelectedRootCauseKeys([]);
               setSelectedTagKeys([]);
             }}
@@ -661,8 +524,6 @@ export function ManageListsClient({
             ]}
           />
         </div>
-        {/* Right: event panel */}
-        {selectedItem && rightPanel}
       </div>
     </div>
   );
