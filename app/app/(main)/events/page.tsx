@@ -395,7 +395,7 @@ function EventsPageContent() {
               style: { textAlign: 'right', marginTop: 12 },
             }}
             renderItem={(event) => (
-              <List.Item style={{ padding: 0 }}>
+              <List.Item style={{ padding: 0, height: '100%' }}>
                 <EventCard event={event} hasOrder={eventOrderIds.has(event.id)} />
               </List.Item>
             )}

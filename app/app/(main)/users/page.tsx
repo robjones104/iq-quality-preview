@@ -2,12 +2,13 @@
 
 import React, { useMemo, useState } from 'react';
 import {
-  AutoComplete, Badge, Button, Form, Input, Modal, Popconfirm,
+  AutoComplete, Badge, Button, Form, Grid, Input, List, Modal,
   Select, Table, Tag, Typography, theme,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { CloseOutlined, DeleteFilled, EditFilled, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { PageHeader } from '@/components/PageHeader';
+import { UserCard } from '@/components/UserCard';
 import {
   users as SEED_USERS,
   ROLE_OPTIONS,
@@ -16,9 +17,10 @@ import {
 } from '@/data/users';
 import type { AppUser, UserRole, UserStatus } from '@/data/users';
 
-const USER_FILTER_CATEGORIES = [
-  { key: 'role',   label: 'Role',   options: ROLE_OPTIONS.map(r => r.label as string) },
+const USER_FILTER_CATEGORIES: Array<{ key: string; label: string; options: string[] }> = [
+  { key: 'role',   label: 'Role',   options: ROLE_OPTIONS.map(r => String(r.label)) },
   { key: 'status', label: 'Status', options: ['Active', 'Inactive', 'Pending'] },
+  { key: 'branch', label: 'Branch', options: BRANCH_OPTIONS.map(b => String(b.value)) },
 ];
 
 const { Text } = Typography;
@@ -33,29 +35,54 @@ type FormValues = {
 
 export default function UsersPage() {
   const { token } = theme.useToken();
-  const [users, setUsers]           = useState<AppUser[]>(SEED_USERS);
-  const [userFilters, setUserFilters] = useState<Record<string, string[]>>({});
-  const [modalOpen, setModalOpen]   = useState(false);
-  const [editingUser, setEditingUser] = useState<AppUser | null>(null);
-  const [form]                      = Form.useForm<FormValues>();
-  const selectedRole                = Form.useWatch('role', form) as UserRole | undefined;
+  const screens = Grid.useBreakpoint();
+  const [users, setUsers]             = useState<AppUser[]>(SEED_USERS);
+  const [userFilters, setUserFilters]  = useState<Record<string, string[]>>({});
+  const [modalOpen, setModalOpen]      = useState(false);
+  const [editingUser, setEditingUser]  = useState<AppUser | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AppUser | null>(null);
+  const [form]                         = Form.useForm<FormValues>();
+  const selectedRole                   = Form.useWatch('role', form) as UserRole | undefined;
 
   const [searchText, setSearchText] = useState('');
+  const [nameQuery,  setNameQuery]  = useState('');
 
   const searchOptions = useMemo(() => {
     const q = searchText.trim().toLowerCase();
     if (!q) return [];
+    const matchingUsers = users
+      .filter(u =>
+        u.name.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q) ||
+        (u.branch ?? '').toLowerCase().includes(q)
+      )
+      .slice(0, 5)
+      .map(u => ({
+        value: `user::${u.id}::${u.name}`,
+        label: (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 13 }}>{u.name}</span>
+            <span style={{ fontSize: 11, color: '#8c8c8c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.role} · {u.branch ?? 'All Branches'}</span>
+          </div>
+        ),
+      }));
     const filterOpts = USER_FILTER_CATEGORIES.flatMap(cat =>
       cat.options
         .filter(opt => opt.toLowerCase().includes(q))
         .map(opt => ({ value: `filter::${cat.key}::${opt}`, label: `${cat.label}: ${opt}` }))
     );
-    return filterOpts.length > 0 ? [{ label: 'Filter by', options: filterOpts }] : [];
-  }, [searchText]);
+    return [
+      ...(matchingUsers.length > 0 ? [{ label: 'Matching Users', options: matchingUsers }] : []),
+      ...(filterOpts.length > 0    ? [{ label: 'Filter by',      options: filterOpts    }] : []),
+    ];
+  }, [searchText, users]);
 
   const handleSearchSelect = (value: string) => {
     setSearchText('');
-    if (value.startsWith('filter::')) {
+    if (value.startsWith('user::')) {
+      const parts = value.slice('user::'.length).split('::');
+      setNameQuery(parts.slice(1).join('::'));
+    } else if (value.startsWith('filter::')) {
       const rest = value.slice('filter::'.length);
       const sep  = rest.indexOf('::');
       const key  = rest.slice(0, sep);
@@ -64,12 +91,18 @@ export default function UsersPage() {
     }
   };
 
-  const chips = USER_FILTER_CATEGORIES.flatMap(cat =>
-    (userFilters[cat.key] ?? []).map(val => `${cat.label}: ${val}`)
-  );
+  const chips = [
+    ...(nameQuery ? [`Search: ${nameQuery}`] : []),
+    ...USER_FILTER_CATEGORIES.flatMap(cat =>
+      (userFilters[cat.key] ?? []).map(val => `${cat.label}: ${val}`)
+    ),
+  ];
 
   const removeChip = (chip: string) => {
-    const [catLabel, val] = chip.split(': ');
+    if (chip.startsWith('Search: ')) { setNameQuery(''); return; }
+    const colonIdx = chip.indexOf(': ');
+    const catLabel = chip.slice(0, colonIdx);
+    const val      = chip.slice(colonIdx + 2);
     const cat = USER_FILTER_CATEGORIES.find(c => c.label === catLabel);
     if (!cat) return;
     setUserFilters(prev => {
@@ -80,9 +113,15 @@ export default function UsersPage() {
   };
 
   const filtered = users.filter(u => {
+    if (nameQuery) {
+      const q = nameQuery.toLowerCase();
+      const nameMatch = u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || (u.branch ?? '').toLowerCase().includes(q);
+      if (!nameMatch) return false;
+    }
     const roleMatch   = !userFilters.role?.length   || userFilters.role.includes(u.role);
     const statusMatch = !userFilters.status?.length || userFilters.status.includes(u.status);
-    return roleMatch && statusMatch;
+    const branchMatch = !userFilters.branch?.length || (u.branch != null && userFilters.branch.includes(u.branch));
+    return roleMatch && statusMatch && branchMatch;
   });
 
   const openAdd = () => {
@@ -133,13 +172,18 @@ export default function UsersPage() {
     closeModal();
   };
 
-  const deleteUser = (id: string) => setUsers(prev => prev.filter(u => u.id !== id));
+  const openDelete = (user: AppUser) => setDeleteTarget(user);
+  const confirmDelete = () => {
+    if (deleteTarget) setUsers(prev => prev.filter(u => u.id !== deleteTarget.id));
+    setDeleteTarget(null);
+  };
 
   const columns: ColumnsType<AppUser> = [
     {
       title: 'Name',
       dataIndex: 'name',
       key: 'name',
+      sorter: (a, b) => a.name.localeCompare(b.name),
       render: (name: string) => (
         <Text style={{ fontSize: token.fontSize }}>{name}</Text>
       ),
@@ -148,6 +192,7 @@ export default function UsersPage() {
       title: 'Email',
       dataIndex: 'email',
       key: 'email',
+      sorter: (a, b) => a.email.localeCompare(b.email),
       render: (email: string) => (
         <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>{email}</Text>
       ),
@@ -157,6 +202,9 @@ export default function UsersPage() {
       dataIndex: 'role',
       key: 'role',
       width: 190,
+      sorter: (a, b) => a.role.localeCompare(b.role),
+      filters: USER_FILTER_CATEGORIES.find(c => c.key === 'role')!.options.map(o => ({ text: o, value: o })),
+      filteredValue: userFilters.role ?? null,
       render: (role: UserRole) => (
         <Text style={{ fontSize: token.fontSizeSM }}>{role}</Text>
       ),
@@ -165,6 +213,10 @@ export default function UsersPage() {
       title: 'Branch / Scope',
       key: 'scope',
       width: 160,
+      sorter: (a, b) => (a.branch ?? 'All Branches').localeCompare(b.branch ?? 'All Branches'),
+      filters: USER_FILTER_CATEGORIES.find(c => c.key === 'branch')!.options.map(o => ({ text: o, value: o })),
+      filteredValue: userFilters.branch ?? null,
+      filterSearch: true,
       render: (_, r) => (
         <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
           {r.role === 'Branch (View-Only)' ? (r.branch ?? '—') : 'All Branches'}
@@ -176,6 +228,7 @@ export default function UsersPage() {
       dataIndex: 'addedAt',
       key: 'addedAt',
       width: 110,
+      sorter: (a, b) => a.addedAt.localeCompare(b.addedAt),
       render: (v: string) => (
         <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>{v}</Text>
       ),
@@ -185,6 +238,7 @@ export default function UsersPage() {
       dataIndex: 'lastLogin',
       key: 'lastLogin',
       width: 120,
+      sorter: (a, b) => (a.lastLogin ?? '').localeCompare(b.lastLogin ?? ''),
       render: (v?: string) => (
         <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>{v ?? '—'}</Text>
       ),
@@ -194,6 +248,9 @@ export default function UsersPage() {
       dataIndex: 'status',
       key: 'status',
       width: 100,
+      sorter: (a, b) => a.status.localeCompare(b.status),
+      filters: ['Active', 'Inactive', 'Pending'].map(s => ({ text: s, value: s })),
+      filteredValue: userFilters.status ?? null,
       render: (s: UserStatus) => (
         <Badge
           status={s === 'Active' ? 'success' : s === 'Pending' ? 'processing' : 'default'}
@@ -214,20 +271,13 @@ export default function UsersPage() {
             style={{ color: token.colorTextTertiary }}
             onClick={() => openEdit(r)}
           />
-          <Popconfirm
-            title={`Remove ${r.name}?`}
-            description="This will revoke their portal access immediately."
-            okText="Remove"
-            okButtonProps={{ danger: true }}
-            onConfirm={() => deleteUser(r.id)}
-          >
-            <Button
-              size="small"
-              type="text"
-              icon={<DeleteFilled />}
-              style={{ color: token.colorTextTertiary }}
-            />
-          </Popconfirm>
+          <Button
+            size="small"
+            type="text"
+            icon={<DeleteFilled />}
+            style={{ color: token.colorTextTertiary }}
+            onClick={() => openDelete(r)}
+          />
         </span>
       ),
     },
@@ -274,18 +324,66 @@ export default function UsersPage() {
             </Button>
           </div>
         )}
-        <Table
-          dataSource={filtered}
-          rowKey="id"
-          size="small"
-          pagination={{
-            pageSize: 15,
-            size: 'small',
-            showTotal: (total) => `${total} user${total !== 1 ? 's' : ''}`,
-          }}
-          columns={columns}
-        />
+        {screens.lg === false ? (
+          <List
+            dataSource={filtered}
+            grid={{ gutter: 12, xs: 1, sm: 2 }}
+            pagination={{
+              pageSize: 12,
+              hideOnSinglePage: true,
+              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
+              size: 'small',
+              style: { textAlign: 'right', marginTop: 12 },
+            }}
+            renderItem={(u) => (
+              <List.Item style={{ padding: 0, height: '100%' }}>
+                <UserCard
+                  user={u}
+                  onEdit={() => openEdit(u)}
+                  onDelete={() => openDelete(u)}
+                />
+              </List.Item>
+            )}
+          />
+        ) : (
+          <Table
+            dataSource={filtered}
+            rowKey="id"
+            size="small"
+            onChange={(_p, tableFilters) => {
+              const next = { ...userFilters };
+              Object.entries(tableFilters).forEach(([k, vals]) => {
+                if (vals?.length) next[k] = vals as string[];
+                else delete next[k];
+              });
+              setUserFilters(next);
+            }}
+            pagination={{
+              pageSize: 15,
+              size: 'small',
+              showTotal: (total) => `${total} user${total !== 1 ? 's' : ''}`,
+            }}
+            columns={columns}
+          />
+        )}
       </div>
+
+      <Modal
+        title="Remove User"
+        open={deleteTarget !== null}
+        onCancel={() => setDeleteTarget(null)}
+        footer={
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <Button onClick={() => setDeleteTarget(null)}>Cancel</Button>
+            <Button danger type="primary" onClick={confirmDelete}>Remove</Button>
+          </div>
+        }
+        width={400}
+      >
+        <p style={{ margin: '16px 0' }}>
+          Remove <strong>{deleteTarget?.name}</strong>? This will revoke their portal access immediately.
+        </p>
+      </Modal>
 
       <Modal
         title={editingUser ? 'Edit User' : 'Invite User'}
