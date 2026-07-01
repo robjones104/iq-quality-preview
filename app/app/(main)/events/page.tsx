@@ -337,7 +337,7 @@ function EventsPageContent() {
       <PageHeader
         left={
           backToParam ? (
-            <Link href={`/events/${backToParam}`} style={{ display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none', fontSize: token.fontSize }}>
+            <Link href={`/events/${backToParam}`} style={{ display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none', fontSize: token.fontSize, color: token.colorLink }}>
               <ArrowLeftOutlined style={{ fontSize: token.fontSizeSM }} />
               Back to {backToParam}
             </Link>

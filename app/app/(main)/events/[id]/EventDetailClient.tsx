@@ -1308,11 +1308,11 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
         onOk={() => {
           setStatus('Validated');
           patchEvent(event.id, { status: 'Validated' });
-          addToActivityLog(`Event validated. Note: ${validateNote}`, 'Validated');
+          addToActivityLog(validateNote.trim() ? `Event validated. Note: ${validateNote}` : 'Event validated.', 'Validated');
           setValidateSuccess(true);
         }}
         okText="Validate & Notify"
-        okButtonProps={{ type: 'primary', disabled: !validateNote.trim() }}
+        okButtonProps={{ type: 'primary' }}
       >
         {validateSuccess ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -1335,7 +1335,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
             <Input.TextArea
               value={validateNote}
               onChange={e => setValidateNote(e.target.value)}
-              placeholder="Add a validation note (required)..."
+              placeholder="Add a validation note (optional)..."
               rows={3}
               autoFocus
             />
@@ -1352,11 +1352,11 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
         onOk={() => {
           setStatus('Invalidated');
           patchEvent(event.id, { status: 'Invalidated' });
-          addToActivityLog(`Event invalidated. Reason: ${invalidateNote}`, 'Invalidated');
+          addToActivityLog(invalidateNote.trim() ? `Event invalidated. Reason: ${invalidateNote}` : 'Event invalidated.', 'Invalidated');
           setInvalidateSuccess(true);
         }}
         okText="Invalidate & Notify"
-        okButtonProps={{ danger: true, disabled: !invalidateNote.trim() }}
+        okButtonProps={{ danger: true }}
       >
         {invalidateSuccess ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -1379,7 +1379,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
             <Input.TextArea
               value={invalidateNote}
               onChange={e => setInvalidateNote(e.target.value)}
-              placeholder="Add an invalidation note (required)..."
+              placeholder="Add an invalidation note (optional)..."
               rows={3}
               autoFocus
             />
