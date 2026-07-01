@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  Button, Input, Popconfirm, Table, Tabs, Tag, Typography, theme,
+  Button, Card, Grid, Input, List, Modal, Table, Tabs, Tag, Typography, theme,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -34,16 +34,31 @@ export function ManageListsClient({
 }: Props) {
   const router = useRouter();
   const { token } = theme.useToken();
+  const screens = Grid.useBreakpoint();
 
-  const [activeTab, setActiveTab] = useState(defaultTab);
+  const [activeTab, setActiveTab]   = useState(defaultTab);
   const [rootCauses, setRootCauses] = useState<ListItem[]>(initialRootCauses);
-  const [tags, setTags] = useState<ListItem[]>(initialTags);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [tags, setTags]             = useState<ListItem[]>(initialTags);
+  const [editingId, setEditingId]   = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
-  const [addingTo, setAddingTo] = useState<'root-causes' | 'tags' | null>(null);
+  const [addingTo, setAddingTo]     = useState<'root-causes' | 'tags' | null>(null);
   const [newItemName, setNewItemName] = useState('');
   const [selectedRootCauseKeys, setSelectedRootCauseKeys] = useState<React.Key[]>([]);
-  const [selectedTagKeys, setSelectedTagKeys] = useState<React.Key[]>([]);
+  const [selectedTagKeys, setSelectedTagKeys]             = useState<React.Key[]>([]);
+
+  // Delete modals
+  type DeleteItemTarget = {
+    record: ListItem;
+    setList: React.Dispatch<React.SetStateAction<ListItem[]>>;
+  };
+  type BatchDeleteTarget = {
+    keys: React.Key[];
+    setList: React.Dispatch<React.SetStateAction<ListItem[]>>;
+    setKeys: React.Dispatch<React.SetStateAction<React.Key[]>>;
+  };
+  const [deleteItemTarget,  setDeleteItemTarget]  = useState<DeleteItemTarget | null>(null);
+  const [batchDeleteTarget, setBatchDeleteTarget] = useState<BatchDeleteTarget | null>(null);
+  const [deleteEscTarget,   setDeleteEscTarget]   = useState<Escalation | null>(null);
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -51,15 +66,11 @@ export function ManageListsClient({
     `${_prefix}-${Date.now()}`;
 
   const sectionLabel = (text: string) => (
-    <Text
-      style={{
-        fontSize: token.fontSizeSM,
-        fontWeight: 600,
-        textTransform: 'uppercase' as const,
-        letterSpacing: '0.5px',
-        color: token.colorTextTertiary,
-      }}
-    >
+    <Text style={{
+      fontSize: token.fontSizeSM, fontWeight: 600,
+      textTransform: 'uppercase' as const, letterSpacing: '0.5px',
+      color: token.colorTextTertiary,
+    }}>
       {text}
     </Text>
   );
@@ -77,14 +88,6 @@ export function ManageListsClient({
     setEditingName('');
   };
 
-  const deleteItem = (
-    id: string,
-    _list: ListItem[],
-    setList: React.Dispatch<React.SetStateAction<ListItem[]>>,
-  ) => {
-    setList(prev => prev.filter(item => item.id !== id));
-  };
-
   const addItem = (type: 'root-causes' | 'tags') => {
     if (!newItemName.trim()) return;
     const newItem: ListItem = {
@@ -100,14 +103,10 @@ export function ManageListsClient({
     setAddingTo(null);
   };
 
-  const batchDelete = (
-    keys: React.Key[],
-    setList: React.Dispatch<React.SetStateAction<ListItem[]>>,
-    setKeys: React.Dispatch<React.SetStateAction<React.Key[]>>,
-  ) => {
-    setList(prev => prev.filter(item => !keys.includes(item.id)));
-    setKeys([]);
-  };
+  const eventCount = (type: 'root-causes' | 'tags', record: ListItem) =>
+    type === 'root-causes'
+      ? events.filter(e => e.rootCause === record.name).length
+      : events.filter(e => e.tags?.includes(record.name)).length;
 
   const batchToolbar = (
     keys: React.Key[],
@@ -125,21 +124,88 @@ export function ManageListsClient({
       <Text style={{ fontSize: token.fontSizeSM, color: token.colorText, flex: 1 }}>
         {keys.length} selected
       </Text>
-      <Popconfirm
-        title={`Delete ${keys.length} item${keys.length !== 1 ? 's' : ''}?`}
-        description="This will remove them from all dropdowns."
-        okText="Delete"
-        okButtonProps={{ danger: true }}
-        onConfirm={() => batchDelete(keys, setList, setKeys)}
+      <Button
+        size="small" type="primary" danger icon={<DeleteFilled />}
+        onClick={() => setBatchDeleteTarget({ keys, setList, setKeys })}
       >
-        <Button size="small" type="primary" danger icon={<DeleteFilled />}>
-          Delete
-        </Button>
-      </Popconfirm>
+        Delete
+      </Button>
       <Button size="small" type="text" onClick={() => setKeys([])}>
         Clear
       </Button>
     </div>
+  );
+
+  // ── Card renderer (mobile/tablet) ──────────────────────────────────────────
+
+  const listItemCard = (
+    type: 'root-causes' | 'tags',
+    record: ListItem,
+    list: ListItem[],
+    setList: React.Dispatch<React.SetStateAction<ListItem[]>>,
+  ) => (
+    <Card
+      key={record.id}
+      size="small"
+      style={{ height: '100%' }}
+      styles={{ body: { padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 6 } }}
+      onClick={() => router.push(
+        type === 'root-causes'
+          ? `/events?rootCause=${encodeURIComponent(record.name)}`
+          : `/events?tag=${encodeURIComponent(record.name)}`
+      )}
+    >
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {editingId === record.id ? (
+          <Input
+            size="small"
+            value={editingName}
+            onChange={e => setEditingName(e.target.value)}
+            onPressEnter={() => saveEdit(list, setList)}
+            autoFocus
+            onClick={e => e.stopPropagation()}
+          />
+        ) : (
+          <Text style={{ fontWeight: 600, fontSize: token.fontSize, lineHeight: 1.4 }}>
+            {record.name}
+          </Text>
+        )}
+
+        <Text type="secondary" style={{ fontSize: token.fontSizeSM, lineHeight: 1.4 }}>
+          {eventCount(type, record)} event{eventCount(type, record) !== 1 ? 's' : ''}
+          {record.isSystem ? ' · System default' : ''}
+        </Text>
+
+        <Text type="secondary" style={{ fontSize: token.fontSizeSM, lineHeight: 1.4 }}>
+          {record.createdBy} · {record.createdAt.slice(0, 10)}
+        </Text>
+      </div>
+
+      <div
+        style={{ display: 'flex', justifyContent: 'flex-end', gap: 4, marginTop: 4 }}
+        onClick={e => e.stopPropagation()}
+      >
+        {editingId === record.id ? (
+          <>
+            <Button size="small" type="text" icon={<CheckOutlined />}
+              style={{ color: token.colorSuccess }}
+              onClick={() => saveEdit(list, setList)} />
+            <Button size="small" type="text" icon={<CloseOutlined />}
+              style={{ color: token.colorTextTertiary }}
+              onClick={() => { setEditingId(null); setEditingName(''); }} />
+          </>
+        ) : (
+          <>
+            <Button size="small" type="text" icon={<EditFilled />}
+              style={{ color: token.colorTextTertiary }}
+              onClick={() => { setEditingId(record.id); setEditingName(record.name); }} />
+            <Button size="small" type="text" icon={<DeleteFilled />}
+              style={{ color: token.colorTextTertiary }}
+              onClick={() => setDeleteItemTarget({ record, setList })} />
+          </>
+        )}
+      </div>
+    </Card>
   );
 
   // ── Column builders ────────────────────────────────────────────────────────
@@ -153,6 +219,7 @@ export function ManageListsClient({
       title: 'Name',
       dataIndex: 'name',
       key: 'name',
+      sorter: (a, b) => a.name.localeCompare(b.name),
       render: (name: string, record: ListItem) => {
         if (editingId === record.id) {
           return (
@@ -173,23 +240,19 @@ export function ManageListsClient({
       title: 'Events',
       key: 'events',
       width: 80,
-      render: (_: unknown, record: ListItem) => {
-        const count =
-          type === 'root-causes'
-            ? events.filter(e => e.rootCause === record.name).length
-            : events.filter(e => e.tags?.includes(record.name)).length;
-        return (
-          <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
-            {count}
-          </Text>
-        );
-      },
+      sorter: (a, b) => eventCount(type, a) - eventCount(type, b),
+      render: (_: unknown, record: ListItem) => (
+        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+          {eventCount(type, record)}
+        </Text>
+      ),
     },
     {
       title: 'Created By',
       dataIndex: 'createdBy',
       key: 'createdBy',
       width: 120,
+      sorter: (a, b) => a.createdBy.localeCompare(b.createdBy),
       render: (v: string) => (
         <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>{v}</Text>
       ),
@@ -199,6 +262,7 @@ export function ManageListsClient({
       dataIndex: 'createdAt',
       key: 'createdAt',
       width: 100,
+      sorter: (a, b) => a.createdAt.localeCompare(b.createdAt),
       render: (v: string) => (
         <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>{v.slice(0, 10)}</Text>
       ),
@@ -211,59 +275,30 @@ export function ManageListsClient({
         if (editingId === record.id) {
           return (
             <span style={{ display: 'flex', gap: 4 }}>
-              <Button
-                size="small"
-                type="text"
-                icon={<CheckOutlined />}
+              <Button size="small" type="text" icon={<CheckOutlined />}
                 style={{ color: token.colorSuccess }}
-                onClick={() => saveEdit(list, setList)}
-              />
-              <Button
-                size="small"
-                type="text"
-                icon={<CloseOutlined />}
+                onClick={() => saveEdit(list, setList)} />
+              <Button size="small" type="text" icon={<CloseOutlined />}
                 style={{ color: token.colorTextTertiary }}
-                onClick={() => { setEditingId(null); setEditingName(''); }}
-              />
+                onClick={() => { setEditingId(null); setEditingName(''); }} />
             </span>
           );
         }
         return (
           <span style={{ display: 'flex', gap: 4 }}>
-            <Button
-              size="small"
-              type="text"
-              icon={<EditFilled />}
+            <Button size="small" type="text" icon={<EditFilled />}
               style={{ color: token.colorTextTertiary }}
               onClick={e => {
                 e.stopPropagation();
                 setEditingId(record.id);
                 setEditingName(record.name);
-              }}
-            />
-            <Popconfirm
-              title="Delete this item?"
-              description={
-                record.isSystem
-                  ? 'This is a system default. Deleting it will remove it from all dropdowns.'
-                  : 'This will remove it from all dropdowns.'
-              }
-              onConfirm={e => {
-                e?.stopPropagation();
-                deleteItem(record.id, list, setList);
-              }}
-              okText="Delete"
-              okButtonProps={{ danger: true }}
-              onCancel={e => e?.stopPropagation()}
-            >
-              <Button
-                size="small"
-                type="text"
-                icon={<DeleteFilled />}
-                style={{ color: token.colorTextTertiary }}
-                onClick={e => e.stopPropagation()}
-              />
-            </Popconfirm>
+              }} />
+            <Button size="small" type="text" icon={<DeleteFilled />}
+              style={{ color: token.colorTextTertiary }}
+              onClick={e => {
+                e.stopPropagation();
+                setDeleteItemTarget({ record, setList });
+              }} />
           </span>
         );
       },
@@ -276,6 +311,7 @@ export function ManageListsClient({
       dataIndex: 'id',
       key: 'id',
       width: 90,
+      sorter: (a, b) => a.id.localeCompare(b.id),
       render: (id: string) => (
         <Link
           href={`/escalations/${id}`}
@@ -291,6 +327,7 @@ export function ManageListsClient({
       dataIndex: 'title',
       key: 'title',
       ellipsis: true,
+      sorter: (a, b) => a.title.localeCompare(b.title),
       render: (t: string) => (
         <Text style={{ fontSize: token.fontSizeSM }} ellipsis>{t}</Text>
       ),
@@ -300,6 +337,7 @@ export function ManageListsClient({
       dataIndex: 'type',
       key: 'type',
       width: 160,
+      sorter: (a, b) => a.type.localeCompare(b.type),
       render: (t: string) => (
         <Tag style={{ fontSize: token.fontSizeSM, margin: 0 }}>{t}</Tag>
       ),
@@ -309,11 +347,9 @@ export function ManageListsClient({
       dataIndex: 'status',
       key: 'status',
       width: 80,
+      sorter: (a, b) => a.status.localeCompare(b.status),
       render: (s: string) => (
-        <Tag
-          color={s === 'Closed' ? 'green' : 'blue'}
-          style={{ fontSize: token.fontSizeSM, margin: 0 }}
-        >
+        <Tag color={s === 'Closed' ? 'green' : 'blue'} style={{ fontSize: token.fontSizeSM, margin: 0 }}>
           {s}
         </Tag>
       ),
@@ -322,6 +358,7 @@ export function ManageListsClient({
       title: 'Events',
       key: 'events',
       width: 72,
+      sorter: (a, b) => a.eventIds.length - b.eventIds.length,
       render: (_: unknown, row: Escalation) => (
         <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>{row.eventIds.length}</Text>
       ),
@@ -332,33 +369,12 @@ export function ManageListsClient({
       width: 64,
       render: (_: unknown, row: Escalation) => (
         <span style={{ display: 'flex', gap: 4 }}>
-          <Button
-            size="small"
-            type="text"
-            icon={<EditFilled />}
+          <Button size="small" type="text" icon={<EditFilled />}
             style={{ color: token.colorTextTertiary }}
-            onClick={e => {
-              e.stopPropagation();
-              router.push(`/escalations/${row.id}`);
-            }}
-          />
-          <Popconfirm
-            title="Remove this escalation from the list?"
-            okText="Remove"
-            okButtonProps={{ danger: true }}
-            onConfirm={e => {
-              e?.stopPropagation();
-            }}
-            onCancel={e => e?.stopPropagation()}
-          >
-            <Button
-              size="small"
-              type="text"
-              icon={<DeleteFilled />}
-              style={{ color: token.colorTextTertiary }}
-              onClick={e => e.stopPropagation()}
-            />
-          </Popconfirm>
+            onClick={e => { e.stopPropagation(); router.push(`/escalations/${row.id}`); }} />
+          <Button size="small" type="text" icon={<DeleteFilled />}
+            style={{ color: token.colorTextTertiary }}
+            onClick={e => { e.stopPropagation(); setDeleteEscTarget(row); }} />
         </span>
       ),
     },
@@ -368,14 +384,10 @@ export function ManageListsClient({
 
   const addRowUI = (type: 'root-causes' | 'tags') =>
     addingTo === type ? (
-      <div
-        style={{
-          display: 'flex',
-          gap: 8,
-          padding: '8px 0',
-          borderTop: `1px solid ${token.colorBorderSecondary}`,
-        }}
-      >
+      <div style={{
+        display: 'flex', gap: 8, padding: '8px 0',
+        borderTop: `1px solid ${token.colorBorderSecondary}`,
+      }}>
         <Input
           size="small"
           placeholder={`New ${type === 'root-causes' ? 'root cause' : 'tag'}...`}
@@ -385,14 +397,8 @@ export function ManageListsClient({
           autoFocus
           style={{ flex: 1 }}
         />
-        <Button size="small" type="primary" onClick={() => addItem(type)}>
-          Add
-        </Button>
-        <Button
-          size="small"
-          type="text"
-          onClick={() => { setAddingTo(null); setNewItemName(''); }}
-        >
+        <Button size="small" type="primary" onClick={() => addItem(type)}>Add</Button>
+        <Button size="small" type="text" onClick={() => { setAddingTo(null); setNewItemName(''); }}>
           Cancel
         </Button>
       </div>
@@ -400,64 +406,128 @@ export function ManageListsClient({
 
   // ── Tab content ────────────────────────────────────────────────────────────
 
-  const rootCausesTabContent = (
+  const listTabContent = (
+    type: 'root-causes' | 'tags',
+    list: ListItem[],
+    setList: React.Dispatch<React.SetStateAction<ListItem[]>>,
+    selectedKeys: React.Key[],
+    setKeys: React.Dispatch<React.SetStateAction<React.Key[]>>,
+  ) => (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
-      {selectedRootCauseKeys.length > 0 && batchToolbar(selectedRootCauseKeys, setRootCauses, setSelectedRootCauseKeys)}
-      <Table
-        dataSource={rootCauses}
-        rowKey="id"
-        size="small"
-        pagination={false}
-        rowSelection={{ selectedRowKeys: selectedRootCauseKeys, onChange: setSelectedRootCauseKeys }}
-        columns={listColumns('root-causes', rootCauses, setRootCauses)}
-        onRow={record => ({
-          onClick: () => router.push('/events?rootCause=' + encodeURIComponent(record.name)),
-          style: { cursor: 'pointer' },
-        })}
-      />
-      {addRowUI('root-causes')}
-    </div>
-  );
-
-  const tagsTabContent = (
-    <div style={{ display: 'flex', flexDirection: 'column' }}>
-      {selectedTagKeys.length > 0 && batchToolbar(selectedTagKeys, setTags, setSelectedTagKeys)}
-      <Table
-        dataSource={tags}
-        rowKey="id"
-        size="small"
-        pagination={false}
-        rowSelection={{ selectedRowKeys: selectedTagKeys, onChange: setSelectedTagKeys }}
-        columns={listColumns('tags', tags, setTags)}
-        onRow={record => ({
-          onClick: () => router.push('/events?tag=' + encodeURIComponent(record.name)),
-          style: { cursor: 'pointer' },
-        })}
-      />
-      {addRowUI('tags')}
+      {selectedKeys.length > 0 && batchToolbar(selectedKeys, setList, setKeys)}
+      {screens.lg === false ? (
+        <List
+          dataSource={list}
+          grid={{ gutter: 12, xs: 1, sm: 2 }}
+          pagination={false}
+          renderItem={(record) => (
+            <List.Item style={{ padding: 0, height: '100%' }}>
+              {listItemCard(type, record, list, setList)}
+            </List.Item>
+          )}
+        />
+      ) : (
+        <Table
+          dataSource={list}
+          rowKey="id"
+          size="small"
+          pagination={false}
+          rowSelection={{ selectedRowKeys: selectedKeys, onChange: setKeys }}
+          columns={listColumns(type, list, setList)}
+          onRow={record => ({
+            onClick: () => router.push(
+              type === 'root-causes'
+                ? `/events?rootCause=${encodeURIComponent(record.name)}`
+                : `/events?tag=${encodeURIComponent(record.name)}`
+            ),
+            style: { cursor: 'pointer' },
+          })}
+        />
+      )}
+      {addRowUI(type)}
     </div>
   );
 
   const escalationsTabContent = (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
-      <Table
-        dataSource={escalations}
-        rowKey="id"
-        size="small"
-        pagination={false}
-        columns={escalationColumns}
-        onRow={record => ({
-          onClick: () => {
-            const ids = record.eventIds.join(',');
-            router.push(ids ? '/events?ids=' + ids : '/events');
-          },
-          style: { cursor: 'pointer' },
-        })}
-      />
+      {screens.lg === false ? (
+        <List
+          dataSource={escalations}
+          grid={{ gutter: 12, xs: 1, sm: 2 }}
+          pagination={false}
+          renderItem={(esc) => (
+            <List.Item style={{ padding: 0, height: '100%' }}>
+              <Card
+                size="small"
+                hoverable
+                style={{ height: '100%' }}
+                styles={{ body: { padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 4 } }}
+                onClick={() => {
+                  const ids = esc.eventIds.join(',');
+                  router.push(ids ? `/events?ids=${ids}` : '/events');
+                }}
+              >
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                    <Link
+                      href={`/escalations/${esc.id}`}
+                      style={{ fontFamily: 'monospace', fontSize: token.fontSizeSM, color: token.colorPrimary }}
+                      onClick={e => e.stopPropagation()}
+                    >
+                      {esc.id}
+                    </Link>
+                    <Tag
+                      color={esc.status === 'Closed' ? 'green' : 'blue'}
+                      style={{ fontSize: token.fontSizeSM, margin: 0 }}
+                    >
+                      {esc.status}
+                    </Tag>
+                  </div>
+
+                  <Text style={{ fontSize: token.fontSize, fontWeight: 500, lineHeight: 1.4 }}>
+                    {esc.title}
+                  </Text>
+
+                  <Text type="secondary" style={{ fontSize: token.fontSizeSM, lineHeight: 1.4 }}>
+                    {esc.type} · {esc.eventIds.length} event{esc.eventIds.length !== 1 ? 's' : ''}
+                  </Text>
+                </div>
+
+                <div
+                  style={{ display: 'flex', justifyContent: 'flex-end', gap: 4, marginTop: 4 }}
+                  onClick={e => e.stopPropagation()}
+                >
+                  <Button size="small" type="text" icon={<EditFilled />}
+                    style={{ color: token.colorTextTertiary }}
+                    onClick={() => router.push(`/escalations/${esc.id}`)} />
+                  <Button size="small" type="text" icon={<DeleteFilled />}
+                    style={{ color: token.colorTextTertiary }}
+                    onClick={() => setDeleteEscTarget(esc)} />
+                </div>
+              </Card>
+            </List.Item>
+          )}
+        />
+      ) : (
+        <Table
+          dataSource={escalations}
+          rowKey="id"
+          size="small"
+          pagination={false}
+          columns={escalationColumns}
+          onRow={record => ({
+            onClick: () => {
+              const ids = record.eventIds.join(',');
+              router.push(ids ? `/events?ids=${ids}` : '/events');
+            },
+            style: { cursor: 'pointer' },
+          })}
+        />
+      )}
     </div>
   );
 
-  // ── Header action — varies by active tab ──────────────────────────────────
+  // ── Header action ──────────────────────────────────────────────────────────
 
   const headerAction = activeTab === 'root-causes' ? (
     <Button type="primary" icon={<PlusOutlined />} onClick={() => setAddingTo('root-causes')}>
@@ -485,17 +555,9 @@ export function ManageListsClient({
         }
         right={headerAction}
       />
+
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        {/* Left: tabs + tables */}
-        <div
-          style={{
-            flex: 1,
-            overflow: 'auto',
-            padding: '16px 20px',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
+        <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column' }}>
           <Tabs
             activeKey={activeTab}
             onChange={key => {
@@ -509,12 +571,12 @@ export function ManageListsClient({
               {
                 key: 'root-causes',
                 label: `Root Causes (${rootCauses.length})`,
-                children: rootCausesTabContent,
+                children: listTabContent('root-causes', rootCauses, setRootCauses, selectedRootCauseKeys, setSelectedRootCauseKeys),
               },
               {
                 key: 'tags',
                 label: `Tags (${tags.length})`,
-                children: tagsTabContent,
+                children: listTabContent('tags', tags, setTags, selectedTagKeys, setSelectedTagKeys),
               },
               {
                 key: 'escalations',
@@ -525,6 +587,79 @@ export function ManageListsClient({
           />
         </div>
       </div>
+
+      {/* Delete single item */}
+      <Modal
+        title="Delete Item"
+        open={deleteItemTarget !== null}
+        onCancel={() => setDeleteItemTarget(null)}
+        footer={
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <Button onClick={() => setDeleteItemTarget(null)}>Cancel</Button>
+            <Button danger type="primary" onClick={() => {
+              if (!deleteItemTarget) return;
+              deleteItemTarget.setList(prev => prev.filter(item => item.id !== deleteItemTarget.record.id));
+              setDeleteItemTarget(null);
+            }}>
+              Delete
+            </Button>
+          </div>
+        }
+        width={400}
+      >
+        <p style={{ margin: '16px 0' }}>
+          Delete <strong>{deleteItemTarget?.record.name}</strong>?
+          {deleteItemTarget?.record.isSystem
+            ? ' This is a system default — removing it will affect all dropdowns.'
+            : ' This will remove it from all dropdowns.'}
+        </p>
+      </Modal>
+
+      {/* Batch delete */}
+      <Modal
+        title="Delete Items"
+        open={batchDeleteTarget !== null}
+        onCancel={() => setBatchDeleteTarget(null)}
+        footer={
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <Button onClick={() => setBatchDeleteTarget(null)}>Cancel</Button>
+            <Button danger type="primary" onClick={() => {
+              if (!batchDeleteTarget) return;
+              batchDeleteTarget.setList(prev => prev.filter(item => !batchDeleteTarget.keys.includes(item.id)));
+              batchDeleteTarget.setKeys([]);
+              setBatchDeleteTarget(null);
+            }}>
+              Delete {batchDeleteTarget?.keys.length} Item{(batchDeleteTarget?.keys.length ?? 0) !== 1 ? 's' : ''}
+            </Button>
+          </div>
+        }
+        width={400}
+      >
+        <p style={{ margin: '16px 0' }}>
+          Delete {batchDeleteTarget?.keys.length} selected item{(batchDeleteTarget?.keys.length ?? 0) !== 1 ? 's' : ''}?
+          This will remove them from all dropdowns.
+        </p>
+      </Modal>
+
+      {/* Delete escalation */}
+      <Modal
+        title="Remove Escalation"
+        open={deleteEscTarget !== null}
+        onCancel={() => setDeleteEscTarget(null)}
+        footer={
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <Button onClick={() => setDeleteEscTarget(null)}>Cancel</Button>
+            <Button danger type="primary" onClick={() => setDeleteEscTarget(null)}>
+              Remove
+            </Button>
+          </div>
+        }
+        width={400}
+      >
+        <p style={{ margin: '16px 0' }}>
+          Remove <strong>{deleteEscTarget?.id}</strong> — {deleteEscTarget?.title}?
+        </p>
+      </Modal>
     </div>
   );
 }

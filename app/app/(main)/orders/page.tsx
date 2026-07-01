@@ -712,7 +712,7 @@ function OrdersPageContent() {
               style: { textAlign: 'right', marginTop: 12 },
             }}
             renderItem={(row) => (
-              <List.Item style={{ padding: 0 }}>
+              <List.Item style={{ padding: 0, height: '100%' }}>
                 <OrderCard
                   row={row}
                   status={effectiveStatus(row)}

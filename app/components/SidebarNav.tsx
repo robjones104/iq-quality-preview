@@ -60,10 +60,8 @@ export function SidebarNav() {
     return `${base}?${p.toString()}`;
   };
 
-  const isActive = (href: string) => {
-    if (href === '/dashboard') return pathname === '/dashboard' || pathname === '/';
-    return pathname.startsWith(href);
-  };
+  const isActive = (href: string) =>
+    pathname === href || pathname.startsWith(href + '/');
 
   const isDark = darkMode;
   const isManageActive = pathname.startsWith('/manage');
