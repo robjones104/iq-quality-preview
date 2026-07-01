@@ -7,14 +7,18 @@ import type { ThemeConfig } from 'antd';
 // backgrounds. Never override map tokens here — it breaks dark mode.
 // ---------------------------------------------------------------------------
 export const SEED_TOKENS: ThemeConfig['token'] = {
-  colorPrimary: '#1677FF',
-  borderRadius: 4,
-  fontSize: 14,
-  fontFamily: "'Montserrat', sans-serif",
-  colorError:   '#B00020',
-  colorWarning: '#FAA614',
-  colorSuccess: '#008738',
-  colorInfo:    '#006BB2',
+  colorPrimary:       '#1677FF',
+  borderRadius:       4,
+  fontSize:           14,
+  fontFamily:         "'Montserrat', sans-serif",
+  colorError:         '#B00020',
+  colorWarning:       '#FAA614',
+  colorSuccess:       '#008738',
+  colorInfo:          '#006BB2',
+  // WCAG AA: #1677FF on white is 4.10:1 (fails). #0958D9 = 6.18:1 ✅
+  colorLink:          '#0958D9',
+  // WCAG AA: Ant Design derives colorTextTertiary ≈ #8C8C8C on white = 3.36:1 (fails). #6B6B6B = 5.33:1 ✅
+  colorTextTertiary:  '#6B6B6B',
 };
 
 // Overrides applied on top of SEED_TOKENS in dark mode only.
@@ -27,6 +31,8 @@ export const DARK_SEED_OVERRIDES: ThemeConfig['token'] = {
   colorError:           '#ff4d4f',
   colorSuccess:         '#52c41a',
   colorWarning:         '#faad14',
+  // WCAG AA: #595959 on dark card #141414 = 2.63:1 (fails). #8C8C8C = 5.48:1 ✅
+  colorTextTertiary:    '#8C8C8C',
 };
 
 // ---------------------------------------------------------------------------
@@ -54,7 +60,7 @@ export const SEMANTIC = {
     colorBgSunken:      '#FAFAFA',  // table headers, inset areas
     colorTextPrimary:   '#141414',
     colorTextSecondary: '#595959',
-    colorTextMuted:     '#8C8C8C',
+    colorTextMuted:     '#6B6B6B',
     colorBorderDefault: '#D9D9D9',
     colorBorderSubtle:  '#F0F0F0',
     colorBrandAction:   '#141414',  // dark CTA buttons (Filter, Save, Edit)
@@ -66,7 +72,7 @@ export const SEMANTIC = {
     colorBgSunken:      '#1A1A1A',
     colorTextPrimary:   '#FFFFFF',
     colorTextSecondary: '#A3A3A3',
-    colorTextMuted:     '#595959',
+    colorTextMuted:     '#8C8C8C',
     colorBorderDefault: '#303030',
     colorBorderSubtle:  '#1F1F1F',
     colorBrandAction:   '#FFFFFF',

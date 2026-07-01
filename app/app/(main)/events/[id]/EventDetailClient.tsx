@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEventStore } from '@/store/eventStore';
 import {
-  Button, Card, Col, Divider, Drawer, Dropdown, Form, Grid, Input, List, Modal, Row, Select, Space, Switch,
-  Table, Typography, Upload, theme,
+  Button, Card, Col, Divider, Drawer, Dropdown, Form, Grid, Input, InputNumber, List, Modal, Radio, Row,
+  Select, Slider, Space, Switch, Table, Typography, Upload, theme,
 } from 'antd';
 import {
   ArrowLeftOutlined, CheckCircleFilled, CheckOutlined, CloseCircleFilled, CloseOutlined, DeleteOutlined, EditFilled, ExclamationCircleFilled,
@@ -147,6 +147,13 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
     ...(evtStored.activityLogAdditions ?? []),
   ]);
   const [editForm]                            = Form.useForm();
+  const [partForm]                            = Form.useForm();
+  const [partModalOpen, setPartModalOpen]     = useState(false);
+  const partModalKitInfo = Form.useWatch('hardwareKitInfo', partForm);
+  const partModalQty     = (Form.useWatch('quantity', partForm) as number | undefined) ?? 1;
+  const isMissingHardware = event.discrepancy === 'Missing Hardware';
+  const isSO              = !event.jobNo.startsWith('WO');
+  const [partsState, setPartsState] = useState(event.partsRequest ?? []);
   const lastLoggedRootCause = useRef<string | null>(event.rootCause);
   const lastSavedValues = useRef({
     discrepancy:      event.discrepancy,
@@ -206,6 +213,25 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
       issueDescription: String(values.issueDescription  ?? prev.issueDescription),
     };
     setEditingProduct(false);
+  };
+
+  const openAddPartRequest = () => {
+    partForm.resetFields();
+    partForm.setFieldsValue({ jobNo: event.jobNo, door: event.door, quantity: 1 });
+    setPartModalOpen(true);
+  };
+
+  const handleSavePartRequest = () => {
+    partForm.validateFields().then(values => {
+      setPartsState(prev => [...prev, {
+        partNumber:   values.partNumber,
+        description:  values.partDescription,
+        quantityType: values.quantityType,
+        quantity:     Number(values.quantity),
+      }]);
+      setPartModalOpen(false);
+      partForm.resetFields();
+    });
   };
 
   const [hkMode, setHkMode] = useState<'entire' | 'components' | null>(() =>
@@ -782,16 +808,18 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                       <Divider style={{ margin: '16px 0 12px' }} />
                       <Row gutter={[16, 12]} style={{ flex: 1, alignItems: 'stretch', minHeight: 0 }}>
                         <Col xs={24} sm={12} style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-                          {sectionLabel('Parts Request')}
-                          {event.partsRequest && event.partsRequest.length > 0 ? (
+                          <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600, color: token.colorText, display: 'block', marginBottom: 10 }}>
+                            Parts Request
+                          </Text>
+                          {partsState.length > 0 ? (
                             <>
-                              {event.partsRequest.length > 1 && (
+                              {partsState.length > 1 && (
                                 <div style={{ marginBottom: 10 }}>
                                   <Select
                                     size="small"
                                     value={selectedPartIdx}
                                     onChange={setSelectedPartIdx}
-                                    options={event.partsRequest.map((_, i) => ({ value: i, label: `Part ${i + 1}` }))}
+                                    options={partsState.map((_, i) => ({ value: i, label: `Part ${i + 1}` }))}
                                     style={{ width: 120 }}
                                   />
                                 </div>
@@ -803,7 +831,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                                       <Form.Item label="Part #" style={{ marginBottom: 10 }}>
                                         <Select
                                           showSearch
-                                          value={editPartNumber || event.partsRequest[selectedPartIdx].partNumber}
+                                          value={editPartNumber || partsState[selectedPartIdx].partNumber}
                                           options={PART_CATALOG.map(p => ({ value: p.partNumber, label: p.partNumber }))}
                                           onChange={v => {
                                             setEditPartNumber(v);
@@ -818,7 +846,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                                       <Form.Item label="Part Description" style={{ marginBottom: 10 }}>
                                         <Select
                                           showSearch
-                                          value={editPartDescription || event.partsRequest[selectedPartIdx].description}
+                                          value={editPartDescription || partsState[selectedPartIdx].description}
                                           options={PART_CATALOG.map(p => ({ value: p.partDescription, label: p.partDescription }))}
                                           onChange={v => {
                                             setEditPartDescription(v);
@@ -834,26 +862,33 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                                     <Col flex={1}>
                                       <Form.Item label="Quantity Type" style={{ marginBottom: 0 }}>
                                         <Select
-                                          defaultValue={event.partsRequest[selectedPartIdx].quantityType}
+                                          defaultValue={partsState[selectedPartIdx].quantityType}
                                           options={['Piece', 'Length'].map(v => ({ value: v, label: v }))}
                                         />
                                       </Form.Item>
                                     </Col>
                                     <Col style={{ width: 72 }}>
                                       <Form.Item label="Qty" style={{ marginBottom: 0 }}>
-                                        <Input defaultValue={String(event.partsRequest[selectedPartIdx].quantity)} />
+                                        <Input defaultValue={String(partsState[selectedPartIdx].quantity)} />
                                       </Form.Item>
                                     </Col>
                                   </Row>
                                 </Form>
                               ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                                  {displayField('Part #', event.partsRequest[selectedPartIdx].partNumber, false, true)}
-                                  {displayField('Parts Description', event.partsRequest[selectedPartIdx].description)}
+                                  {displayField('Part #', partsState[selectedPartIdx].partNumber, false, true)}
+                                  {displayField('Parts Description', partsState[selectedPartIdx].description)}
                                   <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-                                    {displayField('Quantity Type', event.partsRequest[selectedPartIdx].quantityType)}
-                                    {displayField('Qty', event.partsRequest[selectedPartIdx].quantity)}
+                                    {displayField('Quantity Type', partsState[selectedPartIdx].quantityType)}
+                                    {displayField('Qty', partsState[selectedPartIdx].quantity)}
                                   </div>
+                                </div>
+                              )}
+                              {status !== 'Invalidated' && (
+                                <div style={{ marginTop: 12 }}>
+                                  <Button size="small" type="dashed" icon={<PlusOutlined />} onClick={openAddPartRequest}>
+                                    Add Parts Request
+                                  </Button>
                                 </div>
                               )}
                             </>
@@ -868,9 +903,11 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                               <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary, lineHeight: 1.5 }}>
                                 No parts request filed for this event.
                               </Text>
-                              <Button size="small" type="dashed" icon={<PlusOutlined />}>
-                                Add Parts Request
-                              </Button>
+                              {status !== 'Invalidated' && (
+                                <Button size="small" type="dashed" icon={<PlusOutlined />} onClick={openAddPartRequest}>
+                                  Add Parts Request
+                                </Button>
+                              )}
                             </div>
                           )}
                         </Col>
@@ -889,9 +926,11 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                               <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary, lineHeight: 1.5 }}>
                                 No hardware kit on file for this event.
                               </Text>
-                              <Button size="small" type="dashed" icon={<PlusOutlined />} onClick={() => setHkMode('entire')}>
-                                Add Hardware Kit
-                              </Button>
+                              {status !== 'Invalidated' && (
+                                <Button size="small" type="dashed" icon={<PlusOutlined />} onClick={openAddPartRequest}>
+                                  Add Hardware Kit
+                                </Button>
+                              )}
                             </div>
                           ) : editingProduct ? (
                             <Form layout="vertical" size="small">
@@ -1032,6 +1071,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                   if (ext === 'pdf') return <FilePdfOutlined style={{ fontSize: 20, color: '#ff4d4f' }} />;
                   if (['xlsx', 'xls', 'csv'].includes(ext ?? '')) return <FileExcelOutlined style={{ fontSize: 20, color: '#52c41a' }} />;
                   if (['doc', 'docx'].includes(ext ?? '')) return <FileWordOutlined style={{ fontSize: 20, color: '#1677ff' }} />;
+                  if (['eml', 'msg'].includes(ext ?? '')) return <MessageFilled style={{ fontSize: 20, color: '#1677ff' }} />;
                   return <FileOutlined style={{ fontSize: 20, color: token.colorTextTertiary }} />;
                 };
                 return (
@@ -1070,7 +1110,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                     <Upload.Dragger
                       multiple
-                      accept=".pdf,.png,.jpg,.jpeg,.csv,.txt,.xlsx,.xls,.doc,.docx,.ppt,.pptx"
+                      accept=".pdf,.png,.jpg,.jpeg,.csv,.txt,.xlsx,.xls,.doc,.docx,.ppt,.pptx,.eml,.msg"
                       showUploadList={false}
                       beforeUpload={(file) => {
                         const blobUrl = URL.createObjectURL(file);
@@ -1084,10 +1124,10 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                       <p style={{ margin: 0, paddingBottom: 4 }}><InboxOutlined style={{ fontSize: 24, color: token.colorPrimary }} /></p>
                       <p style={{ margin: 0, fontSize: token.fontSizeSM, color: token.colorText }}>Drag files here or <span style={{ color: token.colorPrimary }}>click to upload</span></p>
                       <p style={{ margin: '4px 0 0', fontSize: token.fontSizeXS, color: token.colorTextTertiary }}>
-                        Preview in-app: PDF, PNG, JPG, CSV, TXT
+                        PDF · Excel · CSV · Images
                       </p>
                       <p style={{ margin: '2px 0 0', fontSize: token.fontSizeXS, color: token.colorTextQuaternary }}>
-                        Download only: Excel, Word, PowerPoint
+                        Email chains: .eml (standard) or .msg (Outlook)
                       </p>
                     </Upload.Dragger>
                     {attachments.length > 0 && (
@@ -1532,6 +1572,117 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
         <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
           Link escalation <strong>{pendingEscalation}</strong> to this event?
         </Text>
+      </Modal>
+
+      {/* ADD PART REQUEST MODAL */}
+      <Modal
+        title="Add Part Request"
+        open={partModalOpen}
+        onCancel={() => { setPartModalOpen(false); partForm.resetFields(); }}
+        onOk={handleSavePartRequest}
+        okText="Add Part"
+        width={540}
+      >
+        <Form form={partForm} layout="vertical" size="small" style={{ marginTop: 8 }}>
+          <Row gutter={8}>
+            <Col style={{ width: 148 }}>
+              <Form.Item label="Job No." name="jobNo" rules={[{ required: true }]} style={{ marginBottom: 10 }}>
+                <Input />
+              </Form.Item>
+            </Col>
+            {isSO && (
+              <Col style={{ width: 76 }}>
+                <Form.Item label="EL LIN" name="elLineItem" style={{ marginBottom: 10 }}>
+                  <InputNumber min={1} controls={false} style={{ width: '100%' }} />
+                </Form.Item>
+              </Col>
+            )}
+          </Row>
+          <Form.Item label="Door Type" name="door" rules={[{ required: true }]} style={{ marginBottom: 10 }}>
+            <Select
+              showSearch
+              optionFilterProp="label"
+              options={DOOR_OPTIONS.map(v => ({ value: v, label: v }))}
+            />
+          </Form.Item>
+          <Row gutter={8}>
+            <Col flex={1}>
+              <Form.Item label="Part #" name="partNumber" rules={[{ required: true }]} style={{ marginBottom: 10 }}>
+                <Select
+                  showSearch
+                  optionFilterProp="label"
+                  options={PART_CATALOG.map(p => ({ value: p.partNumber, label: p.partNumber }))}
+                  onChange={(v: string) => {
+                    const m = PART_CATALOG.find(p => p.partNumber === v);
+                    if (m) partForm.setFieldValue('partDescription', m.partDescription);
+                  }}
+                />
+              </Form.Item>
+            </Col>
+            <Col flex={1}>
+              <Form.Item label="Part Description" name="partDescription" rules={[{ required: true }]} style={{ marginBottom: 10 }}>
+                <Select
+                  showSearch
+                  optionFilterProp="label"
+                  options={PART_CATALOG.map(p => ({ value: p.partDescription, label: p.partDescription }))}
+                  onChange={(v: string) => {
+                    const m = PART_CATALOG.find(p => p.partDescription === v);
+                    if (m) partForm.setFieldValue('partNumber', m.partNumber);
+                  }}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+          {isMissingHardware && (
+            <Row gutter={8}>
+              <Col flex={1}>
+                <Form.Item label="Hardware Kit Information" name="hardwareKitInfo" style={{ marginBottom: 10 }}>
+                  <Select
+                    allowClear
+                    placeholder="None"
+                    options={['Entire Hardware Kit', 'Components within Hardware Kit'].map(v => ({ value: v, label: v }))}
+                  />
+                </Form.Item>
+              </Col>
+              {partModalKitInfo === 'Entire Hardware Kit' && (
+                <Col flex={1}>
+                  <Form.Item label="Serial #" name="serialNumber" style={{ marginBottom: 10 }}>
+                    <Input placeholder="Enter serial number" />
+                  </Form.Item>
+                </Col>
+              )}
+            </Row>
+          )}
+          <Form.Item label="Quantity Type" name="quantityType" rules={[{ required: true }]} style={{ marginBottom: 10 }}>
+            <Radio.Group buttonStyle="solid" size="small">
+              <Radio.Button value="Piece">Piece</Radio.Button>
+              <Radio.Button value="Length">Length</Radio.Button>
+            </Radio.Group>
+          </Form.Item>
+          <Form.Item label="Quantity" style={{ marginBottom: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <Slider
+                  min={1}
+                  max={100}
+                  value={partModalQty}
+                  onChange={(v) => partForm.setFieldValue('quantity', v)}
+                  marks={{ 1: '1', 25: '25', 50: '50', 75: '75', 100: '100' }}
+                />
+              </div>
+              <InputNumber
+                min={1}
+                max={100}
+                value={partModalQty}
+                onChange={(v) => partForm.setFieldValue('quantity', v ?? 1)}
+                style={{ width: 68 }}
+              />
+            </div>
+            <Form.Item name="quantity" noStyle rules={[{ required: true }]}>
+              <Input type="hidden" />
+            </Form.Item>
+          </Form.Item>
+        </Form>
       </Modal>
 
       {/* IMAGE EXPAND MODAL */}

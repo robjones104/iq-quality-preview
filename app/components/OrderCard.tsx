@@ -74,7 +74,7 @@ export function OrderCard({ row, status, menuItems, onAction }: OrderCardProps) 
         <CopyableValue value={row.jobNo} />
       </div>
 
-      <div style={{ fontSize: token.fontSizeSM, color: token.colorTextSecondary, lineHeight: 1.4 }}>
+      <div style={{ fontSize: token.fontSizeSM, color: token.colorTextSecondary, lineHeight: 1.4, marginTop: 'auto' }}>
         {row.branch} · {row.lastUpdated}
       </div>
 

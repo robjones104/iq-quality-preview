@@ -263,7 +263,7 @@ export default function DashboardPage() {
         label: (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
             <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{e.id}</span>
-            <span style={{ fontSize: 11, color: '#8c8c8c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.jobNo} · {e.discrepancy}</span>
+            <span style={{ fontSize: 11, color: token.colorTextTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.jobNo} · {e.discrepancy}</span>
           </div>
         ),
       }));
@@ -275,7 +275,7 @@ export default function DashboardPage() {
         label: (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
             <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{o.id}</span>
-            <span style={{ fontSize: 11, color: '#8c8c8c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.jobNo} · {o.eventId}</span>
+            <span style={{ fontSize: 11, color: token.colorTextTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.jobNo} · {o.eventId}</span>
           </div>
         ),
       }));
@@ -414,7 +414,7 @@ export default function DashboardPage() {
             style={{ width: '100%' }}
             allowClear
           >
-            <Input suffix={<SearchOutlined style={{ color: token.colorTextQuaternary }} />} />
+            <Input aria-label="Search events and orders" suffix={<SearchOutlined style={{ color: token.colorTextQuaternary }} />} />
           </AutoComplete>
         }
         right={

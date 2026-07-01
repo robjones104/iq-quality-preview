@@ -14,7 +14,7 @@ export function EventCard({ event, hasOrder }: EventCardProps) {
   const { token } = theme.useToken();
 
   return (
-    <Link href={`/events/${event.id}`} style={{ textDecoration: 'none', display: 'block' }}>
+    <Link href={`/events/${event.id}`} style={{ textDecoration: 'none', display: 'block', height: '100%' }}>
       <Card
         size="small"
         hoverable
@@ -48,7 +48,7 @@ export function EventCard({ event, hasOrder }: EventCardProps) {
           {event.product} · {event.door}
         </div>
 
-        <div style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary, lineHeight: 1.4 }}>
+        <div style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary, lineHeight: 1.4, marginTop: 'auto' }}>
           {event.branch} · {event.date} · {event.reportedBy}
         </div>
       </Card>
