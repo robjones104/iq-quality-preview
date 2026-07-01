@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import dayjs from 'dayjs';
-import { AutoComplete, Input, Table, Button, Select, Space, Tag, Typography, Tooltip, notification, theme, Grid, List } from 'antd';
+import { AutoComplete, Input, Pagination, Table, Button, Select, Space, Tag, Typography, Tooltip, notification, theme, Grid } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { MoreOutlined, CloseOutlined, SearchOutlined, ArrowLeftOutlined, ExportOutlined } from '@ant-design/icons';
 import { CopyableValue } from '@/components/CopyableValue';
@@ -25,6 +25,8 @@ import { useFilterStore } from '@/store/filterStore';
 import type { DateRange } from '@/components/DateRangeFilter';
 import type { QualityEvent, EventStatus } from '@/data/types';
 const { Text } = Typography;
+
+const CARD_PAGE_SIZE = 12;
 
 function EventsPageContent() {
   const searchParams = useSearchParams();
@@ -87,6 +89,8 @@ function EventsPageContent() {
   const [batchEscId, setBatchEscId]               = useState<string | undefined>();
   const [createEscOpen, setCreateEscOpen]         = useState(false);
   const [notifApi, notifContextHolder]            = notification.useNotification();
+  const [cardPage, setCardPage] = useState(1);
+  useEffect(() => { setCardPage(1); }, [appliedFiltersLocal, dateRange]);
 
   const handleExportEvents = () => {
     const selected = filtered.filter(e => selectedEventKeys.includes(e.id));
@@ -133,7 +137,7 @@ function EventsPageContent() {
         label: (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
             <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{e.id}</span>
-            <span style={{ fontSize: 11, color: '#8c8c8c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.jobNo} · {e.discrepancy}</span>
+            <span style={{ fontSize: 11, color: token.colorTextTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.jobNo} · {e.discrepancy}</span>
           </div>
         ),
       }));
@@ -356,7 +360,7 @@ function EventsPageContent() {
               style={{ width: '100%' }}
               allowClear
             >
-              <Input suffix={<SearchOutlined style={{ color: token.colorTextQuaternary }} />} />
+              <Input aria-label="Search events" suffix={<SearchOutlined style={{ color: token.colorTextQuaternary }} />} />
             </AutoComplete>
           )
         }
@@ -383,23 +387,30 @@ function EventsPageContent() {
           </div>
         )}
 
-        {screens.lg === false ? (
-          <List
-            dataSource={filtered}
-            grid={{ gutter: 12, xs: 1, sm: 2 }}
-            pagination={{
-              pageSize: 12,
-              hideOnSinglePage: true,
-              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
-              size: 'small',
-              style: { textAlign: 'right', marginTop: 12 },
-            }}
-            renderItem={(event) => (
-              <List.Item style={{ padding: 0, height: '100%' }}>
-                <EventCard event={event} hasOrder={eventOrderIds.has(event.id)} />
-              </List.Item>
+        {screens.xl === false ? (
+          <div>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: screens.md !== false ? 'repeat(2, 1fr)' : '1fr',
+              gap: 12,
+            }}>
+              {filtered.slice((cardPage - 1) * CARD_PAGE_SIZE, cardPage * CARD_PAGE_SIZE).map(event => (
+                <EventCard key={event.id} event={event} hasOrder={eventOrderIds.has(event.id)} />
+              ))}
+            </div>
+            {filtered.length > CARD_PAGE_SIZE && (
+              <Pagination
+                current={cardPage}
+                pageSize={CARD_PAGE_SIZE}
+                total={filtered.length}
+                onChange={setCardPage}
+                size="small"
+                hideOnSinglePage
+                showTotal={(total, range) => `${range[0]}-${range[1]} of ${total}`}
+                style={{ textAlign: 'right', marginTop: 12 }}
+              />
             )}
-          />
+          </div>
         ) : (
           <>
             {selectedEventKeys.length > 0 && (

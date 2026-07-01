@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
-  AutoComplete, Badge, Button, Form, Grid, Input, List, Modal,
+  AutoComplete, Badge, Button, Form, Grid, Input, Modal, Pagination,
   Select, Table, Tag, Typography, theme,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
@@ -33,6 +33,8 @@ type FormValues = {
   status?: UserStatus;
 };
 
+const CARD_PAGE_SIZE = 12;
+
 export default function UsersPage() {
   const { token } = theme.useToken();
   const screens = Grid.useBreakpoint();
@@ -46,6 +48,8 @@ export default function UsersPage() {
 
   const [searchText, setSearchText] = useState('');
   const [nameQuery,  setNameQuery]  = useState('');
+  const [cardPage, setCardPage] = useState(1);
+  useEffect(() => { setCardPage(1); }, [userFilters, nameQuery]);
 
   const searchOptions = useMemo(() => {
     const q = searchText.trim().toLowerCase();
@@ -62,7 +66,7 @@ export default function UsersPage() {
         label: (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 13 }}>{u.name}</span>
-            <span style={{ fontSize: 11, color: '#8c8c8c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.role} · {u.branch ?? 'All Branches'}</span>
+            <span style={{ fontSize: 11, color: token.colorTextTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.role} · {u.branch ?? 'All Branches'}</span>
           </div>
         ),
       }));
@@ -301,7 +305,7 @@ export default function UsersPage() {
             style={{ width: '100%' }}
             allowClear
           >
-            <Input suffix={<SearchOutlined style={{ color: token.colorTextQuaternary }} />} />
+            <Input aria-label="Search users" suffix={<SearchOutlined style={{ color: token.colorTextQuaternary }} />} />
           </AutoComplete>
         }
         right={
@@ -324,27 +328,35 @@ export default function UsersPage() {
             </Button>
           </div>
         )}
-        {screens.lg === false ? (
-          <List
-            dataSource={filtered}
-            grid={{ gutter: 12, xs: 1, sm: 2 }}
-            pagination={{
-              pageSize: 12,
-              hideOnSinglePage: true,
-              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
-              size: 'small',
-              style: { textAlign: 'right', marginTop: 12 },
-            }}
-            renderItem={(u) => (
-              <List.Item style={{ padding: 0, height: '100%' }}>
+        {screens.xl === false ? (
+          <div>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: screens.md !== false ? 'repeat(2, 1fr)' : '1fr',
+              gap: 12,
+            }}>
+              {filtered.slice((cardPage - 1) * CARD_PAGE_SIZE, cardPage * CARD_PAGE_SIZE).map(u => (
                 <UserCard
+                  key={u.id}
                   user={u}
                   onEdit={() => openEdit(u)}
                   onDelete={() => openDelete(u)}
                 />
-              </List.Item>
+              ))}
+            </div>
+            {filtered.length > CARD_PAGE_SIZE && (
+              <Pagination
+                current={cardPage}
+                pageSize={CARD_PAGE_SIZE}
+                total={filtered.length}
+                onChange={setCardPage}
+                size="small"
+                hideOnSinglePage
+                showTotal={(total, range) => `${range[0]}-${range[1]} of ${total}`}
+                style={{ textAlign: 'right', marginTop: 12 }}
+              />
             )}
-          />
+          </div>
         ) : (
           <Table
             dataSource={filtered}

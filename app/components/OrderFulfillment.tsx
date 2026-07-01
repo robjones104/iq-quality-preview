@@ -378,7 +378,7 @@ export function OrderPipelineChart({ orders }: { orders: Order[] }) {
     <div>
       {lanes.map((lane, i) => (
         <div key={lane.label}>
-          <div onClick={() => router.push(lane.href)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', cursor: 'pointer', borderRadius: token.borderRadiusSM }}>
+          <div role="button" tabIndex={0} onClick={() => router.push(lane.href)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(lane.href); } }} aria-label={`View ${lane.label} orders`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', cursor: 'pointer', borderRadius: token.borderRadiusSM }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ width: 4, height: 20, borderRadius: 2, background: lane.color, flexShrink: 0 }} />
               <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextSecondary }}>{lane.label}</Text>

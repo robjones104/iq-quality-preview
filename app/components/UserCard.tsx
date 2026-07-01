@@ -48,11 +48,13 @@ export function UserCard({ user, onEdit, onDelete }: UserCardProps) {
         </Text>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 4, marginTop: 4 }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 4, marginTop: 'auto' }}>
         <Button size="small" type="text" icon={<EditFilled />}
-          style={{ color: token.colorTextTertiary }} onClick={onEdit} />
+          style={{ color: token.colorTextTertiary }} onClick={onEdit}
+          aria-label={`Edit ${user.name}`} />
         <Button size="small" type="text" icon={<DeleteFilled />}
-          style={{ color: token.colorTextTertiary }} onClick={onDelete} />
+          style={{ color: token.colorTextTertiary }} onClick={onDelete}
+          aria-label={`Remove ${user.name}`} />
       </div>
     </Card>
   );

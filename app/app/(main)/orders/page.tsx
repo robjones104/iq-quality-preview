@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import dayjs from 'dayjs';
 import {
-  AutoComplete, Dropdown, Form, Input, List, Modal, Select,
+  AutoComplete, Dropdown, Form, Input, Modal, Pagination, Select,
   Switch, Table, Tabs, Button, Tag, Tooltip, Typography, theme, Grid,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
@@ -67,6 +67,8 @@ const orderRows: OrderRow[] = orders.map(o => {
   };
 });
 
+const CARD_PAGE_SIZE = 12;
+
 function OrdersPageContent() {
   const searchParams = useSearchParams();
   const orderStatusParam = searchParams.get('orderStatus');
@@ -114,7 +116,7 @@ function OrdersPageContent() {
         label: (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
             <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{o.id}</span>
-            <span style={{ fontSize: 11, color: '#8c8c8c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.jobNo} · {o.discrepancy}</span>
+            <span style={{ fontSize: 11, color: token.colorTextTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.jobNo} · {o.discrepancy}</span>
           </div>
         ),
       }));
@@ -199,6 +201,8 @@ function OrdersPageContent() {
   const [reopenSuccess,     setReopenSuccess]     = useState(false);
   const [batchCloseSuccess, setBatchCloseSuccess] = useState(false);
   const [batchCloseCount,   setBatchCloseCount]   = useState(0);
+  const [cardPage, setCardPage] = useState(1);
+  useEffect(() => { setCardPage(1); }, [appliedFiltersLocal, procurementQueue]);
 
   const handleExportOrders = () => {
     const selected = filtered.filter(o => selectedOrderKeys.includes(o.id));
@@ -664,7 +668,7 @@ function OrdersPageContent() {
             style={{ width: '100%' }}
             allowClear
           >
-            <Input suffix={<SearchOutlined style={{ color: token.colorTextQuaternary }} />} />
+            <Input aria-label="Search orders" suffix={<SearchOutlined style={{ color: token.colorTextQuaternary }} />} />
           </AutoComplete>
         }
         right={
@@ -676,7 +680,7 @@ function OrdersPageContent() {
         }
       />
 
-      <div style={{ padding: token.paddingMD }}>
+      <div style={{ padding: '16px 20px' }}>
         {screens.md !== false && chips.length > 0 && (
           <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: token.marginXS, marginBottom: token.margin }}>
             {chips.map((chip) => (
@@ -690,99 +694,111 @@ function OrdersPageContent() {
           </div>
         )}
 
-        <Tabs
-          activeKey={procurementQueue ? 'procurement' : 'all'}
-          onChange={key => setProcurementQueue(key === 'procurement')}
-          style={{ marginBottom: 8 }}
-          items={[
-            { key: 'all', label: 'All Orders' },
-            { key: 'procurement', label: 'Assigned to Procurement' },
-          ]}
-        />
-
-        {screens.lg === false ? (
-          <List
-            dataSource={filtered}
-            grid={{ gutter: 12, xs: 1, sm: 2 }}
-            pagination={{
-              pageSize: 12,
-              hideOnSinglePage: true,
-              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
-              size: 'small',
-              style: { textAlign: 'right', marginTop: 12 },
-            }}
-            renderItem={(row) => (
-              <List.Item style={{ padding: 0, height: '100%' }}>
-                <OrderCard
-                  row={row}
-                  status={effectiveStatus(row)}
-                  menuItems={getMenuItems(row)}
-                  onAction={key => openRowAction(key, row)}
-                />
-              </List.Item>
-            )}
-          />
-        ) : (
-          <>
-            {selectedOrderKeys.length > 0 && (
+        {(() => {
+          const cardItems = filtered.slice((cardPage - 1) * CARD_PAGE_SIZE, cardPage * CARD_PAGE_SIZE);
+          const tabContent = screens.xl === false ? (
+            <div>
               <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                marginBottom: 8, padding: '6px 10px',
-                background: token.colorFillSecondary,
-                borderRadius: token.borderRadius,
-                border: `1px solid ${token.colorBorderSecondary}`,
+                display: 'grid',
+                gridTemplateColumns: screens.md !== false ? 'repeat(2, 1fr)' : '1fr',
+                gap: 12,
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Typography.Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
-                    {selectedOrderKeys.length} selected
-                  </Typography.Text>
-                  <Button type="link" size="small" style={{ padding: 0 }} onClick={() => setSelectedOrderKeys([])}>
-                    Clear
-                  </Button>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Button
-                    size="small"
-                    icon={<CheckOutlined />}
-                    disabled={openCount === 0}
-                    onClick={() => setBatchCloseOpen(true)}
-                  >
-                    Close Orders{openCount > 0 ? ` (${openCount})` : ''}
-                  </Button>
-                  <Button size="small" icon={<ExportOutlined />} onClick={handleExportOrders}>
-                    Export
-                  </Button>
-                </div>
+                {cardItems.map(row => (
+                  <OrderCard
+                    key={row.id}
+                    row={row}
+                    status={effectiveStatus(row)}
+                    menuItems={getMenuItems(row)}
+                    onAction={key => openRowAction(key, row)}
+                  />
+                ))}
               </div>
-            )}
-
-            <Table
-              dataSource={filtered}
-              columns={columns}
-              rowKey="id"
+              {filtered.length > CARD_PAGE_SIZE && (
+                <Pagination
+                  current={cardPage}
+                  pageSize={CARD_PAGE_SIZE}
+                  total={filtered.length}
+                  onChange={setCardPage}
+                  size="small"
+                  hideOnSinglePage
+                  showTotal={(total, range) => `${range[0]}-${range[1]} of ${total}`}
+                  style={{ textAlign: 'right', marginTop: 12 }}
+                />
+              )}
+            </div>
+          ) : (
+            <>
+              {selectedOrderKeys.length > 0 && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  marginBottom: 8, padding: '6px 10px',
+                  background: token.colorFillSecondary,
+                  borderRadius: token.borderRadius,
+                  border: `1px solid ${token.colorBorderSecondary}`,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Typography.Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
+                      {selectedOrderKeys.length} selected
+                    </Typography.Text>
+                    <Button type="link" size="small" style={{ padding: 0 }} onClick={() => setSelectedOrderKeys([])}>
+                      Clear
+                    </Button>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Button
+                      size="small"
+                      icon={<CheckOutlined />}
+                      disabled={openCount === 0}
+                      onClick={() => setBatchCloseOpen(true)}
+                    >
+                      Close Orders{openCount > 0 ? ` (${openCount})` : ''}
+                    </Button>
+                    <Button size="small" icon={<ExportOutlined />} onClick={handleExportOrders}>
+                      Export
+                    </Button>
+                  </div>
+                </div>
+              )}
+              <Table
+                dataSource={filtered}
+                columns={columns}
+                rowKey="id"
+                size="small"
+                onChange={(_p, tableFilters) => {
+                  const next = { ...appliedFiltersLocal };
+                  Object.entries(tableFilters).forEach(([k, vals]) => {
+                    if (vals?.length) next[k] = vals as string[];
+                    else delete next[k];
+                  });
+                  setAppliedFilters(next);
+                }}
+                rowSelection={{
+                  type: 'checkbox',
+                  selectedRowKeys: selectedOrderKeys,
+                  onChange: keys => setSelectedOrderKeys(keys as string[]),
+                }}
+                pagination={{
+                  pageSize: 10,
+                  showSizeChanger: true,
+                  pageSizeOptions: ['10', '25', '50'],
+                  showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
+                }}
+              />
+            </>
+          );
+          return (
+            <Tabs
+              activeKey={procurementQueue ? 'procurement' : 'all'}
+              onChange={key => setProcurementQueue(key === 'procurement')}
               size="small"
-              onChange={(_p, tableFilters) => {
-                const next = { ...appliedFiltersLocal };
-                Object.entries(tableFilters).forEach(([k, vals]) => {
-                  if (vals?.length) next[k] = vals as string[];
-                  else delete next[k];
-                });
-                setAppliedFilters(next);
-              }}
-              rowSelection={{
-                type: 'checkbox',
-                selectedRowKeys: selectedOrderKeys,
-                onChange: keys => setSelectedOrderKeys(keys as string[]),
-              }}
-              pagination={{
-                pageSize: 10,
-                showSizeChanger: true,
-                pageSizeOptions: ['10', '25', '50'],
-                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
-              }}
+              destroyInactiveTabPane
+              items={[
+                { key: 'all', label: 'All Orders', children: tabContent },
+                { key: 'procurement', label: 'Assigned to Procurement', children: tabContent },
+              ]}
             />
-          </>
-        )}
+          );
+        })()}
       </div>
     </>
   );

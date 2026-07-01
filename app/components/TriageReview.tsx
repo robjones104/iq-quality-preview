@@ -224,7 +224,11 @@ export function TriageReview({ events }: { events: QualityEvent[] }) {
                       return (
                         <div
                           key={`${row.key}-${col.key}`}
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`${count} ${col.status} events — ${row.label}`}
                           onClick={() => navigate(row.dr(), col.status)}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(row.dr(), col.status); } }}
                           style={{ background: bg, padding: '16px 8px', textAlign: 'center', cursor: 'pointer', transition: 'background 0.15s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                           onMouseEnter={e => (e.currentTarget.style.background = token.colorFillSecondary)}
                           onMouseLeave={e => (e.currentTarget.style.background = bg)}
@@ -319,7 +323,11 @@ export function TriageReview({ events }: { events: QualityEvent[] }) {
                     {visibleBranches.map(({ branch, count }) => (
                       <div
                         key={branch}
+                        role="button"
+                        tabIndex={0}
                         onClick={() => router.push(`/events?branch=${encodeURIComponent(branch)}`)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/events?branch=${encodeURIComponent(branch)}`); } }}
+                        aria-label={`Filter events by branch: ${branch}`}
                         style={{ cursor: 'pointer' }}
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
@@ -424,7 +432,7 @@ export function DataQualityChart({ events }: { events: QualityEvent[] }) {
         </Text>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {visibleBranches.map(({ branch, count }) => (
-            <div key={branch} onClick={() => router.push(`/events?branch=${encodeURIComponent(branch)}`)} style={{ cursor: 'pointer' }}>
+            <div key={branch} role="button" tabIndex={0} onClick={() => router.push(`/events?branch=${encodeURIComponent(branch)}`)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/events?branch=${encodeURIComponent(branch)}`); } }} aria-label={`Filter events by branch: ${branch}`} style={{ cursor: 'pointer' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
                 <Text style={{ fontSize: token.fontSizeSM }}>{branch}</Text>
                 <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600 }}>{count}</Text>

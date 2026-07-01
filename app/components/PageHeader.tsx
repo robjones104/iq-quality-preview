@@ -70,11 +70,8 @@ export function PageHeader({ left, center, right }: Props) {
     {
       key: 'theme-toggle',
       icon: darkMode ? <SunFilled /> : <MoonFilled />,
-      label: (
-        <div onClick={toggle}>
-          {darkMode ? 'Switch to Light' : 'Switch to Dark'}
-        </div>
-      ),
+      label: darkMode ? 'Switch to Light' : 'Switch to Dark',
+      onClick: toggle,
     },
   ];
 
@@ -104,6 +101,7 @@ export function PageHeader({ left, center, right }: Props) {
               icon={<MenuOutlined />}
               onClick={() => setMobileNavOpen(true)}
               style={{ flexShrink: 0 }}
+              aria-label="Open navigation menu"
             />
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
