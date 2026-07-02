@@ -17,11 +17,12 @@ const { useBreakpoint } = Grid;
 
 type Props = {
   left?: React.ReactNode;
+  middle?: React.ReactNode;
   center?: React.ReactNode;
   right?: React.ReactNode;
 };
 
-export function PageHeader({ left, center, right }: Props) {
+export function PageHeader({ left, middle, center, right }: Props) {
   const { token } = theme.useToken();
   const screens = useBreakpoint();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -108,6 +109,13 @@ export function PageHeader({ left, center, right }: Props) {
             {left}
           </div>
         </div>
+
+        {/* Middle: optional control, truly centered in the header bar — hidden on mobile */}
+        {middle && screens.md && (
+          <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }}>
+            {middle}
+          </div>
+        )}
 
         {/* Center: optional search or contextual content — hidden on mobile */}
         {center && screens.md && (

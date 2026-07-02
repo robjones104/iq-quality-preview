@@ -1,10 +1,13 @@
 'use client';
 
-import React, { Fragment, useRef, useMemo, useState } from 'react';
+import React, { Fragment, Suspense, useRef, useMemo, useState } from 'react';
 import { AutoComplete, Button, Card, Col, Flex, Grid, Input, Progress, Row, Segmented, Select, Statistic, Tag, Space, Typography, theme } from 'antd';
-import { CloseOutlined, CaretDownFilled, CaretRightFilled, AppstoreFilled, FormOutlined, SearchOutlined, HourglassFilled } from '@ant-design/icons';
+import {
+  CloseOutlined, CaretDownFilled, CaretRightFilled, AppstoreFilled, FormOutlined, SearchOutlined, HourglassFilled,
+  CheckCircleFilled, ShoppingCartOutlined, FileDoneOutlined,
+} from '@ant-design/icons';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import dayjs from 'dayjs';
 import { PageHeader } from '@/components/PageHeader';
 import { FilterPanel } from '@/components/FilterPanel';
@@ -16,13 +19,16 @@ import { useFilterStore } from '@/store/filterStore';
 import { AiSummary } from '@/components/AiSummary';
 import { FieldIntake, EventsOverTimeChart, EventsByBranchChart, EventsByDiscrepancyChart } from '@/components/FieldIntake';
 import { TriageReview, QueueHealthChart, WaitingOnTechChart, DataQualityChart } from '@/components/TriageReview';
-import { OrderFulfillment, PendingCSReviewChart, OrderPipelineChart, DecisionTrendChart } from '@/components/OrderFulfillment';
+import { OrderFulfillment, PendingCSReviewChart, DecisionTrendChart, DeclinedOrders, DeclinedOrdersPreview, DeclinedByBranchChart } from '@/components/OrderFulfillment';
 import type { QualityEvent } from '@/data/types';
+import type { Order } from '@/data/orders';
 import type { DateRange } from '@/components/DateRangeFilter';
 
 const { Text } = Typography;
 
-type Section = 'intake' | 'triage' | 'orders';
+type View = 'events' | 'orders';
+type EventsSection = 'intake' | 'triage';
+type OrdersSection = 'fulfillment' | 'declined';
 
 function applyFilters(list: QualityEvent[], dateRange: DateRange | null, applied: Record<string, string[]>) {
   return list.filter((e) => {
@@ -242,14 +248,21 @@ function buildKpiHref(
   return q ? `${basePath}?${q}` : basePath;
 }
 
-export default function DashboardPage() {
+function DashboardPageContent() {
   const { token } = theme.useToken();
   const screens = Grid.useBreakpoint();
   const sidePadding = screens.xxl ? '5%' : screens.xl ? '3.5%' : screens.md === false ? '20px' : `${token.paddingMD + 20}px`;
   const { dateRange, setDateRange, dashboardFilters: appliedFilters, setDashboardFilters: setAppliedFilters } = useFilterStore();
-  const [activeSection, setActiveSection] = useState<Section>('triage');
 
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const [view, setViewState] = useState<View>(searchParams.get('view') === 'orders' ? 'orders' : 'events');
+  const setView = (v: View) => {
+    setViewState(v);
+    router.replace(v === 'orders' ? '/dashboard?view=orders' : '/dashboard', { scroll: false });
+  };
+  const [eventsSection, setEventsSection] = useState<EventsSection>('triage');
+  const [ordersSection, setOrdersSection] = useState<OrdersSection>('fulfillment');
   const [searchText, setSearchText] = useState('');
 
   const searchOptions = useMemo(() => {
@@ -395,15 +408,61 @@ export default function DashboardPage() {
     };
   }, [filteredOrders]);
 
-  const toggle = (s: Section) => setActiveSection(prev => prev === s ? prev : s);
+  const priorOrders = useMemo(() => {
+    if (!dateRange) return null;
+    const duration = dateRange[1].diff(dateRange[0], 'day') + 1;
+    const priorStart = dateRange[0].subtract(duration, 'day');
+    const priorEnd = dateRange[0].subtract(1, 'day');
+    return orders.filter(o => {
+      const d = dayjs(o.lastUpdated, 'MM-DD-YYYY HH:mm');
+      return !d.isBefore(priorStart, 'day') && !d.isAfter(priorEnd, 'day');
+    });
+  }, [dateRange]);
+
+  const priorOrder = (fn: (o: Order) => boolean) =>
+    priorOrders ? priorOrders.filter(fn).length : null;
+
+  const isPendingReview   = (o: Order) => o.orderStatus === 'Open' && !o.approved && !o.declined;
+  const isApprovedOrder   = (o: Order) => o.orderStatus === 'Open' && !!o.approved && !o.assignedToProcurement;
+  const isWithProcurement = (o: Order) => o.orderStatus === 'Open' && !!o.approved && !!o.assignedToProcurement;
+  const isClosedOrder     = (o: Order) => o.orderStatus === 'Closed';
+
+  const orderKpis = [
+    { title: 'Pending Review',   count: filteredOrders.filter(isPendingReview).length,   prior: priorOrder(isPendingReview),   accent: token.colorWarning, href: buildKpiHref('/orders?orderStatus=Open', dateRange, {}),                   icon: <HourglassFilled /> },
+    { title: 'Approved',         count: filteredOrders.filter(isApprovedOrder).length,    prior: priorOrder(isApprovedOrder),   accent: token.colorPrimary, href: buildKpiHref('/orders?orderStatus=Open&decision=Approved', dateRange, {}), icon: <CheckCircleFilled /> },
+    { title: 'With Procurement', count: filteredOrders.filter(isWithProcurement).length,  prior: priorOrder(isWithProcurement), accent: token.colorInfo,    href: buildKpiHref('/orders?orderStatus=Open&decision=Approved', dateRange, {}), icon: <ShoppingCartOutlined /> },
+    { title: 'Closed',           count: filteredOrders.filter(isClosedOrder).length,      prior: priorOrder(isClosedOrder),     accent: token.colorSuccess, href: buildKpiHref('/orders?orderStatus=Closed', dateRange, {}),                 icon: <FileDoneOutlined /> },
+  ];
+
+  const declinedStats = useMemo(() => {
+    const total = filteredOrders.length;
+    const declined = filteredOrders.filter(o => o.declined).length;
+    const rate = total > 0 ? Math.round((declined / total) * 100) : 0;
+    return {
+      stats: [
+        { value: declined,   sub: 'declined this period' },
+        { value: `${rate}%`, sub: 'decline rate' },
+      ],
+    };
+  }, [filteredOrders]);
+
   const carouselRef = useRef<HTMLDivElement>(null);
-  const SECTIONS: Section[] = ['intake', 'triage', 'orders'];
   const [carouselIndex, setCarouselIndex] = useState(0);
 
   return (
     <>
       <PageHeader
         left={<DateRangeFilter value={dateRange} onChange={setDateRange} />}
+        middle={
+          <Segmented
+            options={[
+              { label: 'Events', value: 'events' },
+              { label: 'Orders', value: 'orders' },
+            ]}
+            value={view}
+            onChange={(v) => setView(v as View)}
+          />
+        }
         center={
           <AutoComplete
             value={searchText}
@@ -441,14 +500,14 @@ export default function DashboardPage() {
         )}
 
         <Flex vertical gap={token.marginLG}>
-          <AiSummary events={filteredEvents} dateRange={dateRange} />
+          {view === 'events' && <AiSummary events={filteredEvents} dateRange={dateRange} />}
 
           <div style={{
             display: 'grid',
             gridTemplateColumns: screens.md === false ? '1fr 1fr' : 'repeat(4, 1fr)',
             gap: token.marginSM,
           }}>
-            {kpis.map((k) => (
+            {(view === 'events' ? kpis : orderKpis).map((k) => (
               <KpiCard key={k.title} {...k} />
             ))}
           </div>
@@ -458,13 +517,29 @@ export default function DashboardPage() {
               <Segmented
                 block
                 options={[
-                  { label: 'Intake', value: 'intake' },
-                  { label: 'Triage', value: 'triage' },
+                  { label: 'Events', value: 'events' },
                   { label: 'Orders', value: 'orders' },
                 ]}
-                value={activeSection}
+                value={view}
                 onChange={(v) => {
-                  setActiveSection(v as Section);
+                  setView(v as View);
+                  setCarouselIndex(0);
+                  const el = carouselRef.current;
+                  if (el) el.scrollLeft = 0;
+                }}
+                style={{ marginBottom: token.marginSM }}
+              />
+              <Segmented
+                block
+                options={
+                  view === 'events'
+                    ? [{ label: 'Intake', value: 'intake' }, { label: 'Triage', value: 'triage' }]
+                    : [{ label: 'Fulfillment', value: 'fulfillment' }, { label: 'Declined', value: 'declined' }]
+                }
+                value={view === 'events' ? eventsSection : ordersSection}
+                onChange={(v) => {
+                  if (view === 'events') setEventsSection(v as EventsSection);
+                  else setOrdersSection(v as OrdersSection);
                   setCarouselIndex(0);
                   const el = carouselRef.current;
                   if (el) el.scrollLeft = 0;
@@ -473,19 +548,25 @@ export default function DashboardPage() {
               />
               {(() => {
                 const panels =
-                  activeSection === 'intake' ? [
-                    { title: 'Events Over Time',  content: <EventsOverTimeChart events={filteredEvents} dateRange={dateRange} height={200} /> },
-                    { title: 'Events by Branch',  content: <EventsByBranchChart events={filteredEvents} height={200} /> },
-                    { title: 'By Discrepancy',    content: <EventsByDiscrepancyChart events={filteredEvents} height={200} /> },
-                  ] : activeSection === 'triage' ? [
-                    { title: 'Queue Health',      content: <QueueHealthChart events={filteredEvents} /> },
-                    { title: 'Waiting on Tech',   content: <WaitingOnTechChart events={filteredEvents} /> },
-                    { title: 'Data Quality',      content: <DataQualityChart events={filteredEvents} /> },
-                  ] : [
-                    { title: 'Pending CS Review', content: <PendingCSReviewChart orders={filteredOrders} /> },
-                    { title: 'Order Pipeline',    content: <OrderPipelineChart orders={filteredOrders} /> },
-                    { title: 'Decision Trend',    content: <DecisionTrendChart orders={filteredOrders} height={200} /> },
-                  ];
+                  view === 'events' ? (
+                    eventsSection === 'intake' ? [
+                      { title: 'Events Over Time',  content: <EventsOverTimeChart events={filteredEvents} dateRange={dateRange} height={200} /> },
+                      { title: 'Events by Branch',  content: <EventsByBranchChart events={filteredEvents} height={200} /> },
+                      { title: 'By Discrepancy',    content: <EventsByDiscrepancyChart events={filteredEvents} height={200} /> },
+                    ] : [
+                      { title: 'Queue Health',      content: <QueueHealthChart events={filteredEvents} /> },
+                      { title: 'Waiting on Tech',   content: <WaitingOnTechChart events={filteredEvents} /> },
+                      { title: 'Data Quality',      content: <DataQualityChart events={filteredEvents} /> },
+                    ]
+                  ) : (
+                    ordersSection === 'fulfillment' ? [
+                      { title: 'Pending CS Review',  content: <PendingCSReviewChart orders={filteredOrders} /> },
+                      { title: 'Decision Trend',     content: <DecisionTrendChart orders={filteredOrders} height={200} /> },
+                    ] : [
+                      { title: 'Declined Orders',    content: <DeclinedOrdersPreview orders={filteredOrders} /> },
+                      { title: 'Declined by Branch', content: <DeclinedByBranchChart orders={filteredOrders} height={200} /> },
+                    ]
+                  );
                 return (
                   <>
                     <div
@@ -529,44 +610,68 @@ export default function DashboardPage() {
             </div>
           ) : (
             <Row gutter={token.marginSM} style={{ alignItems: 'stretch' }}>
-              <Col xs={24} lg={8} style={{ display: 'flex', flexDirection: 'column' }}>
-                <SectionHeader
-                  label="Field Intake"
-                  stats={intakeStats}
-                  active={activeSection === 'intake'}
-                  onClick={() => toggle('intake')}
-                />
-              </Col>
-              <Col xs={24} lg={8} style={{ display: 'flex', flexDirection: 'column' }}>
-                <SectionHeader
-                  label="Triage / Review"
-                  stats={triageStats.stats}
-                  active={activeSection === 'triage'}
-                  onClick={() => toggle('triage')}
-                  progress={triageStats.progress}
-                />
-              </Col>
-              <Col xs={24} lg={8} style={{ display: 'flex', flexDirection: 'column' }}>
-                <SectionHeader
-                  label="Order Fulfillment"
-                  stats={orderStats.stats}
-                  active={activeSection === 'orders'}
-                  onClick={() => toggle('orders')}
-                  progress={orderStats.progress}
-                />
-              </Col>
+              {view === 'events' ? (
+                <>
+                  <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column' }}>
+                    <SectionHeader
+                      label="Field Intake"
+                      stats={intakeStats}
+                      active={eventsSection === 'intake'}
+                      onClick={() => setEventsSection('intake')}
+                    />
+                  </Col>
+                  <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column' }}>
+                    <SectionHeader
+                      label="Triage / Review"
+                      stats={triageStats.stats}
+                      active={eventsSection === 'triage'}
+                      onClick={() => setEventsSection('triage')}
+                      progress={triageStats.progress}
+                    />
+                  </Col>
+                </>
+              ) : (
+                <>
+                  <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column' }}>
+                    <SectionHeader
+                      label="Order Fulfillment"
+                      stats={orderStats.stats}
+                      active={ordersSection === 'fulfillment'}
+                      onClick={() => setOrdersSection('fulfillment')}
+                      progress={orderStats.progress}
+                    />
+                  </Col>
+                  <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column' }}>
+                    <SectionHeader
+                      label="Declined Orders"
+                      stats={declinedStats.stats}
+                      active={ordersSection === 'declined'}
+                      onClick={() => setOrdersSection('declined')}
+                    />
+                  </Col>
+                </>
+              )}
             </Row>
           )}
 
           {screens.md !== false && (
             <div>
-              {activeSection === 'intake'  && <FieldIntake events={filteredEvents} dateRange={dateRange} />}
-              {activeSection === 'triage'  && <TriageReview events={filteredEvents} />}
-              {activeSection === 'orders'  && <OrderFulfillment events={filteredEvents} orders={filteredOrders} />}
+              {view === 'events' && eventsSection === 'intake'      && <FieldIntake events={filteredEvents} dateRange={dateRange} />}
+              {view === 'events' && eventsSection === 'triage'      && <TriageReview events={filteredEvents} />}
+              {view === 'orders' && ordersSection === 'fulfillment' && <OrderFulfillment events={filteredEvents} orders={filteredOrders} />}
+              {view === 'orders' && ordersSection === 'declined'    && <DeclinedOrders orders={filteredOrders} viewAllHref={buildKpiHref('/orders?decision=Declined', dateRange, {})} />}
             </div>
           )}
         </Flex>
       </div>
     </>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense>
+      <DashboardPageContent />
+    </Suspense>
   );
 }

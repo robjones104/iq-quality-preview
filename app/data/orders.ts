@@ -24,6 +24,7 @@ export interface Order {
   lastUpdated: string;
   approved?: boolean;
   declined?: boolean;
+  declineReason?: string;
   assignedToProcurement?: boolean;
 }
 
@@ -53,6 +54,17 @@ const BULK_PART_DESCS = [
   'Jamb Harness Connector', 'Seal Strip', 'Mounting Screw Set', 'Strike Plate Assembly',
   'Thermal Seal Insert', 'Panel Assembly', 'Threshold Profile', 'Activation Sensor Assembly',
   'LH Operator Assembly', 'Through-Bolt Set', 'Exit Device Strike Plate', 'End Cap Assembly',
+] as const;
+
+const DECLINE_REASONS = [
+  'Customer cancelled after pricing review',
+  'Duplicate order, already fulfilled under a prior job',
+  'Part discontinued, no substitute available',
+  'Branch withdrew approval pending budget review',
+  'Incorrect configuration submitted',
+  'Customer opted for a field repair instead of replacement',
+  'Warranty coverage denied after review',
+  'Job cancelled by general contractor',
 ] as const;
 
 // Piecewise distribution Jan–Jun 15 2026: 8% Jan–Feb, 17% Mar–Apr, 75% May–Jun 15
@@ -119,7 +131,7 @@ function generateBulkOrders(): Order[] {
       parts,
       lastUpdated,
       ...(isApproved    ? { approved: true }               : {}),
-      ...(isDeclined    ? { declined: true }               : {}),
+      ...(isDeclined    ? { declined: true, declineReason: pick(DECLINE_REASONS, r()) } : {}),
       ...(isProcurement ? { assignedToProcurement: true }  : {}),
     });
   }
@@ -172,7 +184,7 @@ const HAND_CRAFTED_ORDERS: Order[] = [
     ],
   },
   {
-    id: 'QE_2376_Order', eventId: 'QE_2376', orderStatus: 'Closed', jobNo: 'SO109809755', lastUpdated: '06-01-2026 12:44', declined: true,
+    id: 'QE_2376_Order', eventId: 'QE_2376', orderStatus: 'Closed', jobNo: 'SO109809755', lastUpdated: '06-01-2026 12:44', declined: true, declineReason: 'Part discontinued, no substitute available',
     parts: [
       { seqNo: 1, configId: 'SO109809755.1', dfoLineItem: 1, door: 'Dura_Glide 5200', partNumber: '425901-1', quantityType: 'Piece', quantity: 1, partDescription: 'Sensor Mounting Hardware Kit - (STANDARD, NAR)' },
     ],
@@ -197,7 +209,7 @@ const HAND_CRAFTED_ORDERS: Order[] = [
     ],
   },
   {
-    id: 'QE_2364_Order', eventId: 'QE_2364', orderStatus: 'Closed', jobNo: 'SO109800423', lastUpdated: '05-28-2026 09:33', declined: true,
+    id: 'QE_2364_Order', eventId: 'QE_2364', orderStatus: 'Closed', jobNo: 'SO109800423', lastUpdated: '05-28-2026 09:33', declined: true, declineReason: 'Customer cancelled after pricing review',
     parts: [
       { seqNo: 1, configId: 'SO109800423.1', dfoLineItem: 4, door: 'M-Force Swing Door', partNumber: '418221-1', quantityType: 'Piece', quantity: 1, partDescription: 'Through-Bolt Set - (HM FRAME, 3/8IN, NAR)' },
     ],
@@ -241,7 +253,7 @@ const HAND_CRAFTED_ORDERS: Order[] = [
     ],
   },
   {
-    id: 'QE_2395_Order_2', eventId: 'QE_2395', orderStatus: 'Closed', jobNo: 'SO110012544', lastUpdated: '06-16-2026 16:48', declined: true,
+    id: 'QE_2395_Order_2', eventId: 'QE_2395', orderStatus: 'Closed', jobNo: 'SO110012544', lastUpdated: '06-16-2026 16:48', declined: true, declineReason: 'Branch withdrew approval pending budget review',
     parts: [
       { seqNo: 1, configId: 'SO110012544.1', dfoLineItem: 1, door: 'Dura_Glide 2000 Series', partNumber: '421033-1', quantityType: 'Piece', quantity: 1, partDescription: 'Controller PCB Assembly - (STANDARD, 24VDC, NAR)' },
     ],
@@ -305,7 +317,7 @@ const HAND_CRAFTED_ORDERS: Order[] = [
     ],
   },
   {
-    id: 'QE_2397_Order_2', eventId: 'QE_2397', orderStatus: 'Closed', jobNo: 'SO110019780', lastUpdated: '06-19-2026 15:51', declined: true,
+    id: 'QE_2397_Order_2', eventId: 'QE_2397', orderStatus: 'Closed', jobNo: 'SO110019780', lastUpdated: '06-19-2026 15:51', declined: true, declineReason: 'Duplicate order, already fulfilled under a prior job',
     parts: [
       { seqNo: 1, configId: 'SO110019780.1', dfoLineItem: 3, door: 'M-Force Swing Door', partNumber: '418221-1', quantityType: 'Piece', quantity: 1, partDescription: 'Through-Bolt Set - (HM FRAME, 3/8IN, NAR)' },
     ],
@@ -345,7 +357,7 @@ const HAND_CRAFTED_ORDERS: Order[] = [
     ],
   },
   {
-    id: 'QE_2400_Order_2', eventId: 'QE_2400', orderStatus: 'Closed', jobNo: 'SO110022895', lastUpdated: '06-22-2026 08:55', declined: true,
+    id: 'QE_2400_Order_2', eventId: 'QE_2400', orderStatus: 'Closed', jobNo: 'SO110022895', lastUpdated: '06-22-2026 08:55', declined: true, declineReason: 'Incorrect configuration submitted',
     parts: [
       { seqNo: 1, configId: 'SO110022895.1', dfoLineItem: 3, door: 'Procare 8300', partNumber: '421034-1', quantityType: 'Piece', quantity: 2, partDescription: 'Controller PCB Assembly - (FIRMWARE V1.8, 24VDC, NAR)' },
     ],

@@ -233,7 +233,7 @@ function OrdersPageContent() {
 
   const handleDecline = () => {
     if (!activeOrderId || !declineReason.trim()) return;
-    patchOrder(activeOrderId, { status: 'Closed', declined: true, approved: false });
+    patchOrder(activeOrderId, { status: 'Closed', declined: true, approved: false, declineReason: declineReason.trim() });
     setDeclineSuccess(true);
   };
 

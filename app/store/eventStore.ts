@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { EventStatus, ActivityLog, EditHistoryEntry } from '@/data/types';
+import type { EventStatus, ActivityLog, EditHistoryEntry, AdditionalInfoRequest } from '@/data/types';
 
 type EventMutations = {
   status?: EventStatus;
@@ -8,6 +8,7 @@ type EventMutations = {
   escalation?: string | null;
   tags?: string[];
   additionalInfoRequested?: boolean;
+  additionalInfoRequests?: AdditionalInfoRequest[];
   rootCauseOptions?: { value: string; label: string }[];
   editHistory?: EditHistoryEntry[];
   activityLogAdditions?: ActivityLog[];
@@ -18,6 +19,8 @@ type EventMutationStore = {
   patchEvent: (eventId: string, patch: Partial<EventMutations>) => void;
   pushActivityLog: (eventId: string, entry: ActivityLog) => void;
   pushEditHistory: (eventId: string, entry: EditHistoryEntry) => void;
+  pushAdditionalInfoRequest: (eventId: string, entry: AdditionalInfoRequest) => void;
+  updateAdditionalInfoRequest: (eventId: string, id: string, patch: Partial<AdditionalInfoRequest>) => void;
 };
 
 export const useEventStore = create<EventMutationStore>()(
@@ -54,6 +57,31 @@ export const useEventStore = create<EventMutationStore>()(
                 ...(state.mutations[eventId]?.editHistory ?? []),
                 entry,
               ],
+            },
+          },
+        })),
+      pushAdditionalInfoRequest: (eventId, entry) =>
+        set(state => ({
+          mutations: {
+            ...state.mutations,
+            [eventId]: {
+              ...state.mutations[eventId],
+              additionalInfoRequests: [
+                ...(state.mutations[eventId]?.additionalInfoRequests ?? []),
+                entry,
+              ],
+            },
+          },
+        })),
+      updateAdditionalInfoRequest: (eventId, id, patch) =>
+        set(state => ({
+          mutations: {
+            ...state.mutations,
+            [eventId]: {
+              ...state.mutations[eventId],
+              additionalInfoRequests: (state.mutations[eventId]?.additionalInfoRequests ?? []).map(
+                r => (r.id === id ? { ...r, ...patch } : r)
+              ),
             },
           },
         })),

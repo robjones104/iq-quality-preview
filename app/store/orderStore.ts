@@ -16,6 +16,7 @@ type OrderMutations = {
   status?: 'Open' | 'Closed';
   approved?: boolean;
   declined?: boolean;
+  declineReason?: string;
   assignedToProcurement?: boolean;
   replacementOrderNo?: string;
   logAdditions?: OrderLogEntry[];
