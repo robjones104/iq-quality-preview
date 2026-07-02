@@ -1,4 +1,4 @@
-import type { QualityEvent, RootCause, EventStatus } from './types';
+import type { QualityEvent, RootCause, EventStatus, AdditionalInfoRequest } from './types';
 import {
   DISCREPANCY_OPTIONS, DOOR_OPTIONS, PRODUCT_OPTIONS,
   BRANCH_OPTIONS, PLANT_OPTIONS, REPORTED_BY_OPTIONS, ROOT_CAUSE_OPTIONS,
@@ -101,6 +101,9 @@ function generateBulkEvents(): QualityEvent[] {
       status === 'Under Investigation' && r() < 0.28 ? true : undefined;
     const additionalInfoNote = additionalInfoRequested
       ? pick(ADDITIONAL_INFO_NOTES, r()) : undefined;
+    const additionalInfoRequests: AdditionalInfoRequest[] | undefined = additionalInfoRequested
+      ? [{ id: `air_${i}_0`, text: additionalInfoNote!, sentAt: reportedAt, kind: 'initial' }]
+      : undefined;
 
     const hasPartsReq =
       (status === 'Validated' || status === 'Under Investigation') && r() < 0.28;
@@ -117,7 +120,7 @@ function generateBulkEvents(): QualityEvent[] {
       branch, plant, product, discrepancy: disc, door,
       issueDescription: `${disc} identified on ${product}. ${branch} branch reported issue with ${door} installation.`,
       assignee, reportedBy, reportedAt,
-      ...(additionalInfoRequested ? { additionalInfoRequested, additionalInfoNote } : {}),
+      ...(additionalInfoRequested ? { additionalInfoRequested, additionalInfoNote, additionalInfoRequests } : {}),
       ...(partsRequest ? { partsRequest } : {}),
     });
   }
@@ -137,6 +140,7 @@ const SEED_EVENTS: QualityEvent[] = [
     tags: ['Urgent', 'Supplier Follow-up'],
     additionalInfoRequested: true,
     additionalInfoNote: 'Please confirm whether the secondary mounting bracket was present at delivery and provide a photo of the bracket mounting location on the unit.',
+    additionalInfoRequests: [{ id: 'air_2392_0', text: 'Please confirm whether the secondary mounting bracket was present at delivery and provide a photo of the bracket mounting location on the unit.', sentAt: '2026-06-05T15:44:00', kind: 'initial' }],
     partsRequest: [{
       partNumber: '43212345', quantityType: 'Piece', quantity: 5,
       description: 'Secondary mounting bracket for Motor Gearbox assembly. Required for Dura_Glide Greenstar 3000 installation.',
@@ -224,6 +228,7 @@ const SEED_EVENTS: QualityEvent[] = [
     id: 'QE_2370', date: '2026-06-01', jobNo: 'WO109805099', dfo: 2,
     status: 'Under Investigation', rootCause: null, additionalInfoRequested: true,
     additionalInfoNote: 'Can you confirm which firmware version was installed prior to the update, and whether all 6 units exhibit the same failure mode?',
+    additionalInfoRequests: [{ id: 'air_2370_0', text: 'Can you confirm which firmware version was installed prior to the update, and whether all 6 units exhibit the same failure mode?', sentAt: '2026-06-01T14:00:00', kind: 'initial' }],
     branch: 'New England', plant: 'MTC (Mount Comfort)', product: 'Controller',
     discrepancy: 'Will not Operate', door: 'Dura_Glide 2000 Series',
     issueDescription: 'Controller fails to register credentials after firmware update. Affects 6 units in same shipment.',
@@ -256,6 +261,7 @@ const SEED_EVENTS: QualityEvent[] = [
     id: 'QE_2361', date: '2026-05-31', jobNo: 'WO109798110', dfo: 1,
     status: 'Reported', rootCause: null, additionalInfoRequested: true,
     additionalInfoNote: 'Please re-verify the machining tolerance at the connector seat and provide caliper measurements if possible.',
+    additionalInfoRequests: [{ id: 'air_2361_0', text: 'Please re-verify the machining tolerance at the connector seat and provide caliper measurements if possible.', sentAt: '2026-05-31T11:55:00', kind: 'initial' }],
     branch: 'San Francisco', plant: 'MTC (Mount Comfort)', product: 'Jamb',
     discrepancy: 'Machining', door: 'Dura_Glide 3000 Series',
     issueDescription: 'Jamb machining tolerance out of spec. Wiring harness connector does not seat correctly.',
@@ -324,6 +330,7 @@ const SEED_EVENTS: QualityEvent[] = [
     tags: ['Freight Damage', 'Urgent'],
     additionalInfoRequested: true,
     additionalInfoNote: 'Please provide photos of the original shipping carton to document transit damage for the supplier freight claim.',
+    additionalInfoRequests: [{ id: 'air_2394_0', text: 'Please provide photos of the original shipping carton to document transit damage for the supplier freight claim.', sentAt: '2026-06-17T09:42:00', kind: 'initial' }],
     partsRequest: [
       { partNumber: '413856-3', quantityType: 'Piece', quantity: 1, description: 'Motor Gearbox Assembly — full replacement for transit-damaged unit on Dura-Glide 3000 Series installation.' },
     ],
@@ -352,6 +359,7 @@ const SEED_EVENTS: QualityEvent[] = [
     assignee: 'Imogen R. Moorstone', reportedBy: 'Alcyone R. Foxbourne', reportedAt: '2026-06-17T13:05:00',
     additionalInfoRequested: true,
     additionalInfoNote: 'Please confirm which sensor model is installed at the sister opening on the same job, and attach a photo of the packing slip.',
+    additionalInfoRequests: [{ id: 'air_2396_0', text: 'Please confirm which sensor model is installed at the sister opening on the same job, and attach a photo of the packing slip.', sentAt: '2026-06-17T13:05:00', kind: 'initial' }],
     partsRequest: [
       { partNumber: '425902-1', quantityType: 'Piece', quantity: 1, description: 'Activation Sensor Assembly — missing from IS 10000 sensor package as delivered. Required to complete the opening.' },
     ],
@@ -367,6 +375,7 @@ const SEED_EVENTS: QualityEvent[] = [
     tags: ['Build Error', 'Urgent'],
     additionalInfoRequested: true,
     additionalInfoNote: 'Can you confirm the hand-of-door spec on the original order paperwork and send a photo of the unit label as delivered?',
+    additionalInfoRequests: [{ id: 'air_2397_0', text: 'Can you confirm the hand-of-door spec on the original order paperwork and send a photo of the unit label as delivered?', sentAt: '2026-06-18T07:55:00', kind: 'initial' }],
     partsRequest: [
       { partNumber: '437110-1', quantityType: 'Piece', quantity: 1, description: 'LH Operator Assembly — replacement for incorrectly shipped RH operator on Dura-Glide 5200 installation.' },
       { partNumber: '437110-2', quantityType: 'Piece', quantity: 1, description: 'LH Guide Rail Assembly — paired with LH operator; both required for correct hand-of-door installation.' },
@@ -423,6 +432,7 @@ const SEED_EVENTS: QualityEvent[] = [
     tags: ['Loose Component'],
     additionalInfoRequested: true,
     additionalInfoNote: 'Can you confirm the part number stamped on the existing end cap and whether the issue is present on both ends of the header?',
+    additionalInfoRequests: [{ id: 'air_2401_0', text: 'Can you confirm the part number stamped on the existing end cap and whether the issue is present on both ends of the header?', sentAt: '2026-06-20T09:47:00', kind: 'initial' }],
     partsRequest: [
       { partNumber: '447801-1', quantityType: 'Piece', quantity: 2, description: 'End Cap Assembly — both ends loose and separating from header housing on Dura-Glide 2000 Series installation.' },
       { partNumber: '447801-2', quantityType: 'Set', quantity: 1, description: 'Retainer Clip Set — undersized clips causing end cap separation under door vibration load.' },

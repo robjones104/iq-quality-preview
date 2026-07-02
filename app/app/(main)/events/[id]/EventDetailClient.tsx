@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEventStore } from '@/store/eventStore';
 import {
-  Button, Card, Col, Divider, Drawer, Dropdown, Form, Grid, Input, InputNumber, List, Modal, Radio, Row,
+  Button, Card, Col, Divider, Drawer, Dropdown, Form, Grid, Input, InputNumber, List, message, Modal, Radio, Row,
   Select, Slider, Space, Switch, Table, Typography, Upload, theme,
 } from 'antd';
 import {
@@ -22,7 +22,7 @@ import { events as allEvents } from '@/data/events';
 import { ESCALATION_TYPE_OPTIONS } from '@/data/manageLists';
 import { DISCREPANCY_OPTIONS, DOOR_OPTIONS, PART_CATALOG, PRODUCT_OPTIONS } from '@/data/filterOptions';
 import { CreateEscalationModal } from '@/components/CreateEscalationModal';
-import type { QualityEvent, EventStatus, RootCause, ActivityLog } from '@/data/types';
+import type { QualityEvent, EventStatus, RootCause, ActivityLog, AdditionalInfoRequest } from '@/data/types';
 const { Text, Paragraph } = Typography;
 
 const ROOT_CAUSE_OPTIONS = [
@@ -89,7 +89,7 @@ function generateHistoricalInsights(event: QualityEvent, pool: QualityEvent[]): 
 
 
 export default function EventDetailClient({ event, orderId }: { event: QualityEvent; orderId: string | null }) {
-  const { mutations: evtMutations, patchEvent, pushActivityLog } = useEventStore();
+  const { mutations: evtMutations, patchEvent, pushActivityLog, pushAdditionalInfoRequest, updateAdditionalInfoRequest } = useEventStore();
   const evtStored = evtMutations[event.id] ?? {};
 
   const [status, setStatus]                   = useState<EventStatus>(evtStored.status ?? event.status);
@@ -123,10 +123,12 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   const [startInvOpen,      setStartInvOpen]      = useState(false);
   const [startInvNote,      setStartInvNote]      = useState('');
   const [startInvReqInfo,   setStartInvReqInfo]   = useState(true);
-  const [reqInfoOpen,       setReqInfoOpen]       = useState(false);
-  const [reqInfoText,       setReqInfoText]       = useState('');
-  const reqInfoSent = !!(event.additionalInfoRequested || evtStored.additionalInfoRequested);
-  const setReqInfoSent = () => patchEvent(event.id, { additionalInfoRequested: true });
+  const [reqDraftOpen,      setReqDraftOpen]      = useState<'new' | 'edit' | false>(false);
+  const [reqDraftText,      setReqDraftText]      = useState('');
+  const [editingRequestId,  setEditingRequestId]  = useState<string | null>(null);
+  const infoRequests: AdditionalInfoRequest[] = evtStored.additionalInfoRequests ?? event.additionalInfoRequests ?? [];
+  const infoThreads = infoRequests.filter(r => r.kind === 'initial' || r.kind === 'new');
+  const followupsFor = (threadId: string) => infoRequests.filter(r => r.relatesTo === threadId);
   const [reopenEvtOpen,     setReopenEvtOpen]     = useState(false);
   const [validateNote,      setValidateNote]      = useState('');
   const [validateSuccess,   setValidateSuccess]   = useState(false);
@@ -190,6 +192,56 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
 
   const logEditEntry = (field: string, from: string | null, to: string | null) => {
     addToActivityLog(`${field} updated`, undefined, from ?? '—', to ?? '—');
+  };
+
+  const sendInfoRequest = (text: string, kind: 'initial' | 'new', forStatus?: EventStatus) => {
+    const entry: AdditionalInfoRequest = { id: `air_${Date.now()}`, text, sentAt: nowTs(), kind };
+    pushAdditionalInfoRequest(event.id, entry);
+    addToActivityLog(
+      kind === 'new'
+        ? `Additional information requested from ${event.reportedBy} (new request).`
+        : `Additional information requested from ${event.reportedBy}.`,
+      forStatus
+    );
+  };
+
+  const resendRequest = (id: string) => {
+    const root = infoRequests.find(r => r.id === id);
+    if (!root) return;
+    const followup: AdditionalInfoRequest = {
+      id: `air_${Date.now()}`, text: root.text, sentAt: nowTs(), kind: 'followup', relatesTo: id,
+    };
+    pushAdditionalInfoRequest(event.id, followup);
+    updateAdditionalInfoRequest(event.id, id, { resendCount: (root.resendCount ?? 0) + 1 });
+    addToActivityLog(`Follow-up reminder sent to ${event.reportedBy}.`);
+    message.success('Follow-up reminder sent.');
+  };
+
+  const startEditRequest = (id: string) => {
+    const root = infoRequests.find(r => r.id === id);
+    if (!root) return;
+    setEditingRequestId(id);
+    setReqDraftText(root.text);
+    setReqDraftOpen('edit');
+  };
+
+  const saveEditedRequest = () => {
+    if (!editingRequestId) return;
+    updateAdditionalInfoRequest(event.id, editingRequestId, { text: reqDraftText, sentAt: nowTs() });
+    addToActivityLog('Additional information request edited.');
+    cancelDraft();
+  };
+
+  const startNewRequest = () => {
+    setEditingRequestId(null);
+    setReqDraftText('');
+    setReqDraftOpen('new');
+  };
+
+  const cancelDraft = () => {
+    setReqDraftOpen(false);
+    setReqDraftText('');
+    setEditingRequestId(null);
   };
 
   const handleSaveEdits = () => {
@@ -461,43 +513,71 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
             <Button block icon={<StarFilled />} loading={loadingInsights} onClick={handleGenerateInsights}>
               Generate AI Insights
             </Button>
-            {reqInfoSent ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', background: token.colorFillTertiary, borderRadius: token.borderRadiusSM }}>
-                <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: token.fontSize }} />
-                <Text style={{ fontSize: token.fontSizeSM }}>Additional information requested from {event.reportedBy}</Text>
-              </div>
-            ) : reqInfoOpen ? (
+            {infoThreads.map(t => {
+              const followups = followupsFor(t.id);
+              const last = followups[followups.length - 1];
+              return (
+                <div key={t.id} style={{ padding: '6px 10px', background: token.colorFillTertiary, borderRadius: token.borderRadiusSM }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                      <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: token.fontSize, flexShrink: 0 }} />
+                      <Text style={{ fontSize: token.fontSizeSM }}>Additional information requested from {event.reportedBy}</Text>
+                    </div>
+                    <Dropdown
+                      trigger={['click']}
+                      menu={{
+                        items: [
+                          { key: 'resend', label: 'Resend as Follow-up', onClick: () => resendRequest(t.id) },
+                          { key: 'edit', label: 'Edit Request', onClick: () => startEditRequest(t.id) },
+                          { key: 'new', label: 'Create New Message', onClick: startNewRequest },
+                        ],
+                      }}
+                    >
+                      <Button type="text" size="small" icon={<MoreOutlined />} />
+                    </Dropdown>
+                  </div>
+                  {followups.length > 0 && (
+                    <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary }}>
+                      Followed up {followups.length}x — last {last.sentAt}
+                    </Text>
+                  )}
+                </div>
+              );
+            })}
+            {reqDraftOpen ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <Input.TextArea
                   autoFocus
                   rows={4}
                   placeholder="Describe what additional information is needed from the field tech..."
-                  value={reqInfoText}
-                  onChange={e => setReqInfoText(e.target.value)}
+                  value={reqDraftText}
+                  onChange={e => setReqDraftText(e.target.value)}
                 />
                 <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                  <Button size="small" onClick={() => { setReqInfoOpen(false); setReqInfoText(''); }}>Cancel</Button>
+                  <Button size="small" onClick={cancelDraft}>Cancel</Button>
                   <Button
                     size="small"
                     type="primary"
                     icon={<MessageFilled />}
-                    disabled={!reqInfoText.trim()}
+                    disabled={!reqDraftText.trim()}
                     onClick={() => {
-                      setReqInfoOpen(false);
-                      setReqInfoText('');
-                      setReqInfoSent();
-                      addToActivityLog(`Additional information requested from ${event.reportedBy}.`);
+                      if (reqDraftOpen === 'edit') {
+                        saveEditedRequest();
+                      } else {
+                        sendInfoRequest(reqDraftText, infoThreads.length ? 'new' : 'initial');
+                        cancelDraft();
+                      }
                     }}
                   >
-                    Send Request
+                    {reqDraftOpen === 'edit' ? 'Save' : 'Send Request'}
                   </Button>
                 </div>
               </div>
-            ) : (
-              <Button block icon={<MessageFilled />} onClick={() => setReqInfoOpen(true)}>
+            ) : infoThreads.length === 0 ? (
+              <Button block icon={<MessageFilled />} onClick={startNewRequest}>
                 Request Additional Information
               </Button>
-            )}
+            ) : null}
           </Space>
         </>
       )}
@@ -1438,8 +1518,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
           patchEvent(event.id, { status: 'Under Investigation' });
           addToActivityLog('Investigation started.', 'Under Investigation');
           if (startInvReqInfo) {
-            setReqInfoSent();
-            addToActivityLog(`Additional information requested from ${event.reportedBy}.`, 'Under Investigation');
+            sendInfoRequest(startInvNote, infoThreads.length ? 'new' : 'initial', 'Under Investigation');
           }
           setStartInvSuccess(true);
         }}

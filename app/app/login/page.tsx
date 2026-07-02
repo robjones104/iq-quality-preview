@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Card, Input, Button, Form, Typography, theme } from 'antd';
-import { login } from '@/lib/auth';
 
 const { Title, Text } = Typography;
 
@@ -14,11 +13,17 @@ export default function LoginPage() {
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = ({ password }: { password: string }) => {
+  const handleSubmit = async ({ password }: { password: string }) => {
     setLoading(true);
     setError(false);
 
-    if (login(password)) {
+    const res = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+
+    if (res.ok) {
       router.replace('/dashboard');
     } else {
       setError(true);

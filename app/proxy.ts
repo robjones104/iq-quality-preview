@@ -13,7 +13,7 @@ export function proxy(request: NextRequest) {
   const token = request.cookies.get('iq-auth')?.value;
   const secret = process.env.TOKEN_SECRET;
 
-  if (!secret || token !== secret) {
+  if (secret && token !== secret) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
