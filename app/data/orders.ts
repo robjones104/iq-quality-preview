@@ -26,6 +26,7 @@ export interface Order {
   declined?: boolean;
   declineReason?: string;
   assignedToProcurement?: boolean;
+  replacementOrderNo?: string;
 }
 
 // ── Bulk generator (same xorshift32 pattern as events) ────────────────────
