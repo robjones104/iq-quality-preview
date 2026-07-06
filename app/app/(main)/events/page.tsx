@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import dayjs from 'dayjs';
 import { AutoComplete, Input, Pagination, Table, Button, Select, Space, Tag, Typography, Tooltip, notification, theme, Grid } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { MoreOutlined, CloseOutlined, SearchOutlined, ArrowLeftOutlined, ExportOutlined } from '@ant-design/icons';
+import { CloseOutlined, SearchOutlined, ArrowLeftOutlined, ExportOutlined } from '@ant-design/icons';
 import { CopyableValue } from '@/components/CopyableValue';
 import Link from 'next/link';
 import { events } from '@/data/events';
@@ -187,6 +187,7 @@ function EventsPageContent() {
       if (d.isBefore(dateRange[0], 'day') || d.isAfter(dateRange[1], 'day')) return false;
     }
     if (flagParam === 'additionalInfo' && !e.additionalInfoRequested) return false;
+    if (flagParam === 'edited' && !(e.editHistory && e.editHistory.length > 0)) return false;
     if (tagFilter.length && !tagFilter.some(t => e.tags?.includes(t))) return false;
     if (idsFilter.length && !idsFilter.includes(e.id)) return false;
     const matchStatus      = !appliedFilters.status?.length      || appliedFilters.status.includes(e.status);
@@ -313,16 +314,6 @@ function EventsPageContent() {
           hasOrder={eventOrderIds.has(record.id)}
           additionalInfoRequested={record.additionalInfoRequested}
         />
-      ),
-    },
-    {
-      title: '',
-      key: 'options',
-      width: 52,
-      render: () => (
-        <Tooltip title="Options">
-          <Button type="text" size="small" icon={<MoreOutlined />} />
-        </Tooltip>
       ),
     },
   ];

@@ -7,6 +7,7 @@ import { Line, Bar, Pie } from '@ant-design/plots';
 import dayjs from 'dayjs';
 import type { QualityEvent } from '@/data/types';
 import type { DateRange } from '@/components/DateRangeFilter';
+import { ExpandToggle } from './CardControls';
 
 const { Text } = Typography;
 
@@ -150,12 +151,10 @@ export function FieldIntake({
         <Col xs={24} lg={8}>
           <Card
             size="small"
-            title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Events by Branch{!showAllBranches ? ' (Top 5)' : ''}</span>}
+            title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Events by Branch</span>}
             extra={
               branchStackData.sortedBranches.length > 5 && (
-                <Typography.Link style={{ fontSize: token.fontSizeSM }} onClick={() => setShowAllBranches(v => !v)}>
-                  {showAllBranches ? 'Show less' : `Show all ${branchStackData.sortedBranches.length}`}
-                </Typography.Link>
+                <ExpandToggle expanded={showAllBranches} onToggle={() => setShowAllBranches(v => !v)} />
               )
             }
             style={{ marginBottom: token.marginSM }}

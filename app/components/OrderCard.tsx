@@ -9,6 +9,7 @@ import { CopyableValue } from './CopyableValue';
 
 interface OrderCardRow {
   id: string;
+  eventId: string;
   jobNo: string;
   branch: string;
   lastUpdated: string;
@@ -48,7 +49,7 @@ export function OrderCard({ row, status, menuItems, onAction }: OrderCardProps) 
           onClick={e => e.stopPropagation()}
           style={{ fontWeight: 600, fontSize: token.fontSize, textDecoration: 'none', lineHeight: 1.4 }}
         >
-          {row.id}
+          {row.eventId}
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
           <Tag color={ORDER_STATUS_COLOR[status] ?? 'default'}>{status}</Tag>

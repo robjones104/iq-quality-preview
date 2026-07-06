@@ -65,16 +65,6 @@ export function ManageListsClient({
   const nextId = (_prefix: string, _list: ListItem[]) =>
     `${_prefix}-${Date.now()}`;
 
-  const sectionLabel = (text: string) => (
-    <Text style={{
-      fontSize: token.fontSizeSM, fontWeight: 600,
-      textTransform: 'uppercase' as const, letterSpacing: '0.5px',
-      color: token.colorTextTertiary,
-    }}>
-      {text}
-    </Text>
-  );
-
   // ── CRUD ───────────────────────────────────────────────────────────────────
 
   const saveEdit = (
@@ -336,7 +326,7 @@ export function ManageListsClient({
       title: 'Type',
       dataIndex: 'type',
       key: 'type',
-      width: 160,
+      width: 200,
       sorter: (a, b) => a.type.localeCompare(b.type),
       render: (t: string) => (
         <Tag style={{ fontSize: token.fontSizeSM, margin: 0 }}>{t}</Tag>
@@ -346,7 +336,8 @@ export function ManageListsClient({
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      width: 80,
+      width: 110,
+      align: 'center',
       sorter: (a, b) => a.status.localeCompare(b.status),
       render: (s: string) => (
         <Tag color={s === 'Closed' ? 'green' : 'blue'} style={{ fontSize: token.fontSizeSM, margin: 0 }}>
@@ -357,7 +348,8 @@ export function ManageListsClient({
     {
       title: 'Events',
       key: 'events',
-      width: 72,
+      width: 90,
+      align: 'center',
       sorter: (a, b) => a.eventIds.length - b.eventIds.length,
       render: (_: unknown, row: Escalation) => (
         <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>{row.eventIds.length}</Text>
@@ -366,9 +358,10 @@ export function ManageListsClient({
     {
       title: '',
       key: 'actions',
-      width: 64,
+      width: 90,
+      align: 'right',
       render: (_: unknown, row: Escalation) => (
-        <span style={{ display: 'flex', gap: 4 }}>
+        <span style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
           <Button size="small" type="text" icon={<EditFilled />}
             style={{ color: token.colorTextTertiary }}
             onClick={e => { e.stopPropagation(); router.push(`/escalations/${row.id}`); }} />
@@ -424,22 +417,26 @@ export function ManageListsClient({
           {list.map(record => listItemCard(type, record, list, setList))}
         </div>
       ) : (
-        <Table
-          dataSource={list}
-          rowKey="id"
-          size="small"
-          pagination={false}
-          rowSelection={{ selectedRowKeys: selectedKeys, onChange: setKeys }}
-          columns={listColumns(type, list, setList)}
-          onRow={record => ({
-            onClick: () => router.push(
-              type === 'root-causes'
-                ? `/events?rootCause=${encodeURIComponent(record.name)}`
-                : `/events?tag=${encodeURIComponent(record.name)}`
-            ),
-            style: { cursor: 'pointer' },
-          })}
-        />
+        <Card size="small" styles={{ body: { padding: 0 } }}>
+          <Table
+            dataSource={list}
+            rowKey="id"
+            size="small"
+            tableLayout="fixed"
+            pagination={false}
+            locale={{ emptyText: type === 'root-causes' ? 'No root causes yet.' : 'No tags yet.' }}
+            rowSelection={{ selectedRowKeys: selectedKeys, onChange: setKeys }}
+            columns={listColumns(type, list, setList)}
+            onRow={record => ({
+              onClick: () => router.push(
+                type === 'root-causes'
+                  ? `/events?rootCause=${encodeURIComponent(record.name)}`
+                  : `/events?tag=${encodeURIComponent(record.name)}`
+              ),
+              style: { cursor: 'pointer' },
+            })}
+          />
+        </Card>
       )}
       {addRowUI(type)}
     </div>
@@ -506,20 +503,24 @@ export function ManageListsClient({
           ))}
         </div>
       ) : (
-        <Table
-          dataSource={escalations}
-          rowKey="id"
-          size="small"
-          pagination={false}
-          columns={escalationColumns}
-          onRow={record => ({
-            onClick: () => {
-              const ids = record.eventIds.join(',');
-              router.push(ids ? `/events?ids=${ids}` : '/events');
-            },
-            style: { cursor: 'pointer' },
-          })}
-        />
+        <Card size="small" styles={{ body: { padding: 0 } }}>
+          <Table
+            dataSource={escalations}
+            rowKey="id"
+            size="small"
+            tableLayout="fixed"
+            pagination={{ pageSize: 25, size: 'small' }}
+            locale={{ emptyText: 'No escalations yet.' }}
+            columns={escalationColumns}
+            onRow={record => ({
+              onClick: () => {
+                const ids = record.eventIds.join(',');
+                router.push(ids ? `/events?ids=${ids}` : '/events');
+              },
+              style: { cursor: 'pointer' },
+            })}
+          />
+        </Card>
       )}
     </div>
   );

@@ -6,18 +6,24 @@ import {
   HomeFilled,
   CalendarFilled,
   ShoppingFilled,
+  ContainerFilled,
   DatabaseFilled,
-  ContactsFilled,
   BellFilled,
-  SettingFilled,
-  ProfileFilled,
+  UserOutlined,
+  EditOutlined,
   MoonFilled,
   SunFilled,
+  LogoutOutlined,
 } from '@ant-design/icons';
-import { Grid, Switch, Tooltip, theme } from 'antd';
+import { Badge, Dropdown, Grid, Switch, Tooltip, theme } from 'antd';
 import { useThemeStore } from '@/store/themeStore';
 import { useFilterStore } from '@/store/filterStore';
+import { useSignOut, CURRENT_USER_EMAIL } from '@/lib/auth';
 import { NAV_TOP, NAV_BOTTOM } from '@/lib/nav';
+import { events } from '@/data/events';
+import { orders } from '@/data/orders';
+import { escalations } from '@/data/escalations';
+import { getNotifications, countNewNotifications } from '@/lib/notifications';
 import dayjs from 'dayjs';
 
 // Icon mapping — keyed to label strings from lib/nav.ts
@@ -25,10 +31,8 @@ const ICON_MAP: Record<string, React.ComponentType<{ style?: React.CSSProperties
   'Home': HomeFilled,
   'Events': CalendarFilled,
   'Orders': ShoppingFilled,
-  'Users': ContactsFilled,
+  'Procurement': ContainerFilled,
   'Notifications': BellFilled,
-  'Settings': SettingFilled,
-  'Profile': ProfileFilled,
 };
 
 // Pages that carry the active dashboard date range when navigating from the sidebar
@@ -43,6 +47,14 @@ export function SidebarNav() {
   const screens = Grid.useBreakpoint();
   const expanded = !!screens.xxl;
   const { dateRange } = useFilterStore();
+  const signOut = useSignOut();
+  const newNotificationCount = countNewNotifications(getNotifications(events, escalations, orders));
+
+  const accountMenuItems = [
+    { key: 'edit-password', icon: <EditOutlined />, label: <Link href="/account">Edit Password</Link> },
+    { type: 'divider' as const },
+    { key: 'sign-out', icon: <LogoutOutlined />, label: 'Sign out', danger: true, onClick: signOut },
+  ];
 
   // Build the link href for pages in DATE_CARRY_PAGES.
   // Appends from/to only when dateRange differs from the default 30-day window,
@@ -93,7 +105,9 @@ export function SidebarNav() {
           transition: 'background 0.15s',
         }}
       >
-        <Icon style={{ fontSize: token.fontSizeXL, flexShrink: 0, color: active ? activeNavColor : token.colorTextSecondary, transition: 'color 0.15s' }} />
+        <Badge count={label === 'Notifications' ? newNotificationCount : 0} size="small" offset={[-2, 2]}>
+          <Icon style={{ fontSize: token.fontSizeXL, flexShrink: 0, color: active ? activeNavColor : token.colorTextSecondary, transition: 'color 0.15s' }} />
+        </Badge>
         {expanded && (
           <span style={{ fontSize: token.fontSize, fontWeight: active ? 600 : 400, color: active ? activeNavColor : token.colorTextSecondary, transition: 'color 0.15s', whiteSpace: 'nowrap' }}>
             {label}
@@ -185,6 +199,32 @@ return (
       {/* Bottom: utility nav + theme toggle */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20, alignItems: expanded ? 'flex-start' : 'center', width: '100%' }}>
         {NAV_BOTTOM.map(({ href, label }) => navButton(href, label))}
+
+        <Dropdown menu={{ items: accountMenuItems }} trigger={['click']} placement="topLeft">
+          <Tooltip title={expanded ? null : CURRENT_USER_EMAIL} placement="right">
+            <div
+              role="button"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: expanded ? 'flex-start' : 'center',
+                gap: expanded ? 10 : 0,
+                width: expanded ? '100%' : 36,
+                height: 36,
+                borderRadius: token.borderRadius,
+                padding: expanded ? '0 10px' : 0,
+                cursor: 'pointer',
+              }}
+            >
+              <UserOutlined style={{ fontSize: token.fontSizeXL, flexShrink: 0, color: token.colorTextSecondary }} />
+              {expanded && (
+                <span style={{ fontSize: token.fontSize, color: token.colorTextSecondary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {CURRENT_USER_EMAIL}
+                </span>
+              )}
+            </div>
+          </Tooltip>
+        </Dropdown>
 
         <Tooltip title={expanded ? null : (darkMode ? 'Switch to light' : 'Switch to dark')} placement="right">
           <div

@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, Suspense } from 'react';
 import dayjs from 'dayjs';
 import {
   AutoComplete, Dropdown, Form, Input, Modal, Pagination, Select,
-  Switch, Table, Tabs, Button, Tag, Tooltip, Typography, theme, Grid,
+  Switch, Table, Button, Tag, Tooltip, Typography, theme, Grid,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { MenuProps } from 'antd';
@@ -36,7 +36,7 @@ const ORDER_STATUS_COLOR: Record<string, string> = {
 
 const ORDER_STATUS_FILTER = [
   { key: 'orderStatus', label: 'Order Status', options: ['Open', 'Closed'] },
-  { key: 'decision',    label: 'Decision',     options: ['Approved', 'Declined'] },
+  { key: 'decision',    label: 'Decision',     options: ['Approved', 'Declined', 'Pending'] },
   ...EVENT_FILTER_CATEGORIES.map(cat =>
     cat.key === 'status' ? { ...cat, label: 'Event Status' } : cat
   ),
@@ -115,7 +115,7 @@ function OrdersPageContent() {
         value: `nav::order::${o.id}`,
         label: (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{o.id}</span>
+            <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{o.eventId}</span>
             <span style={{ fontSize: 11, color: token.colorTextTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.jobNo} · {o.discrepancy}</span>
           </div>
         ),
@@ -165,11 +165,8 @@ function OrdersPageContent() {
     orderMutations[row.id]?.approved ?? row.approved ?? false;
   const isDeclined = (row: OrderRow): boolean =>
     orderMutations[row.id]?.declined ?? row.declined ?? false;
-  const isProcurement = (row: OrderRow): boolean =>
-    orderMutations[row.id]?.assignedToProcurement ?? row.assignedToProcurement ?? false;
-
-  // Procurement queue toggle
-  const [procurementQueue, setProcurementQueue] = useState(false);
+  const effectiveReplacementOrderNo = (row: OrderRow): string =>
+    orderMutations[row.id]?.replacementOrderNo ?? row.replacementOrderNo ?? '';
 
   // Batch selection
   const [selectedOrderKeys, setSelectedOrderKeys] = useState<string[]>([]);
@@ -182,7 +179,6 @@ function OrdersPageContent() {
   const [approveOpen, setApproveOpen]         = useState(false);
   const [approveAssign, setApproveAssign]     = useState(false);
   const [approveEmail, setApproveEmail]       = useState('');
-  const [approveReplacement, setApproveReplacement] = useState('');
 
   // Decline modal
   const [declineOpen, setDeclineOpen]   = useState(false);
@@ -190,6 +186,7 @@ function OrdersPageContent() {
 
   // Close single modal
   const [closeOpen, setCloseOpen] = useState(false);
+  const [closeReplacementOrderNo, setCloseReplacementOrderNo] = useState('');
 
   // Reopen modal
   const [reopenOpen, setReopenOpen]     = useState(false);
@@ -202,7 +199,7 @@ function OrdersPageContent() {
   const [batchCloseSuccess, setBatchCloseSuccess] = useState(false);
   const [batchCloseCount,   setBatchCloseCount]   = useState(0);
   const [cardPage, setCardPage] = useState(1);
-  useEffect(() => { setCardPage(1); }, [appliedFiltersLocal, procurementQueue]);
+  useEffect(() => { setCardPage(1); }, [appliedFiltersLocal]);
 
   const handleExportOrders = () => {
     const selected = filtered.filter(o => selectedOrderKeys.includes(o.id));
@@ -219,7 +216,6 @@ function OrdersPageContent() {
   const resetApprove = () => {
     setApproveAssign(false);
     setApproveEmail('');
-    setApproveReplacement('');
   };
 
   const handleConfirmApprove = () => {
@@ -238,8 +234,8 @@ function OrdersPageContent() {
   };
 
   const handleClose = () => {
-    if (!activeOrderId) return;
-    patchOrder(activeOrderId, { status: 'Closed' });
+    if (!activeOrderId || !closeReplacementOrderNo.trim()) return;
+    patchOrder(activeOrderId, { status: 'Closed', replacementOrderNo: closeReplacementOrderNo.trim() });
     setCloseSuccess(true);
   };
 
@@ -264,7 +260,7 @@ function OrdersPageContent() {
     setActiveOrderId(row.id);
     if (key === 'approve') setApproveOpen(true);
     if (key === 'decline') setDeclineOpen(true);
-    if (key === 'close')   setCloseOpen(true);
+    if (key === 'close')   { setCloseReplacementOrderNo(effectiveReplacementOrderNo(row)); setCloseOpen(true); }
     if (key === 'reopen')  setReopenOpen(true);
   };
 
@@ -292,9 +288,8 @@ function OrdersPageContent() {
     }
     const matchOrderStatus   = !appliedFiltersLocal.orderStatus?.length   || appliedFiltersLocal.orderStatus.includes(effectiveStatus(o));
     const matchDecision      = !appliedFiltersLocal.decision?.length      || appliedFiltersLocal.decision.some(d =>
-      (d === 'Approved' && isApproved(o)) || (d === 'Declined' && isDeclined(o))
+      (d === 'Approved' && isApproved(o)) || (d === 'Declined' && isDeclined(o)) || (d === 'Pending' && !isApproved(o) && !isDeclined(o))
     );
-    const matchProcurement   = !procurementQueue || isProcurement(o);
     const matchEventStatus   = !appliedFiltersLocal.status?.length        || appliedFiltersLocal.status.includes(o.status);
     const matchDiscrepancy   = !appliedFiltersLocal.discrepancy?.length   || appliedFiltersLocal.discrepancy.includes(o.discrepancy);
     const matchDoor          = !appliedFiltersLocal.door?.length          || appliedFiltersLocal.door.includes(o.door);
@@ -302,7 +297,7 @@ function OrdersPageContent() {
     const matchBranch        = !appliedFiltersLocal.branch?.length        || appliedFiltersLocal.branch.includes(o.branch);
     const matchPlant         = !appliedFiltersLocal.plant?.length         || appliedFiltersLocal.plant.includes(o.plant);
     const matchReportedBy    = !appliedFiltersLocal.reportedBy?.length    || appliedFiltersLocal.reportedBy.includes(o.reportedBy);
-    return matchOrderStatus && matchDecision && matchProcurement && matchEventStatus &&
+    return matchOrderStatus && matchDecision && matchEventStatus &&
       matchDiscrepancy && matchDoor && matchProduct && matchBranch && matchPlant && matchReportedBy;
   });
 
@@ -320,9 +315,9 @@ function OrdersPageContent() {
       dataIndex: 'id',
       key: 'id',
       sorter: (a, b) => a.id.localeCompare(b.id),
-      render: (id: string) => (
+      render: (id: string, record) => (
         <Link href={`/orders/${id}`} style={{ fontWeight: 500, textDecoration: 'none' }}>
-          {id}
+          {record.eventId}
         </Link>
       ),
       width: 130,
@@ -452,7 +447,7 @@ function OrdersPageContent() {
         onCancel={() => { setApproveOpen(false); resetApprove(); setApproveSuccess(false); }}
         onOk={handleConfirmApprove}
         okText={approveAssign && approveEmail ? 'Approve & Notify Procurement' : 'Approve'}
-        okButtonProps={{ type: 'primary', disabled: !approveReplacement.trim() }}
+        okButtonProps={{ type: 'primary' }}
         footer={approveSuccess ? null : undefined}
         width={480}
       >
@@ -477,15 +472,6 @@ function OrdersPageContent() {
             <Typography.Text style={{ display: 'block', marginBottom: 16, fontSize: token.fontSize, color: token.colorTextSecondary }}>
               This marks the order as approved. You can assign it to procurement now or as a separate step after.
             </Typography.Text>
-            <Form layout="vertical" size="small">
-              <Form.Item label="Replacement Part #" required style={{ marginBottom: 12 }}>
-                <Input
-                  placeholder="e.g. RO-2026-00123"
-                  value={approveReplacement}
-                  onChange={e => setApproveReplacement(e.target.value)}
-                />
-              </Form.Item>
-            </Form>
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               padding: '10px 12px', background: token.colorFillTertiary,
@@ -557,10 +543,10 @@ function OrdersPageContent() {
       <Modal
         title={closeSuccess ? null : 'Close Order'}
         open={closeOpen}
-        onCancel={() => { setCloseOpen(false); setCloseSuccess(false); }}
+        onCancel={() => { setCloseOpen(false); setCloseSuccess(false); setCloseReplacementOrderNo(''); }}
         onOk={handleClose}
         okText="Close Order"
-        okButtonProps={{ type: 'primary' }}
+        okButtonProps={{ type: 'primary', disabled: !closeReplacementOrderNo.trim() }}
         footer={closeSuccess ? null : undefined}
       >
         {closeSuccess ? (
@@ -573,13 +559,25 @@ function OrdersPageContent() {
               {activeOrderId} has been closed. It can be reopened if needed.
             </Typography.Text>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Button type="primary" onClick={() => { setCloseOpen(false); setCloseSuccess(false); }}>Done</Button>
+              <Button type="primary" onClick={() => { setCloseOpen(false); setCloseSuccess(false); setCloseReplacementOrderNo(''); }}>Done</Button>
             </div>
           </div>
         ) : (
-          <Typography.Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
-            This will mark the order as Closed. It can be reopened if needed.
-          </Typography.Text>
+          <>
+            <Typography.Text style={{ display: 'block', marginBottom: 12, fontSize: token.fontSize, color: token.colorTextSecondary }}>
+              This will mark the order as Closed. It can be reopened if needed.
+            </Typography.Text>
+            <Form layout="vertical" size="small">
+              <Form.Item label="Replacement Order #" required style={{ marginBottom: 0 }}>
+                <Input
+                  placeholder="e.g. RO-2026-00123"
+                  value={closeReplacementOrderNo}
+                  onChange={e => setCloseReplacementOrderNo(e.target.value)}
+                  autoFocus
+                />
+              </Form.Item>
+            </Form>
+          </>
         )}
       </Modal>
 
@@ -696,7 +694,7 @@ function OrdersPageContent() {
 
         {(() => {
           const cardItems = filtered.slice((cardPage - 1) * CARD_PAGE_SIZE, cardPage * CARD_PAGE_SIZE);
-          const tabContent = screens.xl === false ? (
+          return screens.xl === false ? (
             <div>
               <div style={{
                 display: 'grid',
@@ -785,18 +783,6 @@ function OrdersPageContent() {
                 }}
               />
             </>
-          );
-          return (
-            <Tabs
-              activeKey={procurementQueue ? 'procurement' : 'all'}
-              onChange={key => setProcurementQueue(key === 'procurement')}
-              size="small"
-              destroyInactiveTabPane
-              items={[
-                { key: 'all', label: 'All Orders', children: tabContent },
-                { key: 'procurement', label: 'Assigned to Procurement', children: tabContent },
-              ]}
-            />
           );
         })()}
       </div>
