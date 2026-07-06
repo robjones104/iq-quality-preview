@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, Fragment } from 'react';
+import { useState, useRef, Fragment, type ChangeEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEventStore } from '@/store/eventStore';
@@ -167,6 +167,15 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   const [attachments, setAttachments] = useState<Array<{ uid: string; name: string; size: number; date: string; blobUrl: string }>>([]);
   const [previewFile, setPreviewFile] = useState<{ name: string; blobUrl: string } | null>(null);
   const dragStartY                             = useRef(0);
+  const photoInputRef                          = useRef<HTMLInputElement>(null);
+
+  const handlePhotoFilesSelected = (e: ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      message.success(files.length === 1 ? `${files[0].name} added.` : `${files.length} photos added.`);
+    }
+    e.target.value = '';
+  };
   const { token } = theme.useToken();
   const router = useRouter();
   const screens = Grid.useBreakpoint();
@@ -595,6 +604,14 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', ...(isMobile ? {} : { height: '100vh', overflow: 'hidden' }) }}>
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        style={{ display: 'none' }}
+        onChange={handlePhotoFilesSelected}
+      />
       <CreateEscalationModal
         open={createEscOpen}
         onCancel={() => setCreateEscOpen(false)}
@@ -755,7 +772,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                     {!isMobile && 'Add Log'}
                   </Button>
                 ) : activeTab === 'photos' ? (
-                  <Button type="text" size="small" icon={<PlusOutlined />} />
+                  <Button type="text" size="small" icon={<PlusOutlined />} onClick={() => photoInputRef.current?.click()} />
                 ) : activeTab === 'attachments' ? null : null
               }
               style={isMobile ? undefined : { flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
@@ -782,7 +799,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                           { label: 'Branch',      node: <Text style={{ fontSize: token.fontSizeSM }}>{event.branch}</Text> },
                           { label: 'Plant',       node: <Text style={{ fontSize: token.fontSizeSM }}>{event.plant.split(' ')[0]}</Text> },
                           { label: 'Date',        node: <Text style={{ fontSize: token.fontSizeSM }}>{reportedDate}</Text> },
-                          ...(orderId ? [{ label: 'Order ID', node: <Link href={`/orders/${orderId}`} style={{ fontSize: token.fontSizeSM }}>{orderId}</Link> }] : []),
+                          ...(orderId ? [{ label: 'Order ID', node: <Link href={`/orders/${orderId}`} style={{ fontSize: token.fontSizeSM }}>{event.id}</Link> }] : []),
                         ] as { label: string; node: React.ReactNode }[]).map(({ label, node }, i, arr) => (
                           <Fragment key={label}>
                             <div>
@@ -1129,6 +1146,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                         type="text"
                         icon={<PlusOutlined style={{ fontSize: token.fontSizeSM }} />}
                         style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary }}
+                        onClick={() => photoInputRef.current?.click()}
                       >
                         Upload Photo
                       </Button>

@@ -7,16 +7,22 @@ import type { ThemeConfig } from 'antd';
 // backgrounds. Never override map tokens here — it breaks dark mode.
 // ---------------------------------------------------------------------------
 export const SEED_TOKENS: ThemeConfig['token'] = {
-  colorPrimary:       '#1677FF',
+  // Figma Interactive/Primary. WCAG AA verified via antd's own getDesignToken():
+  // colorPrimary/colorPrimaryText 7.96:1, colorPrimaryTextHover 5.61:1 on white — all pass.
+  // #1677FF (AntD default) failed at 4.10:1 (large-text only) and its hover state failed at 2.99:1.
+  colorPrimary:       '#225093',
   borderRadius:       4,
   fontSize:           14,
   fontFamily:         "'Montserrat', sans-serif",
   colorError:         '#B00020',
-  colorWarning:       '#FAA614',
+  // Darkened from Figma's raw Status/Warning (#FAA614, 1.99:1 — fails hard as text).
+  // #946200 passes as colorWarningText (5.24:1) and colorWarningTextActive (8.35:1).
+  colorWarning:       '#946200',
   colorSuccess:       '#008738',
   colorInfo:          '#006BB2',
-  // WCAG AA: #1677FF on white is 4.10:1 (fails). #0958D9 = 6.18:1 ✅
-  colorLink:          '#0958D9',
+  // WCAG AA: colorLink base 10.55:1, colorLinkHover 5.71:1, colorLinkActive 14.40:1 — all pass.
+  // #0958D9 passed as a base link color but its derived hover state failed at 2.80:1.
+  colorLink:          '#003D82',
   // WCAG AA: Ant Design derives colorTextTertiary ≈ #8C8C8C on white = 3.36:1 (fails). #6B6B6B = 5.33:1 ✅
   colorTextTertiary:  '#6B6B6B',
 };
@@ -31,6 +37,9 @@ export const DARK_SEED_OVERRIDES: ThemeConfig['token'] = {
   colorError:           '#ff4d4f',
   colorSuccess:         '#52c41a',
   colorWarning:         '#faad14',
+  // colorInfo was previously unset here, so it fell back to the light-mode seed (#006BB2),
+  // which the dark algorithm derives at 2.69:1 on #141414 (fails). #4096ff passes at 4.78:1.
+  colorInfo:            '#4096ff',
   // WCAG AA: #595959 on dark card #141414 = 2.63:1 (fails). #8C8C8C = 5.48:1 ✅
   colorTextTertiary:    '#8C8C8C',
 };

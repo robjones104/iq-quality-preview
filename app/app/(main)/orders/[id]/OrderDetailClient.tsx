@@ -85,11 +85,13 @@ export function OrderDetailClient({ order, event }: Props) {
   const ordStored = orderMutations[order.id] ?? {};
 
   const [status, setStatus]             = useState<Status>(ordStored.status ?? (order.orderStatus as Status));
-  const [approved, setApproved]         = useState(ordStored.approved ?? (order.orderStatus === 'Closed'));
+  const [approved, setApproved]         = useState(ordStored.approved ?? order.approved ?? (order.orderStatus === 'Closed'));
   const [parts, setParts]               = useState<OrderPart[]>([...order.parts]);
   const [activeTab, setActiveTab]       = useState('details');
-  const [assignedToProcurement, setAssignedToProcurement] = useState(ordStored.assignedToProcurement ?? false);
+  const [assignedToProcurement, setAssignedToProcurement] = useState(ordStored.assignedToProcurement ?? order.assignedToProcurement ?? false);
   const [replacementOrderNo, setReplacementOrderNo]       = useState(ordStored.replacementOrderNo ?? '');
+  const [editingReplacement, setEditingReplacement]       = useState(false);
+  const [replacementDraft, setReplacementDraft]           = useState('');
 
   // Log
   const seedLogs = SEED_LOGS[order.id] ?? [
@@ -106,8 +108,8 @@ export function OrderDetailClient({ order, event }: Props) {
   const [approveOpen, setApproveOpen]                             = useState(false);
   const [approveAssign, setApproveAssign]                         = useState(false);
   const [approveProcurementEmail, setApproveProcurementEmail]     = useState('');
-  const [approveReplacementOrderNo, setApproveReplacementOrderNo] = useState('');
   const [closeOpen, setCloseOpen]                       = useState(false);
+  const [closeReplacementOrderNo, setCloseReplacementOrderNo] = useState('');
   const [declineOpen, setDeclineOpen]                   = useState(false);
   const [declineReason, setDeclineReason]               = useState('');
   const [reopenOpen, setReopenOpen]                     = useState(false);
@@ -115,6 +117,8 @@ export function OrderDetailClient({ order, event }: Props) {
   const [procurementOpen, setProcurementOpen]           = useState(false);
   const [procurementEmail, setProcurementEmail]         = useState('');
   const [procurementOrderNo, setProcurementOrderNo]     = useState('');
+  const [returnOpen, setReturnOpen]                     = useState(false);
+  const [returnComment, setReturnComment]               = useState('');
 
   const [expandedScan,       setExpandedScan]       = useState<number | null>(null);
   const [approveSuccess,     setApproveSuccess]     = useState(false);
@@ -122,6 +126,7 @@ export function OrderDetailClient({ order, event }: Props) {
   const [closeSuccess,       setCloseSuccess]       = useState(false);
   const [reopenSuccess,      setReopenSuccess]      = useState(false);
   const [procurementSuccess, setProcurementSuccess] = useState(false);
+  const [returnSuccess,      setReturnSuccess]      = useState(false);
 
   const isMissingHardware = event.discrepancy === 'Missing Hardware';
   const isSO = !order.jobNo.startsWith('WO');
@@ -133,12 +138,12 @@ export function OrderDetailClient({ order, event }: Props) {
   const watchedKitInfo  = Form.useWatch('hardwareKitInfo', partForm);
   const watchedQuantity = (Form.useWatch('quantity', partForm) as number | undefined) ?? 1;
 
-  const addLog = (content: string, auto = true, atStatus?: Status) => {
+  const addLog = (content: string, auto = true, atStatus?: Status, role?: string) => {
     const entry: LogEntry = {
       id: String(Date.now()),
       timestamp: nowTs(),
-      role: auto ? 'System' : 'Customer Service',
-      employee: auto ? 'System' : 'Theron K. Aldwick',
+      role: role ?? (auto ? 'System' : 'Customer Service'),
+      employee: auto ? 'System' : role === 'Procurement' ? 'Ptolemy R. Dunholm' : 'Theron K. Aldwick',
       orderStatus: atStatus ?? status,
       submittedStatus: event.status,
       content,
@@ -154,10 +159,6 @@ export function OrderDetailClient({ order, event }: Props) {
   const handleConfirmApprove = () => {
     setApproved(true);
     patchOrder(order.id, { approved: true });
-    if (approveReplacementOrderNo.trim()) {
-      setReplacementOrderNo(approveReplacementOrderNo);
-      patchOrder(order.id, { replacementOrderNo: approveReplacementOrderNo });
-    }
     if (approveAssign && approveProcurementEmail) {
       setAssignedToProcurement(true);
       patchOrder(order.id, { assignedToProcurement: true });
@@ -200,10 +201,29 @@ export function OrderDetailClient({ order, event }: Props) {
   };
 
   const handleClose = () => {
+    if (!closeReplacementOrderNo.trim()) return;
     setStatus('Closed');
-    patchOrder(order.id, { status: 'Closed' });
-    addLog('Order closed by CS.', false, 'Closed');
+    setReplacementOrderNo(closeReplacementOrderNo.trim());
+    patchOrder(order.id, { status: 'Closed', replacementOrderNo: closeReplacementOrderNo.trim() });
+    addLog(`Order closed. Replacement Order #: ${closeReplacementOrderNo.trim()}`, false, 'Closed');
     setCloseSuccess(true);
+  };
+
+  const handleReturnToCS = () => {
+    if (!returnComment.trim()) return;
+    setAssignedToProcurement(false);
+    patchOrder(order.id, { assignedToProcurement: false });
+    addLog(`Returned to Customer Service. Reason: ${returnComment.trim()}`, false, undefined, 'Procurement');
+    setReturnSuccess(true);
+  };
+
+  const handleSaveReplacement = () => {
+    const val = replacementDraft.trim();
+    if (!val) return;
+    setReplacementOrderNo(val);
+    patchOrder(order.id, { replacementOrderNo: val });
+    addLog(`Replacement Order #: ${val}`, false, undefined, assignedToProcurement ? 'Procurement' : undefined);
+    setEditingReplacement(false);
   };
 
   // Part actions
@@ -343,7 +363,12 @@ export function OrderDetailClient({ order, event }: Props) {
               Assign to Procurement
             </Button>
           )}
-          <Button type="primary" icon={<CheckOutlined />} onClick={() => setCloseOpen(true)}>
+          {assignedToProcurement && (
+            <Button icon={<RollbackOutlined />} onClick={() => setReturnOpen(true)}>
+              Return to Customer Service
+            </Button>
+          )}
+          <Button type="primary" icon={<CheckOutlined />} onClick={() => { setCloseReplacementOrderNo(replacementOrderNo); setCloseOpen(true); }}>
             Close Order
           </Button>
         </>
@@ -364,8 +389,11 @@ export function OrderDetailClient({ order, event }: Props) {
     ...(status === 'Open' && approved && !assignedToProcurement ? [
       { key: 'procurement', icon: <SendOutlined />, label: 'Assign to Procurement', onClick: () => setProcurementOpen(true) },
     ] : []),
+    ...(status === 'Open' && approved && assignedToProcurement ? [
+      { key: 'return', icon: <RollbackOutlined />, label: 'Return to Customer Service', onClick: () => setReturnOpen(true) },
+    ] : []),
     ...(status === 'Open' && approved ? [
-      { key: 'close', icon: <CheckOutlined />, label: 'Close Order', onClick: () => setCloseOpen(true) },
+      { key: 'close', icon: <CheckOutlined />, label: 'Close Order', onClick: () => { setCloseReplacementOrderNo(replacementOrderNo); setCloseOpen(true); } },
     ] : []),
     ...(status === 'Closed' ? [
       { key: 'reopen', icon: <RollbackOutlined />, label: 'Reopen', onClick: () => setReopenOpen(true) },
@@ -382,7 +410,7 @@ export function OrderDetailClient({ order, event }: Props) {
               {!isMobile && <span style={{ fontSize: token.fontSize }}>Orders</span>}
             </Link>
             <span style={{ color: token.colorBorderSecondary, fontSize: token.fontSizeLG, lineHeight: 1 }}>|</span>
-            <span style={{ fontSize: token.fontSizeLG, fontWeight: 600, color: token.colorText }}>{order.id}</span>
+            <span style={{ fontSize: token.fontSizeLG, fontWeight: 600, color: token.colorText }}>{order.eventId}</span>
             <Tag color={STATUS_COLOR[status]} style={{ margin: 0 }}>{status}</Tag>
             {!isMobile && approved && status === 'Open' && (
               <Tag color="green" style={{ margin: 0 }}>Approved</Tag>
@@ -533,6 +561,55 @@ export function OrderDetailClient({ order, event }: Props) {
                     </Fragment>
                   ))}
                 </div>
+
+                {/* Replacement Order # — fillable ahead of close */}
+                {status === 'Open' && approved && (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    gap: 12, marginBottom: 14, padding: '10px 12px',
+                    background: token.colorFillTertiary,
+                    border: `1px solid ${token.colorBorderSecondary}`,
+                    borderRadius: token.borderRadiusSM,
+                    flexWrap: 'wrap',
+                  }}>
+                    <div style={{ flex: 1, minWidth: 200 }}>
+                      <Text style={{
+                        display: 'block', fontSize: token.fontSizeXS, fontWeight: 600, letterSpacing: '0.5px',
+                        textTransform: 'uppercase', marginBottom: 4, color: token.colorTextTertiary,
+                      }}>
+                        Replacement Order #
+                      </Text>
+                      {editingReplacement ? (
+                        <Input
+                          placeholder="e.g. RO-2026-00123"
+                          value={replacementDraft}
+                          onChange={e => setReplacementDraft(e.target.value)}
+                          onPressEnter={handleSaveReplacement}
+                          autoFocus
+                          style={{ maxWidth: 260 }}
+                        />
+                      ) : (
+                        <Text style={{ fontSize: token.fontSizeSM, color: replacementOrderNo ? token.colorText : token.colorTextQuaternary }}>
+                          {replacementOrderNo || 'Not yet entered — add it here or when closing the order.'}
+                        </Text>
+                      )}
+                    </div>
+                    {editingReplacement ? (
+                      <Space>
+                        <Button size="small" type="primary" disabled={!replacementDraft.trim()} onClick={handleSaveReplacement}>Save</Button>
+                        <Button size="small" onClick={() => setEditingReplacement(false)}>Cancel</Button>
+                      </Space>
+                    ) : (
+                      <Button
+                        size="small"
+                        icon={<EditFilled />}
+                        onClick={() => { setReplacementDraft(replacementOrderNo); setEditingReplacement(true); }}
+                      >
+                        {replacementOrderNo ? 'Edit' : 'Add'}
+                      </Button>
+                    )}
+                  </div>
+                )}
 
                 {/* Parts header */}
                 <div style={{ marginBottom: 10 }}>
@@ -776,10 +853,10 @@ export function OrderDetailClient({ order, event }: Props) {
       <Modal
         title={approveSuccess ? null : 'Approve Order'}
         open={approveOpen}
-        onCancel={() => { setApproveOpen(false); setApproveAssign(false); setApproveProcurementEmail(''); setApproveReplacementOrderNo(''); setApproveSuccess(false); }}
+        onCancel={() => { setApproveOpen(false); setApproveAssign(false); setApproveProcurementEmail(''); setApproveSuccess(false); }}
         onOk={handleConfirmApprove}
         okText={approveAssign && approveProcurementEmail ? 'Approve & Notify Procurement' : 'Approve'}
-        okButtonProps={{ type: 'primary', disabled: !approveReplacementOrderNo.trim() }}
+        okButtonProps={{ type: 'primary' }}
         footer={approveSuccess ? null : undefined}
         width={480}
       >
@@ -790,13 +867,13 @@ export function OrderDetailClient({ order, event }: Props) {
               <Text style={{ fontSize: token.fontSize, fontWeight: 600 }}>Order Approved</Text>
             </div>
             <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
-              {order.id} has been approved.{' '}
+              {order.eventId} has been approved.{' '}
               {approveAssign && approveProcurementEmail
                 ? `Email notifications sent to ${event.branch} branch and ${approveProcurementEmail}.`
                 : `Email notification sent to ${event.branch} branch.`}
             </Text>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Button type="primary" onClick={() => { setApproveOpen(false); setApproveAssign(false); setApproveProcurementEmail(''); setApproveReplacementOrderNo(''); setApproveSuccess(false); }}>Done</Button>
+              <Button type="primary" onClick={() => { setApproveOpen(false); setApproveAssign(false); setApproveProcurementEmail(''); setApproveSuccess(false); }}>Done</Button>
             </div>
           </div>
         ) : (
@@ -804,15 +881,6 @@ export function OrderDetailClient({ order, event }: Props) {
             <Text style={{ display: 'block', marginBottom: 16, fontSize: token.fontSize, color: token.colorTextSecondary }}>
               This marks the order as approved. You can assign it to procurement now or as a separate step after.
             </Text>
-            <Form layout="vertical" size="small">
-              <Form.Item label="Replacement Part #" required style={{ marginBottom: 12 }}>
-                <Input
-                  placeholder="e.g. RO-2026-00123"
-                  value={approveReplacementOrderNo}
-                  onChange={e => setApproveReplacementOrderNo(e.target.value)}
-                />
-              </Form.Item>
-            </Form>
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               padding: '10px 12px',
@@ -860,7 +928,7 @@ export function OrderDetailClient({ order, event }: Props) {
               <Text style={{ fontSize: token.fontSize, fontWeight: 600 }}>Order Declined</Text>
             </div>
             <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
-              {order.id} has been declined and closed. Email notification sent to {event.branch} branch.
+              {order.eventId} has been declined and closed. Email notification sent to {event.branch} branch.
             </Text>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <Button type="primary" onClick={() => { setDeclineOpen(false); setDeclineReason(''); setDeclineSuccess(false); }}>Done</Button>
@@ -899,7 +967,7 @@ export function OrderDetailClient({ order, event }: Props) {
               <Text style={{ fontSize: token.fontSize, fontWeight: 600 }}>Order Reopened</Text>
             </div>
             <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
-              {order.id} has been returned to Open status and is ready for review.
+              {order.eventId} has been returned to Open status and is ready for review.
             </Text>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <Button type="primary" onClick={() => { setReopenOpen(false); setReopenReason(''); setReopenSuccess(false); }}>Done</Button>
@@ -939,7 +1007,7 @@ export function OrderDetailClient({ order, event }: Props) {
               <Text style={{ fontSize: token.fontSize, fontWeight: 600 }}>Assigned to Procurement</Text>
             </div>
             <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
-              {order.id} has been assigned to procurement. Email notifications sent to {event.branch} branch and {procurementEmail}.
+              {order.eventId} has been assigned to procurement. Email notifications sent to {event.branch} branch and {procurementEmail}.
             </Text>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <Button type="primary" onClick={() => { setProcurementOpen(false); setProcurementEmail(''); setProcurementOrderNo(''); setProcurementSuccess(false); }}>Done</Button>
@@ -976,10 +1044,10 @@ export function OrderDetailClient({ order, event }: Props) {
       <Modal
         title={closeSuccess ? null : 'Close Order'}
         open={closeOpen}
-        onCancel={() => { setCloseOpen(false); setCloseSuccess(false); }}
+        onCancel={() => { setCloseOpen(false); setCloseSuccess(false); setCloseReplacementOrderNo(''); }}
         onOk={handleClose}
         okText="Close Order"
-        okButtonProps={{ type: 'primary' }}
+        okButtonProps={{ type: 'primary', disabled: !closeReplacementOrderNo.trim() }}
         footer={closeSuccess ? null : undefined}
       >
         {closeSuccess ? (
@@ -989,16 +1057,67 @@ export function OrderDetailClient({ order, event }: Props) {
               <Text style={{ fontSize: token.fontSize, fontWeight: 600 }}>Order Closed</Text>
             </div>
             <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
-              {order.id} has been closed. It can be reopened if needed.
+              {order.eventId} has been closed. It can be reopened if needed.
             </Text>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Button type="primary" onClick={() => { setCloseOpen(false); setCloseSuccess(false); }}>Done</Button>
+              <Button type="primary" onClick={() => { setCloseOpen(false); setCloseSuccess(false); setCloseReplacementOrderNo(''); }}>Done</Button>
             </div>
           </div>
         ) : (
-          <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
-            This will mark the order as Closed. It can be reopened if needed.
-          </Text>
+          <>
+            <Text style={{ display: 'block', marginBottom: 12, fontSize: token.fontSize, color: token.colorTextSecondary }}>
+              This will mark the order as Closed. It can be reopened if needed.
+            </Text>
+            <Form layout="vertical" size="small">
+              <Form.Item label="Replacement Order #" required style={{ marginBottom: 0 }}>
+                <Input
+                  placeholder="e.g. RO-2026-00123"
+                  value={closeReplacementOrderNo}
+                  onChange={e => setCloseReplacementOrderNo(e.target.value)}
+                  autoFocus
+                />
+              </Form.Item>
+            </Form>
+          </>
+        )}
+      </Modal>
+
+      {/* RETURN TO CUSTOMER SERVICE MODAL */}
+      <Modal
+        title={returnSuccess ? null : 'Return to Customer Service'}
+        open={returnOpen}
+        onCancel={() => { setReturnOpen(false); setReturnComment(''); setReturnSuccess(false); }}
+        onOk={handleReturnToCS}
+        okText="Return to CS"
+        okButtonProps={{ type: 'primary', disabled: !returnComment.trim() }}
+        footer={returnSuccess ? null : undefined}
+      >
+        {returnSuccess ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: token.fontSize }} />
+              <Text style={{ fontSize: token.fontSize, fontWeight: 600 }}>Returned to Customer Service</Text>
+            </div>
+            <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
+              {order.eventId} has been returned to the Customer Service queue.
+            </Text>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button type="primary" onClick={() => { setReturnOpen(false); setReturnComment(''); setReturnSuccess(false); }}>Done</Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <Text style={{ display: 'block', marginBottom: 12, fontSize: token.fontSize, color: token.colorTextSecondary }}>
+              This order cannot be fulfilled by Procurement (e.g. discontinued parts). Please provide a comment explaining why it's being returned.
+            </Text>
+            <Input.TextArea
+              placeholder="Reason for returning to Customer Service..."
+              value={returnComment}
+              onChange={e => setReturnComment(e.target.value)}
+              rows={4}
+              autoFocus
+            />
+          </>
         )}
       </Modal>
 

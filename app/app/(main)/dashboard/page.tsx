@@ -4,7 +4,7 @@ import React, { Fragment, Suspense, useRef, useMemo, useState } from 'react';
 import { AutoComplete, Button, Card, Col, Flex, Grid, Input, Progress, Row, Segmented, Select, Statistic, Tag, Space, Typography, theme } from 'antd';
 import {
   CloseOutlined, CaretDownFilled, CaretRightFilled, AppstoreFilled, FormOutlined, SearchOutlined, HourglassFilled,
-  CheckCircleFilled, ShoppingCartOutlined, FileDoneOutlined,
+  CheckCircleFilled, ShoppingCartOutlined, CloseCircleFilled,
 } from '@ant-design/icons';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -183,11 +183,19 @@ function SectionHeader({
         {stats.map((s, i) => (
           <Fragment key={i}>
             {i > 0 && divider}
-            <div>
-              <div style={{ fontSize: token.fontSizeLG, fontWeight: 700, color: token.colorText, lineHeight: 1 }}>
+            <div style={{ minWidth: 0, flex: '1 1 auto' }}>
+              <div style={{
+                fontSize: token.fontSizeLG,
+                fontWeight: 700,
+                color: token.colorText,
+                lineHeight: 1,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}>
                 {s.value}
               </div>
-              <div style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary, marginTop: 2 }}>
+              <div style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary, marginTop: 2, whiteSpace: 'nowrap' }}>
                 {s.sub}
               </div>
             </div>
@@ -287,8 +295,8 @@ function DashboardPageContent() {
         value: `nav::order::${o.id}`,
         label: (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{o.id}</span>
-            <span style={{ fontSize: 11, color: token.colorTextTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.jobNo} · {o.eventId}</span>
+            <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{o.eventId}</span>
+            <span style={{ fontSize: 11, color: token.colorTextTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.jobNo}</span>
           </div>
         ),
       }));
@@ -364,19 +372,17 @@ function DashboardPageContent() {
     { title: 'Total Events',        count: filteredEvents.length,                    prior: priorEvents?.length ?? null, accent: token.colorTextSecondary, href: buildKpiHref('/events', dateRange, appliedFilters),                                          icon: <AppstoreFilled /> },
     { title: 'Reported',            count: filteredEvents.filter(isReported).length,  prior: prior(isReported),           accent: token.colorPrimary,       href: buildKpiHref('/events?status=Reported', dateRange, appliedFilters),                        icon: <FormOutlined /> },
     { title: 'Under Investigation', count: filteredEvents.filter(isUnderInv).length,  prior: prior(isUnderInv),           accent: token.colorWarning,       href: buildKpiHref('/events?status=Under+Investigation', dateRange, appliedFilters),            icon: <SearchOutlined /> },
-    { title: 'Waiting on Tech',     count: filteredEvents.filter(isWaiting).length,   prior: prior(isWaiting),            accent: token.colorTextSecondary,  href: buildKpiHref('/events?flag=additionalInfo', dateRange, appliedFilters),                  icon: <HourglassFilled /> },
+    { title: 'Waiting on Additional Information', count: filteredEvents.filter(isWaiting).length,   prior: prior(isWaiting),            accent: token.colorTextSecondary,  href: buildKpiHref('/events?flag=additionalInfo', dateRange, appliedFilters),                  icon: <HourglassFilled /> },
   ];
 
   const intakeStats = useMemo(() => {
     const topBranch  = topEntry(filteredEvents, 'branch');
     const topDisc    = topEntry(filteredEvents, 'discrepancy');
-    const shortDisc  = topDisc.length > 18 ? topDisc.slice(0, 17) + '…' : topDisc;
     const topProduct = topEntry(filteredEvents, 'product');
-    const shortProd  = topProduct.length > 18 ? topProduct.slice(0, 17) + '…' : topProduct;
     return [
       { value: topBranch, sub: 'top branch' },
-      { value: shortProd, sub: 'top product' },
-      { value: shortDisc, sub: 'top discrepancy' },
+      { value: topProduct, sub: 'top product' },
+      { value: topDisc, sub: 'top discrepancy' },
     ];
   }, [filteredEvents]);
 
@@ -425,13 +431,13 @@ function DashboardPageContent() {
   const isPendingReview   = (o: Order) => o.orderStatus === 'Open' && !o.approved && !o.declined;
   const isApprovedOrder   = (o: Order) => o.orderStatus === 'Open' && !!o.approved && !o.assignedToProcurement;
   const isWithProcurement = (o: Order) => o.orderStatus === 'Open' && !!o.approved && !!o.assignedToProcurement;
-  const isClosedOrder     = (o: Order) => o.orderStatus === 'Closed';
+  const isDeclinedOrder   = (o: Order) => !!o.declined;
 
   const orderKpis = [
-    { title: 'Pending Review',   count: filteredOrders.filter(isPendingReview).length,   prior: priorOrder(isPendingReview),   accent: token.colorWarning, href: buildKpiHref('/orders?orderStatus=Open', dateRange, {}),                   icon: <HourglassFilled /> },
-    { title: 'Approved',         count: filteredOrders.filter(isApprovedOrder).length,    prior: priorOrder(isApprovedOrder),   accent: token.colorPrimary, href: buildKpiHref('/orders?orderStatus=Open&decision=Approved', dateRange, {}), icon: <CheckCircleFilled /> },
-    { title: 'With Procurement', count: filteredOrders.filter(isWithProcurement).length,  prior: priorOrder(isWithProcurement), accent: token.colorInfo,    href: buildKpiHref('/orders?orderStatus=Open&decision=Approved', dateRange, {}), icon: <ShoppingCartOutlined /> },
-    { title: 'Closed',           count: filteredOrders.filter(isClosedOrder).length,      prior: priorOrder(isClosedOrder),     accent: token.colorSuccess, href: buildKpiHref('/orders?orderStatus=Closed', dateRange, {}),                 icon: <FileDoneOutlined /> },
+    { title: 'Pending Review',          count: filteredOrders.filter(isPendingReview).length,   prior: priorOrder(isPendingReview),   accent: token.colorWarning, href: buildKpiHref('/orders?orderStatus=Open', dateRange, {}),                   icon: <HourglassFilled /> },
+    { title: 'Assigned to Procurement', count: filteredOrders.filter(isWithProcurement).length,  prior: priorOrder(isWithProcurement), accent: token.colorInfo,    href: buildKpiHref('/orders?orderStatus=Open&decision=Approved', dateRange, {}), icon: <ShoppingCartOutlined /> },
+    { title: 'Approved',                count: filteredOrders.filter(isApprovedOrder).length,    prior: priorOrder(isApprovedOrder),   accent: token.colorPrimary, href: buildKpiHref('/orders?orderStatus=Open&decision=Approved', dateRange, {}), icon: <CheckCircleFilled /> },
+    { title: 'Declined',                count: filteredOrders.filter(isDeclinedOrder).length,    prior: priorOrder(isDeclinedOrder),   accent: token.colorError,   href: buildKpiHref('/orders?decision=Declined', dateRange, {}),                 icon: <CloseCircleFilled /> },
   ];
 
   const declinedStats = useMemo(() => {
@@ -555,12 +561,12 @@ function DashboardPageContent() {
                       { title: 'By Discrepancy',    content: <EventsByDiscrepancyChart events={filteredEvents} height={200} /> },
                     ] : [
                       { title: 'Queue Health',      content: <QueueHealthChart events={filteredEvents} /> },
-                      { title: 'Waiting on Tech',   content: <WaitingOnTechChart events={filteredEvents} /> },
+                      { title: 'Waiting on Additional Information',   content: <WaitingOnTechChart events={filteredEvents} /> },
                       { title: 'Data Quality',      content: <DataQualityChart events={filteredEvents} /> },
                     ]
                   ) : (
                     ordersSection === 'fulfillment' ? [
-                      { title: 'Pending CS Review',  content: <PendingCSReviewChart orders={filteredOrders} /> },
+                      { title: 'Pending Review',     content: <PendingCSReviewChart orders={filteredOrders} /> },
                       { title: 'Decision Trend',     content: <DecisionTrendChart orders={filteredOrders} height={200} /> },
                     ] : [
                       { title: 'Declined Orders',    content: <DeclinedOrdersPreview orders={filteredOrders} /> },
@@ -657,8 +663,8 @@ function DashboardPageContent() {
           {screens.md !== false && (
             <div>
               {view === 'events' && eventsSection === 'intake'      && <FieldIntake events={filteredEvents} dateRange={dateRange} />}
-              {view === 'events' && eventsSection === 'triage'      && <TriageReview events={filteredEvents} />}
-              {view === 'orders' && ordersSection === 'fulfillment' && <OrderFulfillment events={filteredEvents} orders={filteredOrders} />}
+              {view === 'events' && eventsSection === 'triage'      && <TriageReview events={filteredEvents} waitingViewAllHref={buildKpiHref('/events?flag=additionalInfo', dateRange, {})} dataQualityViewAllHref={buildKpiHref('/events?flag=edited', dateRange, {})} />}
+              {view === 'orders' && ordersSection === 'fulfillment' && <OrderFulfillment events={filteredEvents} orders={filteredOrders} viewAllHref={buildKpiHref('/orders?orderStatus=Open&decision=Pending', dateRange, {})} />}
               {view === 'orders' && ordersSection === 'declined'    && <DeclinedOrders orders={filteredOrders} viewAllHref={buildKpiHref('/orders?decision=Declined', dateRange, {})} />}
             </div>
           )}

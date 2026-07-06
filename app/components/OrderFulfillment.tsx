@@ -2,24 +2,39 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button, Card, Col, Row, Table, Tag, Tooltip, Typography, theme } from 'antd';
-import type { ColumnsType } from 'antd/es/table';
-import { Bar, Column } from '@ant-design/plots';
-import { ExportOutlined, ShoppingCartOutlined } from '@ant-design/icons';
+import { Button, Card, Col, Row, Tag, Tooltip, Typography, theme } from 'antd';
+import { Column } from '@ant-design/plots';
+import { CommentOutlined, ExportOutlined, ShoppingCartOutlined } from '@ant-design/icons';
 import Link from 'next/link';
 import dayjs from 'dayjs';
 import type { QualityEvent } from '@/data/types';
 import type { Order } from '@/data/orders';
 import { events as allEvents } from '@/data/events';
-import { CopyableValue } from '@/components/CopyableValue';
+import { logs as allLogs } from '@/data/logs';
+import { ExpandToggle, Dot } from './CardControls';
 
 const { Text } = Typography;
 const CARD_H = 320;
 const STALE_DAYS = 3;
-const QUEUE_MAX = 7;
+const QUEUE_PREVIEW = 4;
+const DECLINED_PREVIEW = 4;
 
 
 const EVENT_MAP = new Map(allEvents.map(e => [e.id, e]));
+
+const LOGS_BY_EVENT = new Map<string, typeof allLogs>();
+for (const log of allLogs) {
+  const arr = LOGS_BY_EVENT.get(log.eventId) ?? [];
+  arr.push(log);
+  LOGS_BY_EVENT.set(log.eventId, arr);
+}
+
+function commentsFor(eventId: string): { count: number; latest: string | null } {
+  const eventLogs = LOGS_BY_EVENT.get(eventId) ?? [];
+  if (eventLogs.length === 0) return { count: 0, latest: null };
+  const sorted = [...eventLogs].sort((a, b) => dayjs(b.date).valueOf() - dayjs(a.date).valueOf());
+  return { count: sorted.length, latest: sorted[0].comment };
+}
 
 function parseOrderDate(lastUpdated: string): dayjs.Dayjs {
   const [mm, dd, yyyy] = lastUpdated.slice(0, 10).split('-');
@@ -30,11 +45,24 @@ const TODAY = dayjs();
 
 type PendingItem = {
   id: string;
+  eventId: string;
+  jobNo: string;
   branch: string;
   product: string;
   partsCount: number;
   ageDays: number;
+  commentCount: number;
+  latestComment: string | null;
 };
+
+function exportToCsv(filename: string, headers: string[], rows: (string | number)[][]) {
+  const lines = [headers, ...rows].map(r => r.map(cell => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','));
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
 
 function PendingRow({ item, token }: { item: PendingItem; token: ReturnType<typeof theme.useToken>['token'] }) {
   return (
@@ -44,36 +72,61 @@ function PendingRow({ item, token }: { item: PendingItem; token: ReturnType<type
       borderRadius: token.borderRadiusSM,
       padding: '8px 10px',
       display: 'flex',
-      alignItems: 'center',
       gap: 10,
     }}>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-          <Link href={`/orders/${item.id}`} style={{ fontSize: token.fontSizeSM, fontWeight: 600, whiteSpace: 'nowrap', textDecoration: 'none' }}>
-            {item.id}
+      {/* Left: ID + parts tag, then branch · product */}
+      <div style={{ flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3 }}>
+          <Link href={`/orders/${item.id}`} style={{ fontSize: token.fontSizeSM, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+            {item.eventId}
           </Link>
           <Tag color="geekblue" style={{ fontSize: token.fontSizeXS, lineHeight: '16px', padding: '0 5px', margin: 0 }}>
             {item.partsCount} part{item.partsCount !== 1 ? 's' : ''}
           </Tag>
         </div>
-        <Text type="secondary" style={{ fontSize: token.fontSizeXS, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
+        <Text type="secondary" style={{ fontSize: token.fontSizeXS, whiteSpace: 'nowrap' }}>
           {item.branch} · {item.product}
         </Text>
       </div>
-      <Text style={{
-        flexShrink: 0,
-        fontSize: token.fontSizeXS,
-        fontWeight: 600,
-        color: item.ageDays >= STALE_DAYS ? token.colorWarning : token.colorTextTertiary,
-        lineHeight: '16px',
-      }}>
-        {item.ageDays}d
-      </Text>
+
+      {/* Right: latest comment + comment count + age, top-aligned */}
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+        {item.latestComment && (
+          <Text style={{
+            flex: 1,
+            fontSize: token.fontSizeSM,
+            color: token.colorTextSecondary,
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+          }}>
+            {item.latestComment}
+          </Text>
+        )}
+        {item.commentCount > 0 && (
+          <Tooltip title={`${item.commentCount} comment${item.commentCount !== 1 ? 's' : ''}`}>
+            <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: token.fontSizeXS, color: token.colorTextTertiary, lineHeight: '16px' }}>
+              <CommentOutlined /> {item.commentCount}
+            </span>
+          </Tooltip>
+        )}
+        <Text style={{
+          flexShrink: 0,
+          marginLeft: 'auto',
+          fontSize: token.fontSizeXS,
+          fontWeight: 600,
+          color: item.ageDays >= STALE_DAYS ? token.colorWarning : token.colorTextTertiary,
+          lineHeight: '16px',
+        }}>
+          {item.ageDays}d
+        </Text>
+      </div>
     </div>
   );
 }
 
-export function OrderFulfillment({ events, orders }: { events: QualityEvent[]; orders: Order[] }) {
+export function OrderFulfillment({ events, orders, viewAllHref = '/orders?orderStatus=Open&decision=Pending' }: { events: QualityEvent[]; orders: Order[]; viewAllHref?: string }) {
   const router = useRouter();
   const { token } = theme.useToken();
   const [showAll, setShowAll] = useState(false);
@@ -97,19 +150,32 @@ export function OrderFulfillment({ events, orders }: { events: QualityEvent[]; o
       .filter(o => o.orderStatus === 'Open' && !o.approved && !o.declined)
       .map(o => {
         const ev = EVENT_MAP.get(o.eventId);
+        const { count, latest } = commentsFor(o.eventId);
         return {
           id: o.id,
+          eventId: o.eventId,
+          jobNo: o.jobNo,
           branch: ev?.branch ?? '—',
           product: ev?.product ?? '—',
           partsCount: o.parts.length,
           ageDays: TODAY.diff(parseOrderDate(o.lastUpdated), 'day'),
+          commentCount: count,
+          latestComment: latest,
         };
       })
       .sort((a, b) => b.ageDays - a.ageDays),
     [orders],
   );
 
-  const visibleItems = showAll ? pendingItems : pendingItems.slice(0, QUEUE_MAX);
+  const visibleItems = showAll ? pendingItems : pendingItems.slice(0, QUEUE_PREVIEW);
+
+  const handleExportPending = () => {
+    exportToCsv(
+      `pending-review-export-${new Date().toISOString().slice(0, 10)}.csv`,
+      ['Order ID', 'Job No.', 'Branch', 'Product', 'Parts', 'Age (days)'],
+      pendingItems.map(i => [i.eventId, i.jobNo, i.branch, i.product, i.partsCount, i.ageDays]),
+    );
+  };
 
   // Approval Trend — weekly approved / declined counts
   const trendData = useMemo(() => {
@@ -146,35 +212,43 @@ export function OrderFulfillment({ events, orders }: { events: QualityEvent[]; o
         Order Fulfillment
       </Text>
 
-      <Row gutter={token.marginSM}>
+      <Row gutter={token.marginSM} style={{ alignItems: 'flex-start' }}>
 
-        {/* CS Pending Review */}
-        <Col xs={24} lg={16}>
+        {/* Pending Review */}
+        <Col xs={24} lg={8}>
           <Card
             size="small"
-            title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Pending CS Review</span>}
+            title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Pending Review</span>}
             extra={
               pendingItems.length === 0
                 ? <Tag color="green" style={{ fontSize: token.fontSizeXS, lineHeight: '16px', padding: '0 5px' }}>All clear</Tag>
-                : <span style={{ fontSize: token.fontSizeSM, color: token.colorTextSecondary }}>
-                    {pendingItems.length} pending
-                    {pendingItems.length > QUEUE_MAX && (
+                : <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Link href={viewAllHref} style={{ fontSize: token.fontSizeSM }}>View in Table ({pendingItems.length})</Link>
+                    {pendingItems.length > QUEUE_PREVIEW && (
                       <>
-                        {' · '}
-                        <Typography.Link style={{ fontSize: token.fontSizeSM }} onClick={() => setShowAll(v => !v)}>
-                          {showAll ? 'Show less' : 'View all'}
-                        </Typography.Link>
+                        <Dot />
+                        <ExpandToggle expanded={showAll} onToggle={() => setShowAll(v => !v)} />
                       </>
                     )}
-                  </span>
+                    <Dot />
+                    <Tooltip title="Export to CSV">
+                      <Button size="small" icon={<ExportOutlined />} onClick={handleExportPending} />
+                    </Tooltip>
+                  </div>
             }
             style={{ marginBottom: token.marginSM }}
-            styles={{ body: { minHeight: CARD_H, padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 8 } }}
+            styles={{ body: {
+              minHeight: CARD_H,
+              padding: '8px 12px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+            } }}
           >
             {pendingItems.length === 0 ? (
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: token.colorTextTertiary }}>
                 <ShoppingCartOutlined style={{ fontSize: token.fontSizeHeading3 }} />
-                <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No orders pending CS review</Text>
+                <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No orders pending review</Text>
               </div>
             ) : (
               visibleItems.map(item => (
@@ -185,7 +259,7 @@ export function OrderFulfillment({ events, orders }: { events: QualityEvent[]; o
         </Col>
 
         {/* Approval Trend */}
-        <Col xs={24} lg={8}>
+        <Col xs={24} lg={16}>
           <Card
             size="small"
             title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Decision Trend</span>}
@@ -198,14 +272,6 @@ export function OrderFulfillment({ events, orders }: { events: QualityEvent[]; o
               </div>
             ) : (
               <>
-                <div style={{ display: 'flex', gap: 12, marginBottom: 6 }}>
-                  {[{ label: 'Approved', color: token.colorSuccess }, { label: 'Declined', color: token.colorError }].map(s => (
-                    <span key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: 2, background: s.color, flexShrink: 0 }} />
-                      <Text style={{ fontSize: token.fontSizeXS, color: token.colorTextSecondary }}>{s.label}</Text>
-                    </span>
-                  ))}
-                </div>
                 <div style={{ cursor: 'pointer' }}>
                   <Column
                     key={plotTheme}
@@ -225,7 +291,7 @@ export function OrderFulfillment({ events, orders }: { events: QualityEvent[]; o
                       x: { ...axisStyle },
                       y: { ...axisStyle, tickCount: 4 },
                     }}
-                    legend={false}
+                    legend={{ color: { position: 'bottom', itemLabelFill: token.colorText, itemLabelFontSize: token.fontSizeSM } }}
                     tooltip={{
                       title: (d: { week: string }) => d.week,
                       items: [{ field: 'count', name: (d: { decision: string }) => d.decision }],
@@ -260,7 +326,8 @@ export function PendingCSReviewChart({ orders }: { orders: Order[] }) {
       .filter(o => o.orderStatus === 'Open' && !o.approved && !o.declined)
       .map(o => {
         const ev = EVENT_MAP.get(o.eventId);
-        return { id: o.id, branch: ev?.branch ?? '—', product: ev?.product ?? '—', partsCount: o.parts.length, ageDays: TODAY.diff(parseOrderDate(o.lastUpdated), 'day') };
+        const { count, latest } = commentsFor(o.eventId);
+        return { id: o.id, eventId: o.eventId, jobNo: o.jobNo, branch: ev?.branch ?? '—', product: ev?.product ?? '—', partsCount: o.parts.length, ageDays: TODAY.diff(parseOrderDate(o.lastUpdated), 'day'), commentCount: count, latestComment: latest };
       })
       .sort((a, b) => b.ageDays - a.ageDays),
     [orders]
@@ -271,7 +338,7 @@ export function PendingCSReviewChart({ orders }: { orders: Order[] }) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 160, gap: 8, color: token.colorTextTertiary }}>
         <ShoppingCartOutlined style={{ fontSize: token.fontSizeHeading3 }} />
-        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No orders pending CS review</Text>
+        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No orders pending review</Text>
       </div>
     );
   }
@@ -340,14 +407,6 @@ export function DecisionTrendChart({
   }
   return (
     <>
-      <div style={{ display: 'flex', gap: 12, marginBottom: 6 }}>
-        {[{ label: 'Approved', color: token.colorSuccess }, { label: 'Declined', color: token.colorError }].map(s => (
-          <span key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ width: 8, height: 8, borderRadius: 2, background: s.color, flexShrink: 0 }} />
-            <Text style={{ fontSize: token.fontSizeXS, color: token.colorTextSecondary }}>{s.label}</Text>
-          </span>
-        ))}
-      </div>
       <Column
         key={plotTheme}
         data={trendData}
@@ -363,7 +422,7 @@ export function DecisionTrendChart({
         interaction={{ elementHighlight: true }}
         state={{ active: { opacity: 1 }, inactive: { opacity: 0.15 } }}
         axis={{ x: { ...axisStyle }, y: { ...axisStyle, tickCount: 4 } }}
-        legend={false}
+        legend={{ color: { position: 'bottom', itemLabelFill: token.colorText, itemLabelFontSize: token.fontSizeSM } }}
         tooltip={{
           title: (d: { week: string }) => d.week,
           items: [{ field: 'count', name: (d: { decision: string }) => d.decision }],
@@ -383,6 +442,7 @@ export function DecisionTrendChart({
 
 type DeclinedItem = {
   id: string;
+  eventId: string;
   jobNo: string;
   branch: string;
   reason: string;
@@ -390,6 +450,52 @@ type DeclinedItem = {
   ageDays: number;
   sortTs: number;
 };
+
+function DeclinedRow({ item, token }: { item: DeclinedItem; token: ReturnType<typeof theme.useToken>['token'] }) {
+  return (
+    <div style={{
+      background: token.colorFillQuaternary,
+      border: `1px solid ${token.colorBorderSecondary}`,
+      borderRadius: token.borderRadiusSM,
+      padding: '8px 10px',
+      display: 'flex',
+      gap: 10,
+    }}>
+      {/* Left: ID + branch */}
+      <div style={{ flexShrink: 0 }}>
+        <Link href={`/orders/${item.id}`} style={{ display: 'block', fontSize: token.fontSizeSM, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap', marginBottom: 3 }}>
+          {item.eventId}
+        </Link>
+        <Text type="secondary" style={{ fontSize: token.fontSizeXS, whiteSpace: 'nowrap' }}>
+          {item.branch}
+        </Text>
+      </div>
+
+      {/* Right: decline reason + date + age, top-aligned */}
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+        <Text style={{
+          flex: 1,
+          fontSize: token.fontSizeSM,
+          color: token.colorTextSecondary,
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical',
+          overflow: 'hidden',
+        }}>
+          {item.reason}
+        </Text>
+        <div style={{ flexShrink: 0, marginLeft: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+          <Text style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary, whiteSpace: 'nowrap' }}>
+            {item.dateDeclined}
+          </Text>
+          <Text style={{ fontSize: token.fontSizeXS, fontWeight: 600, color: token.colorTextTertiary, lineHeight: '16px' }}>
+            {item.ageDays}d
+          </Text>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function buildDeclinedItems(orders: Order[]): DeclinedItem[] {
   return orders
@@ -399,6 +505,7 @@ function buildDeclinedItems(orders: Order[]): DeclinedItem[] {
       const d = parseOrderDate(o.lastUpdated);
       return {
         id: o.id,
+        eventId: o.eventId,
         jobNo: o.jobNo,
         branch: ev?.branch ?? '—',
         reason: o.declineReason ?? '—',
@@ -435,7 +542,6 @@ export function DeclinedByBranchChart({ orders, height = 220 }: { orders: Order[
     }
     return Object.entries(counts)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 6)
       .map(([branch, count]) => ({ branch, count }));
   }, [orders]);
 
@@ -448,7 +554,7 @@ export function DeclinedByBranchChart({ orders, height = 220 }: { orders: Order[
   }
 
   return (
-    <Bar
+    <Column
       key={plotTheme}
       data={chartData}
       xField="branch"
@@ -460,7 +566,11 @@ export function DeclinedByBranchChart({ orders, height = 220 }: { orders: Order[
       interaction={{ elementHighlight: true }}
       state={{ active: { opacity: 1 }, inactive: { opacity: 0.15 } }}
       axis={{
-        x: { ...axisStyle, labelFormatter: (v: string) => v.length > 10 ? v.slice(0, 9) + '…' : v },
+        x: {
+          ...axisStyle,
+          labelFormatter: (v: string) => v.length > 10 ? v.slice(0, 9) + '…' : v,
+          labelTransform: chartData.length > 6 ? 'rotate(-40)' : undefined,
+        },
         y: { ...axisStyle, tickCount: 4 },
       }}
       tooltip={{ title: (d: { branch: string }) => d.branch, items: [{ field: 'count', name: 'Declined' }] }}
@@ -474,54 +584,18 @@ export function DeclinedByBranchChart({ orders, height = 220 }: { orders: Order[
 
 export function DeclinedOrders({ orders, viewAllHref = '/orders?decision=Declined' }: { orders: Order[]; viewAllHref?: string }) {
   const { token } = theme.useToken();
-  const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
+  const [showAll, setShowAll] = useState(false);
 
   const declinedItems = useMemo(() => buildDeclinedItems(orders), [orders]);
+  const visibleItems = showAll ? declinedItems : declinedItems.slice(0, DECLINED_PREVIEW);
 
   const handleExport = () => {
-    const selected = selectedKeys.length
-      ? declinedItems.filter(d => selectedKeys.includes(d.id))
-      : declinedItems;
-    const headers = ['Order ID', 'Job No.', 'Branch', 'Reason for Decline', 'Date Declined', 'Age (days)'];
-    const rows = selected.map(d => [d.id, d.jobNo, d.branch, d.reason, d.dateDeclined, d.ageDays]);
-    const lines = [headers, ...rows].map(r => r.map(cell => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','));
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `declined-orders-export-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
-    URL.revokeObjectURL(url);
+    exportToCsv(
+      `declined-orders-export-${new Date().toISOString().slice(0, 10)}.csv`,
+      ['Order ID', 'Job No.', 'Branch', 'Reason for Decline', 'Date Declined', 'Age (days)'],
+      declinedItems.map(d => [d.id, d.jobNo, d.branch, d.reason, d.dateDeclined, d.ageDays]),
+    );
   };
-
-  const columns: ColumnsType<DeclinedItem> = [
-    {
-      title: 'Order ID',
-      dataIndex: 'id',
-      key: 'id',
-      width: 110,
-      render: (id: string) => (
-        <Link href={`/orders/${id}`} style={{ fontWeight: 500, textDecoration: 'none' }}>
-          {id}
-        </Link>
-      ),
-    },
-    {
-      title: 'Job No.',
-      dataIndex: 'jobNo',
-      key: 'jobNo',
-      width: 140,
-      render: (jobNo: string) => <CopyableValue value={jobNo} />,
-    },
-    { title: 'Branch', dataIndex: 'branch', key: 'branch', width: 140, ellipsis: true },
-    {
-      title: 'Reason for Decline',
-      dataIndex: 'reason',
-      key: 'reason',
-      ellipsis: { showTitle: false },
-      render: (reason: string) => <Tooltip title={reason}><span>{reason}</span></Tooltip>,
-    },
-    { title: 'Date Declined', dataIndex: 'dateDeclined', key: 'dateDeclined', width: 128 },
-    { title: 'Age', dataIndex: 'ageDays', key: 'ageDays', width: 70, render: (d: number) => `${d}d` },
-  ];
 
   return (
     <div>
@@ -532,48 +606,54 @@ export function DeclinedOrders({ orders, viewAllHref = '/orders?decision=Decline
         Declined Orders
       </Text>
 
-      <Row gutter={token.marginSM}>
+      <Row gutter={token.marginSM} style={{ alignItems: 'flex-start' }}>
 
-        {/* Declined Orders table */}
-        <Col xs={24} lg={16}>
+        {/* Declined Orders list */}
+        <Col xs={24} lg={8}>
           <Card
             size="small"
             title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Declined Orders</span>}
             extra={
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <Link href={viewAllHref} style={{ fontSize: token.fontSizeSM }}>View all →</Link>
-                <Button size="small" icon={<ExportOutlined />} onClick={handleExport} disabled={declinedItems.length === 0}>
-                  {selectedKeys.length > 0 ? `Export Selected (${selectedKeys.length})` : `Export All (${declinedItems.length})`}
-                </Button>
-              </div>
+              declinedItems.length === 0
+                ? undefined
+                : <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Link href={viewAllHref} style={{ fontSize: token.fontSizeSM }}>View in Table ({declinedItems.length})</Link>
+                    {declinedItems.length > DECLINED_PREVIEW && (
+                      <>
+                        <Dot />
+                        <ExpandToggle expanded={showAll} onToggle={() => setShowAll(v => !v)} />
+                      </>
+                    )}
+                    <Dot />
+                    <Tooltip title="Export to CSV">
+                      <Button size="small" icon={<ExportOutlined />} onClick={handleExport} />
+                    </Tooltip>
+                  </div>
             }
             style={{ marginBottom: token.marginSM }}
-            styles={{ body: { minHeight: CARD_H, padding: '8px 12px' } }}
+            styles={{ body: {
+              minHeight: CARD_H,
+              padding: '8px 12px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+            } }}
           >
             {declinedItems.length === 0 ? (
-              <div style={{ height: CARD_H - 16, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: token.colorTextTertiary }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: token.colorTextTertiary }}>
                 <ShoppingCartOutlined style={{ fontSize: token.fontSizeHeading3 }} />
                 <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No declined orders in this period</Text>
               </div>
             ) : (
-              <Table<DeclinedItem>
-                size="small"
-                rowKey="id"
-                dataSource={declinedItems}
-                columns={columns}
-                pagination={{ pageSize: 5, size: 'small' }}
-                rowSelection={{
-                  type: 'checkbox',
-                  selectedRowKeys: selectedKeys,
-                  onChange: keys => setSelectedKeys(keys as string[]),
-                }}
-              />
+              visibleItems.map(item => (
+                <DeclinedRow key={item.id} item={item} token={token} />
+              ))
             )}
           </Card>
         </Col>
 
         {/* Declined by Branch */}
-        <Col xs={24} lg={8}>
+        <Col xs={24} lg={16}>
           <Card
             size="small"
             title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Declined by Branch</span>}
@@ -620,7 +700,7 @@ export function DeclinedOrdersPreview({ orders }: { orders: Order[] }) {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
               <Link href={`/orders/${item.id}`} style={{ fontSize: token.fontSizeSM, fontWeight: 600, whiteSpace: 'nowrap', textDecoration: 'none' }}>
-                {item.id}
+                {item.eventId}
               </Link>
               <Tag color="default" style={{ fontSize: token.fontSizeXS, lineHeight: '16px', padding: '0 5px', margin: 0 }}>
                 {item.branch}
