@@ -3,8 +3,8 @@
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import dayjs from 'dayjs';
 import {
-  AutoComplete, Dropdown, Form, Input, List, Modal, Select,
-  Switch, Table, Tabs, Button, Tag, Tooltip, Typography, theme, Grid,
+  AutoComplete, Dropdown, Form, Input, Modal, Pagination, Select,
+  Switch, Table, Button, Tag, Tooltip, Typography, theme, Grid,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { MenuProps } from 'antd';
@@ -36,7 +36,7 @@ const ORDER_STATUS_COLOR: Record<string, string> = {
 
 const ORDER_STATUS_FILTER = [
   { key: 'orderStatus', label: 'Order Status', options: ['Open', 'Closed'] },
-  { key: 'decision',    label: 'Decision',     options: ['Approved', 'Declined'] },
+  { key: 'decision',    label: 'Decision',     options: ['Approved', 'Declined', 'Pending'] },
   ...EVENT_FILTER_CATEGORIES.map(cat =>
     cat.key === 'status' ? { ...cat, label: 'Event Status' } : cat
   ),
@@ -66,6 +66,8 @@ const orderRows: OrderRow[] = orders.map(o => {
     status:      event.status,
   };
 });
+
+const CARD_PAGE_SIZE = 12;
 
 function OrdersPageContent() {
   const searchParams = useSearchParams();
@@ -113,8 +115,8 @@ function OrdersPageContent() {
         value: `nav::order::${o.id}`,
         label: (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{o.id}</span>
-            <span style={{ fontSize: 11, color: '#8c8c8c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.jobNo} · {o.discrepancy}</span>
+            <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{o.eventId}</span>
+            <span style={{ fontSize: 11, color: token.colorTextTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.jobNo} · {o.discrepancy}</span>
           </div>
         ),
       }));
@@ -163,11 +165,8 @@ function OrdersPageContent() {
     orderMutations[row.id]?.approved ?? row.approved ?? false;
   const isDeclined = (row: OrderRow): boolean =>
     orderMutations[row.id]?.declined ?? row.declined ?? false;
-  const isProcurement = (row: OrderRow): boolean =>
-    orderMutations[row.id]?.assignedToProcurement ?? row.assignedToProcurement ?? false;
-
-  // Procurement queue toggle
-  const [procurementQueue, setProcurementQueue] = useState(false);
+  const effectiveReplacementOrderNo = (row: OrderRow): string =>
+    orderMutations[row.id]?.replacementOrderNo ?? row.replacementOrderNo ?? '';
 
   // Batch selection
   const [selectedOrderKeys, setSelectedOrderKeys] = useState<string[]>([]);
@@ -180,7 +179,6 @@ function OrdersPageContent() {
   const [approveOpen, setApproveOpen]         = useState(false);
   const [approveAssign, setApproveAssign]     = useState(false);
   const [approveEmail, setApproveEmail]       = useState('');
-  const [approveReplacement, setApproveReplacement] = useState('');
 
   // Decline modal
   const [declineOpen, setDeclineOpen]   = useState(false);
@@ -188,6 +186,7 @@ function OrdersPageContent() {
 
   // Close single modal
   const [closeOpen, setCloseOpen] = useState(false);
+  const [closeReplacementOrderNo, setCloseReplacementOrderNo] = useState('');
 
   // Reopen modal
   const [reopenOpen, setReopenOpen]     = useState(false);
@@ -199,6 +198,8 @@ function OrdersPageContent() {
   const [reopenSuccess,     setReopenSuccess]     = useState(false);
   const [batchCloseSuccess, setBatchCloseSuccess] = useState(false);
   const [batchCloseCount,   setBatchCloseCount]   = useState(0);
+  const [cardPage, setCardPage] = useState(1);
+  useEffect(() => { setCardPage(1); }, [appliedFiltersLocal]);
 
   const handleExportOrders = () => {
     const selected = filtered.filter(o => selectedOrderKeys.includes(o.id));
@@ -215,7 +216,6 @@ function OrdersPageContent() {
   const resetApprove = () => {
     setApproveAssign(false);
     setApproveEmail('');
-    setApproveReplacement('');
   };
 
   const handleConfirmApprove = () => {
@@ -229,13 +229,13 @@ function OrdersPageContent() {
 
   const handleDecline = () => {
     if (!activeOrderId || !declineReason.trim()) return;
-    patchOrder(activeOrderId, { status: 'Closed', declined: true, approved: false });
+    patchOrder(activeOrderId, { status: 'Closed', declined: true, approved: false, declineReason: declineReason.trim() });
     setDeclineSuccess(true);
   };
 
   const handleClose = () => {
-    if (!activeOrderId) return;
-    patchOrder(activeOrderId, { status: 'Closed' });
+    if (!activeOrderId || !closeReplacementOrderNo.trim()) return;
+    patchOrder(activeOrderId, { status: 'Closed', replacementOrderNo: closeReplacementOrderNo.trim() });
     setCloseSuccess(true);
   };
 
@@ -260,7 +260,7 @@ function OrdersPageContent() {
     setActiveOrderId(row.id);
     if (key === 'approve') setApproveOpen(true);
     if (key === 'decline') setDeclineOpen(true);
-    if (key === 'close')   setCloseOpen(true);
+    if (key === 'close')   { setCloseReplacementOrderNo(effectiveReplacementOrderNo(row)); setCloseOpen(true); }
     if (key === 'reopen')  setReopenOpen(true);
   };
 
@@ -288,9 +288,8 @@ function OrdersPageContent() {
     }
     const matchOrderStatus   = !appliedFiltersLocal.orderStatus?.length   || appliedFiltersLocal.orderStatus.includes(effectiveStatus(o));
     const matchDecision      = !appliedFiltersLocal.decision?.length      || appliedFiltersLocal.decision.some(d =>
-      (d === 'Approved' && isApproved(o)) || (d === 'Declined' && isDeclined(o))
+      (d === 'Approved' && isApproved(o)) || (d === 'Declined' && isDeclined(o)) || (d === 'Pending' && !isApproved(o) && !isDeclined(o))
     );
-    const matchProcurement   = !procurementQueue || isProcurement(o);
     const matchEventStatus   = !appliedFiltersLocal.status?.length        || appliedFiltersLocal.status.includes(o.status);
     const matchDiscrepancy   = !appliedFiltersLocal.discrepancy?.length   || appliedFiltersLocal.discrepancy.includes(o.discrepancy);
     const matchDoor          = !appliedFiltersLocal.door?.length          || appliedFiltersLocal.door.includes(o.door);
@@ -298,7 +297,7 @@ function OrdersPageContent() {
     const matchBranch        = !appliedFiltersLocal.branch?.length        || appliedFiltersLocal.branch.includes(o.branch);
     const matchPlant         = !appliedFiltersLocal.plant?.length         || appliedFiltersLocal.plant.includes(o.plant);
     const matchReportedBy    = !appliedFiltersLocal.reportedBy?.length    || appliedFiltersLocal.reportedBy.includes(o.reportedBy);
-    return matchOrderStatus && matchDecision && matchProcurement && matchEventStatus &&
+    return matchOrderStatus && matchDecision && matchEventStatus &&
       matchDiscrepancy && matchDoor && matchProduct && matchBranch && matchPlant && matchReportedBy;
   });
 
@@ -316,9 +315,9 @@ function OrdersPageContent() {
       dataIndex: 'id',
       key: 'id',
       sorter: (a, b) => a.id.localeCompare(b.id),
-      render: (id: string) => (
+      render: (id: string, record) => (
         <Link href={`/orders/${id}`} style={{ fontWeight: 500, textDecoration: 'none' }}>
-          {id}
+          {record.eventId}
         </Link>
       ),
       width: 130,
@@ -448,7 +447,7 @@ function OrdersPageContent() {
         onCancel={() => { setApproveOpen(false); resetApprove(); setApproveSuccess(false); }}
         onOk={handleConfirmApprove}
         okText={approveAssign && approveEmail ? 'Approve & Notify Procurement' : 'Approve'}
-        okButtonProps={{ type: 'primary', disabled: !approveReplacement.trim() }}
+        okButtonProps={{ type: 'primary' }}
         footer={approveSuccess ? null : undefined}
         width={480}
       >
@@ -473,15 +472,6 @@ function OrdersPageContent() {
             <Typography.Text style={{ display: 'block', marginBottom: 16, fontSize: token.fontSize, color: token.colorTextSecondary }}>
               This marks the order as approved. You can assign it to procurement now or as a separate step after.
             </Typography.Text>
-            <Form layout="vertical" size="small">
-              <Form.Item label="Replacement Part #" required style={{ marginBottom: 12 }}>
-                <Input
-                  placeholder="e.g. RO-2026-00123"
-                  value={approveReplacement}
-                  onChange={e => setApproveReplacement(e.target.value)}
-                />
-              </Form.Item>
-            </Form>
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               padding: '10px 12px', background: token.colorFillTertiary,
@@ -553,10 +543,10 @@ function OrdersPageContent() {
       <Modal
         title={closeSuccess ? null : 'Close Order'}
         open={closeOpen}
-        onCancel={() => { setCloseOpen(false); setCloseSuccess(false); }}
+        onCancel={() => { setCloseOpen(false); setCloseSuccess(false); setCloseReplacementOrderNo(''); }}
         onOk={handleClose}
         okText="Close Order"
-        okButtonProps={{ type: 'primary' }}
+        okButtonProps={{ type: 'primary', disabled: !closeReplacementOrderNo.trim() }}
         footer={closeSuccess ? null : undefined}
       >
         {closeSuccess ? (
@@ -569,13 +559,25 @@ function OrdersPageContent() {
               {activeOrderId} has been closed. It can be reopened if needed.
             </Typography.Text>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Button type="primary" onClick={() => { setCloseOpen(false); setCloseSuccess(false); }}>Done</Button>
+              <Button type="primary" onClick={() => { setCloseOpen(false); setCloseSuccess(false); setCloseReplacementOrderNo(''); }}>Done</Button>
             </div>
           </div>
         ) : (
-          <Typography.Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
-            This will mark the order as Closed. It can be reopened if needed.
-          </Typography.Text>
+          <>
+            <Typography.Text style={{ display: 'block', marginBottom: 12, fontSize: token.fontSize, color: token.colorTextSecondary }}>
+              This will mark the order as Closed. It can be reopened if needed.
+            </Typography.Text>
+            <Form layout="vertical" size="small">
+              <Form.Item label="Replacement Order #" required style={{ marginBottom: 0 }}>
+                <Input
+                  placeholder="e.g. RO-2026-00123"
+                  value={closeReplacementOrderNo}
+                  onChange={e => setCloseReplacementOrderNo(e.target.value)}
+                  autoFocus
+                />
+              </Form.Item>
+            </Form>
+          </>
         )}
       </Modal>
 
@@ -664,7 +666,7 @@ function OrdersPageContent() {
             style={{ width: '100%' }}
             allowClear
           >
-            <Input suffix={<SearchOutlined style={{ color: token.colorTextQuaternary }} />} />
+            <Input aria-label="Search orders" suffix={<SearchOutlined style={{ color: token.colorTextQuaternary }} />} />
           </AutoComplete>
         }
         right={
@@ -676,7 +678,7 @@ function OrdersPageContent() {
         }
       />
 
-      <div style={{ padding: token.paddingMD }}>
+      <div style={{ padding: '16px 20px' }}>
         {screens.md !== false && chips.length > 0 && (
           <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: token.marginXS, marginBottom: token.margin }}>
             {chips.map((chip) => (
@@ -690,99 +692,99 @@ function OrdersPageContent() {
           </div>
         )}
 
-        <Tabs
-          activeKey={procurementQueue ? 'procurement' : 'all'}
-          onChange={key => setProcurementQueue(key === 'procurement')}
-          style={{ marginBottom: 8 }}
-          items={[
-            { key: 'all', label: 'All Orders' },
-            { key: 'procurement', label: 'Assigned to Procurement' },
-          ]}
-        />
-
-        {screens.lg === false ? (
-          <List
-            dataSource={filtered}
-            grid={{ gutter: 12, xs: 1, sm: 2 }}
-            pagination={{
-              pageSize: 12,
-              hideOnSinglePage: true,
-              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
-              size: 'small',
-              style: { textAlign: 'right', marginTop: 12 },
-            }}
-            renderItem={(row) => (
-              <List.Item style={{ padding: 0, height: '100%' }}>
-                <OrderCard
-                  row={row}
-                  status={effectiveStatus(row)}
-                  menuItems={getMenuItems(row)}
-                  onAction={key => openRowAction(key, row)}
-                />
-              </List.Item>
-            )}
-          />
-        ) : (
-          <>
-            {selectedOrderKeys.length > 0 && (
+        {(() => {
+          const cardItems = filtered.slice((cardPage - 1) * CARD_PAGE_SIZE, cardPage * CARD_PAGE_SIZE);
+          return screens.xl === false ? (
+            <div>
               <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                marginBottom: 8, padding: '6px 10px',
-                background: token.colorFillSecondary,
-                borderRadius: token.borderRadius,
-                border: `1px solid ${token.colorBorderSecondary}`,
+                display: 'grid',
+                gridTemplateColumns: screens.md !== false ? 'repeat(2, 1fr)' : '1fr',
+                gap: 12,
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Typography.Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
-                    {selectedOrderKeys.length} selected
-                  </Typography.Text>
-                  <Button type="link" size="small" style={{ padding: 0 }} onClick={() => setSelectedOrderKeys([])}>
-                    Clear
-                  </Button>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Button
-                    size="small"
-                    icon={<CheckOutlined />}
-                    disabled={openCount === 0}
-                    onClick={() => setBatchCloseOpen(true)}
-                  >
-                    Close Orders{openCount > 0 ? ` (${openCount})` : ''}
-                  </Button>
-                  <Button size="small" icon={<ExportOutlined />} onClick={handleExportOrders}>
-                    Export
-                  </Button>
-                </div>
+                {cardItems.map(row => (
+                  <OrderCard
+                    key={row.id}
+                    row={row}
+                    status={effectiveStatus(row)}
+                    menuItems={getMenuItems(row)}
+                    onAction={key => openRowAction(key, row)}
+                  />
+                ))}
               </div>
-            )}
-
-            <Table
-              dataSource={filtered}
-              columns={columns}
-              rowKey="id"
-              size="small"
-              onChange={(_p, tableFilters) => {
-                const next = { ...appliedFiltersLocal };
-                Object.entries(tableFilters).forEach(([k, vals]) => {
-                  if (vals?.length) next[k] = vals as string[];
-                  else delete next[k];
-                });
-                setAppliedFilters(next);
-              }}
-              rowSelection={{
-                type: 'checkbox',
-                selectedRowKeys: selectedOrderKeys,
-                onChange: keys => setSelectedOrderKeys(keys as string[]),
-              }}
-              pagination={{
-                pageSize: 10,
-                showSizeChanger: true,
-                pageSizeOptions: ['10', '25', '50'],
-                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
-              }}
-            />
-          </>
-        )}
+              {filtered.length > CARD_PAGE_SIZE && (
+                <Pagination
+                  current={cardPage}
+                  pageSize={CARD_PAGE_SIZE}
+                  total={filtered.length}
+                  onChange={setCardPage}
+                  size="small"
+                  hideOnSinglePage
+                  showTotal={(total, range) => `${range[0]}-${range[1]} of ${total}`}
+                  style={{ textAlign: 'right', marginTop: 12 }}
+                />
+              )}
+            </div>
+          ) : (
+            <>
+              {selectedOrderKeys.length > 0 && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  marginBottom: 8, padding: '6px 10px',
+                  background: token.colorFillSecondary,
+                  borderRadius: token.borderRadius,
+                  border: `1px solid ${token.colorBorderSecondary}`,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Typography.Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
+                      {selectedOrderKeys.length} selected
+                    </Typography.Text>
+                    <Button type="link" size="small" style={{ padding: 0 }} onClick={() => setSelectedOrderKeys([])}>
+                      Clear
+                    </Button>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Button
+                      size="small"
+                      icon={<CheckOutlined />}
+                      disabled={openCount === 0}
+                      onClick={() => setBatchCloseOpen(true)}
+                    >
+                      Close Orders{openCount > 0 ? ` (${openCount})` : ''}
+                    </Button>
+                    <Button size="small" icon={<ExportOutlined />} onClick={handleExportOrders}>
+                      Export
+                    </Button>
+                  </div>
+                </div>
+              )}
+              <Table
+                dataSource={filtered}
+                columns={columns}
+                rowKey="id"
+                size="small"
+                onChange={(_p, tableFilters) => {
+                  const next = { ...appliedFiltersLocal };
+                  Object.entries(tableFilters).forEach(([k, vals]) => {
+                    if (vals?.length) next[k] = vals as string[];
+                    else delete next[k];
+                  });
+                  setAppliedFilters(next);
+                }}
+                rowSelection={{
+                  type: 'checkbox',
+                  selectedRowKeys: selectedOrderKeys,
+                  onChange: keys => setSelectedOrderKeys(keys as string[]),
+                }}
+                pagination={{
+                  pageSize: 10,
+                  showSizeChanger: true,
+                  pageSizeOptions: ['10', '25', '50'],
+                  showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
+                }}
+              />
+            </>
+          );
+        })()}
       </div>
     </>
   );

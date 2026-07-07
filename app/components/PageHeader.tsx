@@ -3,25 +3,31 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { theme, Grid, Button, Drawer, Menu } from 'antd';
+import { theme, Grid, Badge, Button, Drawer, Menu } from 'antd';
 import {
   MenuOutlined, MoonFilled, SunFilled,
-  HomeFilled, CalendarFilled, ShoppingFilled, ContactsFilled,
-  DatabaseFilled, BellFilled, SettingFilled, ProfileFilled,
+  HomeFilled, CalendarFilled, ShoppingFilled, ContainerFilled,
+  DatabaseFilled, BellFilled, UserOutlined, EditOutlined, LogoutOutlined,
 } from '@ant-design/icons';
 import { useThemeStore } from '@/store/themeStore';
 import { useFilterStore } from '@/store/filterStore';
+import { useSignOut, CURRENT_USER_EMAIL } from '@/lib/auth';
+import { events } from '@/data/events';
+import { orders } from '@/data/orders';
+import { escalations } from '@/data/escalations';
+import { getNotifications, countNewNotifications } from '@/lib/notifications';
 import dayjs from 'dayjs';
 
 const { useBreakpoint } = Grid;
 
 type Props = {
   left?: React.ReactNode;
+  middle?: React.ReactNode;
   center?: React.ReactNode;
   right?: React.ReactNode;
 };
 
-export function PageHeader({ left, center, right }: Props) {
+export function PageHeader({ left, middle, center, right }: Props) {
   const { token } = theme.useToken();
   const screens = useBreakpoint();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -30,6 +36,8 @@ export function PageHeader({ left, center, right }: Props) {
 
   const close = () => setMobileNavOpen(false);
   const { dateRange } = useFilterStore();
+  const signOut = useSignOut();
+  const newNotificationCount = countNewNotifications(getNotifications(events, escalations, orders));
 
   const navHref = (base: string): string => {
     if ((base !== '/events' && base !== '/orders') || !dateRange) return base;
@@ -49,10 +57,9 @@ export function PageHeader({ left, center, right }: Props) {
     if (pathname.startsWith('/manage'))       return '/manage/root-causes';
     if (pathname.startsWith('/events'))       return '/events';
     if (pathname.startsWith('/orders'))       return '/orders';
-    if (pathname.startsWith('/users'))        return '/users';
+    if (pathname.startsWith('/procurement'))  return '/procurement';
     if (pathname.startsWith('/notifications')) return '/notifications';
-    if (pathname.startsWith('/settings'))     return '/settings';
-    if (pathname.startsWith('/account'))      return '/account';
+    if (pathname.startsWith('/account'))      return 'edit-password';
     return '';
   })();
 
@@ -60,21 +67,25 @@ export function PageHeader({ left, center, right }: Props) {
     { key: '/dashboard',          icon: <HomeFilled />,     label: <Link href="/dashboard"              onClick={close}>Home</Link> },
     { key: '/events',             icon: <CalendarFilled />, label: <Link href={navHref('/events')}  onClick={close}>Events</Link> },
     { key: '/orders',             icon: <ShoppingFilled />, label: <Link href={navHref('/orders')}  onClick={close}>Orders</Link> },
-    { key: '/users',              icon: <ContactsFilled />, label: <Link href="/users"              onClick={close}>Users</Link> },
+    { key: '/procurement',        icon: <ContainerFilled />, label: <Link href="/procurement"        onClick={close}>Procurement</Link> },
     { key: '/manage/root-causes', icon: <DatabaseFilled />, label: <Link href="/manage/root-causes" onClick={close}>Manage Lists</Link> },
     { type: 'divider' as const },
-    { key: '/notifications',      icon: <BellFilled />,     label: <Link href="/notifications"      onClick={close}>Notifications</Link> },
-    { key: '/settings',           icon: <SettingFilled />,  label: <Link href="/settings"           onClick={close}>Settings</Link> },
-    { key: '/account',            icon: <ProfileFilled />,  label: <Link href="/account"            onClick={close}>Profile</Link> },
+    { key: '/notifications',      icon: <Badge count={newNotificationCount} size="small" offset={[2, 0]}><BellFilled /></Badge>, label: <Link href="/notifications" onClick={close}>Notifications</Link> },
     { type: 'divider' as const },
+    {
+      key: 'account',
+      icon: <UserOutlined />,
+      label: CURRENT_USER_EMAIL,
+      children: [
+        { key: 'edit-password', icon: <EditOutlined />, label: <Link href="/account" onClick={close}>Edit Password</Link> },
+        { key: 'sign-out', icon: <LogoutOutlined />, label: 'Sign Out', danger: true, onClick: () => { close(); signOut(); } },
+      ],
+    },
     {
       key: 'theme-toggle',
       icon: darkMode ? <SunFilled /> : <MoonFilled />,
-      label: (
-        <div onClick={toggle}>
-          {darkMode ? 'Switch to Light' : 'Switch to Dark'}
-        </div>
-      ),
+      label: darkMode ? 'Switch to Light' : 'Switch to Dark',
+      onClick: toggle,
     },
   ];
 
@@ -104,12 +115,20 @@ export function PageHeader({ left, center, right }: Props) {
               icon={<MenuOutlined />}
               onClick={() => setMobileNavOpen(true)}
               style={{ flexShrink: 0 }}
+              aria-label="Open navigation menu"
             />
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             {left}
           </div>
         </div>
+
+        {/* Middle: optional control, truly centered in the header bar — hidden on mobile */}
+        {middle && screens.md && (
+          <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }}>
+            {middle}
+          </div>
+        )}
 
         {/* Center: optional search or contextual content — hidden on mobile */}
         {center && screens.md && (
