@@ -1,19 +1,14 @@
-const KEY = 'iq-auth';
+'use client';
 
-export function isAuthenticated(): boolean {
-  if (typeof window === 'undefined') return false;
-  return localStorage.getItem(KEY) === 'true';
-}
+import { useRouter } from 'next/navigation';
 
-export function login(password: string): boolean {
-  const expected = process.env.NEXT_PUBLIC_PREVIEW_PASSWORD;
-  if (!expected || password === expected) {
-    localStorage.setItem(KEY, 'true');
-    return true;
-  }
-  return false;
-}
+export const CURRENT_USER_EMAIL = 'sophronia.aldwick@allegion.com';
 
-export function logout(): void {
-  localStorage.removeItem(KEY);
+export function useSignOut() {
+  const router = useRouter();
+
+  return async () => {
+    await fetch('/api/auth', { method: 'DELETE' });
+    router.replace('/login');
+  };
 }

@@ -26,6 +26,17 @@ export interface EditHistoryEntry {
   to: string | null;
 }
 
+export type AdditionalInfoRequestKind = 'initial' | 'followup' | 'edit' | 'new';
+
+export interface AdditionalInfoRequest {
+  id: string;
+  text: string;
+  sentAt: string;
+  kind: AdditionalInfoRequestKind;
+  relatesTo?: string;
+  resendCount?: number;
+}
+
 export interface QualityEvent {
   id: string;
   date: string;
@@ -45,6 +56,7 @@ export interface QualityEvent {
   reportedAt: string;
   additionalInfoRequested?: boolean;
   additionalInfoNote?: string;
+  additionalInfoRequests?: AdditionalInfoRequest[];
   partsRequest?: Array<{
     partNumber: string;
     quantityType: string;

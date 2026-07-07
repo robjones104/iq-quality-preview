@@ -9,6 +9,7 @@ import dayjs from 'dayjs';
 import type { QualityEvent } from '@/data/types';
 import { useFilterStore } from '@/store/filterStore';
 import { STATUS_COLORS, StatusTag } from '@/components/StatusTag';
+import { ExpandToggle, Dot } from './CardControls';
 
 const { Text } = Typography;
 const TODAY = dayjs();
@@ -85,7 +86,7 @@ function EmptyState({ icon, message }: { icon: React.ReactNode; message: string 
   );
 }
 
-export function TriageReview({ events }: { events: QualityEvent[] }) {
+export function TriageReview({ events, waitingViewAllHref, dataQualityViewAllHref }: { events: QualityEvent[]; waitingViewAllHref?: string; dataQualityViewAllHref?: string }) {
   const { token } = theme.useToken();
   const router    = useRouter();
   const { dateRange } = useFilterStore();
@@ -128,17 +129,19 @@ export function TriageReview({ events }: { events: QualityEvent[] }) {
     [events]
   );
 
-  const reclassRate = events.length > 0 ? Math.round((eventsEdited / events.length) * 100) : 0;
-
   const editsByBranch = useMemo(() => {
-    const counts: Record<string, number> = {};
+    const totalByBranch: Record<string, number> = {};
+    const editedByBranch: Record<string, number> = {};
     for (const e of events) {
-      if (!e.editHistory?.length) continue;
-      counts[e.branch] = (counts[e.branch] ?? 0) + e.editHistory.length;
+      totalByBranch[e.branch] = (totalByBranch[e.branch] ?? 0) + 1;
+      if (e.editHistory?.length) editedByBranch[e.branch] = (editedByBranch[e.branch] ?? 0) + 1;
     }
-    return Object.entries(counts)
-      .map(([branch, count]) => ({ branch, count }))
-      .sort((a, b) => b.count - a.count);
+    return Object.entries(editedByBranch)
+      .map(([branch, editedCount]) => {
+        const totalCount = totalByBranch[branch] ?? editedCount;
+        return { branch, editedCount, totalCount, pct: totalCount > 0 ? Math.round((editedCount / totalCount) * 100) : 0 };
+      })
+      .sort((a, b) => b.pct - a.pct || b.editedCount - a.editedCount);
   }, [events]);
 
   const editsByField = useMemo(() => {
@@ -151,12 +154,10 @@ export function TriageReview({ events }: { events: QualityEvent[] }) {
       .sort((a, b) => b.count - a.count);
   }, [allEdits]);
 
-  const maxBranchCount = editsByBranch[0]?.count ?? 1;
-
   const [showAllWaiting, setShowAllWaiting]     = useState(false);
   const [showAllBranches, setShowAllBranches]   = useState(false);
   const WAITING_PREVIEW = 3;
-  const BRANCH_PREVIEW  = 4;
+  const BRANCH_PREVIEW  = 6;
   const visibleWaiting  = showAllWaiting  ? waitingEvents  : waitingEvents.slice(0, WAITING_PREVIEW);
   const visibleBranches = showAllBranches ? editsByBranch : editsByBranch.slice(0, BRANCH_PREVIEW);
 
@@ -224,7 +225,11 @@ export function TriageReview({ events }: { events: QualityEvent[] }) {
                       return (
                         <div
                           key={`${row.key}-${col.key}`}
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`${count} ${col.status} events — ${row.label}`}
                           onClick={() => navigate(row.dr(), col.status)}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(row.dr(), col.status); } }}
                           style={{ background: bg, padding: '16px 8px', textAlign: 'center', cursor: 'pointer', transition: 'background 0.15s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                           onMouseEnter={e => (e.currentTarget.style.background = token.colorFillSecondary)}
                           onMouseLeave={e => (e.currentTarget.style.background = bg)}
@@ -240,28 +245,25 @@ export function TriageReview({ events }: { events: QualityEvent[] }) {
           </Card>
         </Col>
 
-        {/* Waiting on Tech */}
+        {/* Waiting on Additional Information */}
         <Col xs={24} lg={8}>
           <Card
             size="small"
-            title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Waiting on Tech</span>}
+            title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Waiting on Additional Information</span>}
             extra={
               waitingEvents.length === 0
                 ? <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextSecondary }}>All clear</Text>
-                : <span style={{ fontSize: token.fontSizeSM, color: token.colorTextSecondary }}>
-                    {waitingEvents.length} pending
+                : <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {waitingViewAllHref
+                      ? <Link href={waitingViewAllHref} style={{ fontSize: token.fontSizeSM }}>View in Table ({waitingEvents.length})</Link>
+                      : <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextSecondary }}>View in Table ({waitingEvents.length})</Text>}
                     {waitingEvents.length > WAITING_PREVIEW && (
                       <>
-                        {' · '}
-                        <Typography.Link
-                          style={{ fontSize: token.fontSizeSM }}
-                          onClick={() => setShowAllWaiting(v => !v)}
-                        >
-                          {showAllWaiting ? 'Show less' : 'View all'}
-                        </Typography.Link>
+                        <Dot />
+                        <ExpandToggle expanded={showAllWaiting} onToggle={() => setShowAllWaiting(v => !v)} />
                       </>
                     )}
-                  </span>
+                  </div>
             }
             styles={{ body: { minHeight: 320, padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 8 } }}
           >
@@ -284,17 +286,19 @@ export function TriageReview({ events }: { events: QualityEvent[] }) {
             size="small"
             title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Data Quality</span>}
             extra={
-              <span style={{ fontSize: token.fontSizeSM, color: token.colorTextSecondary }}>
-                {allEdits.length} total edits
-                {editsByBranch.length > BRANCH_PREVIEW && (
-                  <>
-                    {' · '}
-                    <Typography.Link style={{ fontSize: token.fontSizeSM }} onClick={() => setShowAllBranches(v => !v)}>
-                      {showAllBranches ? 'Show less' : 'View all'}
-                    </Typography.Link>
-                  </>
-                )}
-              </span>
+              allEdits.length === 0
+                ? undefined
+                : <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {dataQualityViewAllHref
+                      ? <Link href={dataQualityViewAllHref} style={{ fontSize: token.fontSizeSM }}>View in Table ({eventsEdited})</Link>
+                      : <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextSecondary }}>View in Table ({eventsEdited})</Text>}
+                    {editsByBranch.length > BRANCH_PREVIEW && (
+                      <>
+                        <Dot />
+                        <ExpandToggle expanded={showAllBranches} onToggle={() => setShowAllBranches(v => !v)} />
+                      </>
+                    )}
+                  </div>
             }
             styles={{ body: { minHeight: 320, padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 16 } }}
           >
@@ -302,32 +306,31 @@ export function TriageReview({ events }: { events: QualityEvent[] }) {
               <EmptyState icon={<EditOutlined />} message="No data edits in this period" />
             ) : (
               <>
-                {/* Headline rate */}
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                  <Text style={{ fontSize: token.fontSizeHeading2, fontWeight: 700, lineHeight: 1, color: reclassRate >= 20 ? token.colorWarning : token.colorText }}>
-                    {reclassRate}%
-                  </Text>
-                  <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>of events recategorized</Text>
-                </div>
-
                 {/* By Branch */}
                 <div>
                   <Text style={{ fontSize: token.fontSizeXS, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: token.colorTextTertiary, display: 'block', marginBottom: 8 }}>
-                    Edits by Branch
+                    Recategorizations by Branch
                   </Text>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {visibleBranches.map(({ branch, count }) => (
+                    {visibleBranches.map(({ branch, editedCount, totalCount, pct }) => (
                       <div
                         key={branch}
+                        role="button"
+                        tabIndex={0}
                         onClick={() => router.push(`/events?branch=${encodeURIComponent(branch)}`)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/events?branch=${encodeURIComponent(branch)}`); } }}
+                        aria-label={`Filter events by branch: ${branch}`}
                         style={{ cursor: 'pointer' }}
                       >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 3 }}>
                           <Text style={{ fontSize: token.fontSizeSM }}>{branch}</Text>
-                          <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600 }}>{count}</Text>
+                          <span>
+                            <Text style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary, marginRight: 6 }}>{editedCount} of {totalCount}</Text>
+                            <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600, color: pct >= 20 ? token.colorWarning : token.colorText }}>{pct}%</Text>
+                          </span>
                         </div>
                         <div style={{ height: 4, borderRadius: 2, background: token.colorFillSecondary, overflow: 'hidden' }}>
-                          <div style={{ height: '100%', width: `${Math.round((count / maxBranchCount) * 100)}%`, background: token.colorWarning, borderRadius: 2, transition: 'width 0.4s' }} />
+                          <div style={{ height: '100%', width: `${pct}%`, background: token.colorWarning, borderRadius: 2, transition: 'width 0.4s' }} />
                         </div>
                       </div>
                     ))}
@@ -420,11 +423,11 @@ export function DataQualityChart({ events }: { events: QualityEvent[] }) {
       </div>
       <div>
         <Text style={{ fontSize: token.fontSizeXS, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: token.colorTextTertiary, display: 'block', marginBottom: 8 }}>
-          Edits by Branch
+          Recategorizations by Branch
         </Text>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {visibleBranches.map(({ branch, count }) => (
-            <div key={branch} onClick={() => router.push(`/events?branch=${encodeURIComponent(branch)}`)} style={{ cursor: 'pointer' }}>
+            <div key={branch} role="button" tabIndex={0} onClick={() => router.push(`/events?branch=${encodeURIComponent(branch)}`)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/events?branch=${encodeURIComponent(branch)}`); } }} aria-label={`Filter events by branch: ${branch}`} style={{ cursor: 'pointer' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
                 <Text style={{ fontSize: token.fontSizeSM }}>{branch}</Text>
                 <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600 }}>{count}</Text>

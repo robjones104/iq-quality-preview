@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useRef, Fragment } from 'react';
+import { useState, useRef, Fragment, type ChangeEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEventStore } from '@/store/eventStore';
 import {
-  Button, Card, Col, Divider, Drawer, Dropdown, Form, Grid, Input, List, Modal, Row, Select, Space, Switch,
-  Table, Typography, Upload, theme,
+  Button, Card, Col, Divider, Drawer, Dropdown, Form, Grid, Input, InputNumber, List, message, Modal, Radio, Row,
+  Select, Slider, Space, Switch, Table, Typography, Upload, theme,
 } from 'antd';
 import {
   ArrowLeftOutlined, CheckCircleFilled, CheckOutlined, CloseCircleFilled, CloseOutlined, DeleteOutlined, EditFilled, ExclamationCircleFilled,
@@ -22,7 +22,7 @@ import { events as allEvents } from '@/data/events';
 import { ESCALATION_TYPE_OPTIONS } from '@/data/manageLists';
 import { DISCREPANCY_OPTIONS, DOOR_OPTIONS, PART_CATALOG, PRODUCT_OPTIONS } from '@/data/filterOptions';
 import { CreateEscalationModal } from '@/components/CreateEscalationModal';
-import type { QualityEvent, EventStatus, RootCause, ActivityLog } from '@/data/types';
+import type { QualityEvent, EventStatus, RootCause, ActivityLog, AdditionalInfoRequest } from '@/data/types';
 const { Text, Paragraph } = Typography;
 
 const ROOT_CAUSE_OPTIONS = [
@@ -89,7 +89,7 @@ function generateHistoricalInsights(event: QualityEvent, pool: QualityEvent[]): 
 
 
 export default function EventDetailClient({ event, orderId }: { event: QualityEvent; orderId: string | null }) {
-  const { mutations: evtMutations, patchEvent, pushActivityLog } = useEventStore();
+  const { mutations: evtMutations, patchEvent, pushActivityLog, pushAdditionalInfoRequest, updateAdditionalInfoRequest } = useEventStore();
   const evtStored = evtMutations[event.id] ?? {};
 
   const [status, setStatus]                   = useState<EventStatus>(evtStored.status ?? event.status);
@@ -123,10 +123,12 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   const [startInvOpen,      setStartInvOpen]      = useState(false);
   const [startInvNote,      setStartInvNote]      = useState('');
   const [startInvReqInfo,   setStartInvReqInfo]   = useState(true);
-  const [reqInfoOpen,       setReqInfoOpen]       = useState(false);
-  const [reqInfoText,       setReqInfoText]       = useState('');
-  const reqInfoSent = !!(event.additionalInfoRequested || evtStored.additionalInfoRequested);
-  const setReqInfoSent = () => patchEvent(event.id, { additionalInfoRequested: true });
+  const [reqDraftOpen,      setReqDraftOpen]      = useState<'new' | 'edit' | false>(false);
+  const [reqDraftText,      setReqDraftText]      = useState('');
+  const [editingRequestId,  setEditingRequestId]  = useState<string | null>(null);
+  const infoRequests: AdditionalInfoRequest[] = evtStored.additionalInfoRequests ?? event.additionalInfoRequests ?? [];
+  const infoThreads = infoRequests.filter(r => r.kind === 'initial' || r.kind === 'new');
+  const followupsFor = (threadId: string) => infoRequests.filter(r => r.relatesTo === threadId);
   const [reopenEvtOpen,     setReopenEvtOpen]     = useState(false);
   const [validateNote,      setValidateNote]      = useState('');
   const [validateSuccess,   setValidateSuccess]   = useState(false);
@@ -147,6 +149,13 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
     ...(evtStored.activityLogAdditions ?? []),
   ]);
   const [editForm]                            = Form.useForm();
+  const [partForm]                            = Form.useForm();
+  const [partModalOpen, setPartModalOpen]     = useState(false);
+  const partModalKitInfo = Form.useWatch('hardwareKitInfo', partForm);
+  const partModalQty     = (Form.useWatch('quantity', partForm) as number | undefined) ?? 1;
+  const isMissingHardware = event.discrepancy === 'Missing Hardware';
+  const isSO              = !event.jobNo.startsWith('WO');
+  const [partsState, setPartsState] = useState(event.partsRequest ?? []);
   const lastLoggedRootCause = useRef<string | null>(event.rootCause);
   const lastSavedValues = useRef({
     discrepancy:      event.discrepancy,
@@ -158,6 +167,15 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   const [attachments, setAttachments] = useState<Array<{ uid: string; name: string; size: number; date: string; blobUrl: string }>>([]);
   const [previewFile, setPreviewFile] = useState<{ name: string; blobUrl: string } | null>(null);
   const dragStartY                             = useRef(0);
+  const photoInputRef                          = useRef<HTMLInputElement>(null);
+
+  const handlePhotoFilesSelected = (e: ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      message.success(files.length === 1 ? `${files[0].name} added.` : `${files.length} photos added.`);
+    }
+    e.target.value = '';
+  };
   const { token } = theme.useToken();
   const router = useRouter();
   const screens = Grid.useBreakpoint();
@@ -185,6 +203,56 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
     addToActivityLog(`${field} updated`, undefined, from ?? '—', to ?? '—');
   };
 
+  const sendInfoRequest = (text: string, kind: 'initial' | 'new', forStatus?: EventStatus) => {
+    const entry: AdditionalInfoRequest = { id: `air_${Date.now()}`, text, sentAt: nowTs(), kind };
+    pushAdditionalInfoRequest(event.id, entry);
+    addToActivityLog(
+      kind === 'new'
+        ? `Additional information requested from ${event.reportedBy} (new request).`
+        : `Additional information requested from ${event.reportedBy}.`,
+      forStatus
+    );
+  };
+
+  const resendRequest = (id: string) => {
+    const root = infoRequests.find(r => r.id === id);
+    if (!root) return;
+    const followup: AdditionalInfoRequest = {
+      id: `air_${Date.now()}`, text: root.text, sentAt: nowTs(), kind: 'followup', relatesTo: id,
+    };
+    pushAdditionalInfoRequest(event.id, followup);
+    updateAdditionalInfoRequest(event.id, id, { resendCount: (root.resendCount ?? 0) + 1 });
+    addToActivityLog(`Follow-up reminder sent to ${event.reportedBy}.`);
+    message.success('Follow-up reminder sent.');
+  };
+
+  const startEditRequest = (id: string) => {
+    const root = infoRequests.find(r => r.id === id);
+    if (!root) return;
+    setEditingRequestId(id);
+    setReqDraftText(root.text);
+    setReqDraftOpen('edit');
+  };
+
+  const saveEditedRequest = () => {
+    if (!editingRequestId) return;
+    updateAdditionalInfoRequest(event.id, editingRequestId, { text: reqDraftText, sentAt: nowTs() });
+    addToActivityLog('Additional information request edited.');
+    cancelDraft();
+  };
+
+  const startNewRequest = () => {
+    setEditingRequestId(null);
+    setReqDraftText('');
+    setReqDraftOpen('new');
+  };
+
+  const cancelDraft = () => {
+    setReqDraftOpen(false);
+    setReqDraftText('');
+    setEditingRequestId(null);
+  };
+
   const handleSaveEdits = () => {
     const values = editForm.getFieldsValue();
     const prev = lastSavedValues.current;
@@ -206,6 +274,25 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
       issueDescription: String(values.issueDescription  ?? prev.issueDescription),
     };
     setEditingProduct(false);
+  };
+
+  const openAddPartRequest = () => {
+    partForm.resetFields();
+    partForm.setFieldsValue({ jobNo: event.jobNo, door: event.door, quantity: 1 });
+    setPartModalOpen(true);
+  };
+
+  const handleSavePartRequest = () => {
+    partForm.validateFields().then(values => {
+      setPartsState(prev => [...prev, {
+        partNumber:   values.partNumber,
+        description:  values.partDescription,
+        quantityType: values.quantityType,
+        quantity:     Number(values.quantity),
+      }]);
+      setPartModalOpen(false);
+      partForm.resetFields();
+    });
   };
 
   const [hkMode, setHkMode] = useState<'entire' | 'components' | null>(() =>
@@ -435,43 +522,71 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
             <Button block icon={<StarFilled />} loading={loadingInsights} onClick={handleGenerateInsights}>
               Generate AI Insights
             </Button>
-            {reqInfoSent ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', background: token.colorFillTertiary, borderRadius: token.borderRadiusSM }}>
-                <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: token.fontSize }} />
-                <Text style={{ fontSize: token.fontSizeSM }}>Additional information requested from {event.reportedBy}</Text>
-              </div>
-            ) : reqInfoOpen ? (
+            {infoThreads.map(t => {
+              const followups = followupsFor(t.id);
+              const last = followups[followups.length - 1];
+              return (
+                <div key={t.id} style={{ padding: '6px 10px', background: token.colorFillTertiary, borderRadius: token.borderRadiusSM }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                      <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: token.fontSize, flexShrink: 0 }} />
+                      <Text style={{ fontSize: token.fontSizeSM }}>Additional information requested from {event.reportedBy}</Text>
+                    </div>
+                    <Dropdown
+                      trigger={['click']}
+                      menu={{
+                        items: [
+                          { key: 'resend', label: 'Resend as Follow-up', onClick: () => resendRequest(t.id) },
+                          { key: 'edit', label: 'Edit Request', onClick: () => startEditRequest(t.id) },
+                          { key: 'new', label: 'Create New Message', onClick: startNewRequest },
+                        ],
+                      }}
+                    >
+                      <Button type="text" size="small" icon={<MoreOutlined />} />
+                    </Dropdown>
+                  </div>
+                  {followups.length > 0 && (
+                    <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary }}>
+                      Followed up {followups.length}x — last {last.sentAt}
+                    </Text>
+                  )}
+                </div>
+              );
+            })}
+            {reqDraftOpen ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <Input.TextArea
                   autoFocus
                   rows={4}
                   placeholder="Describe what additional information is needed from the field tech..."
-                  value={reqInfoText}
-                  onChange={e => setReqInfoText(e.target.value)}
+                  value={reqDraftText}
+                  onChange={e => setReqDraftText(e.target.value)}
                 />
                 <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                  <Button size="small" onClick={() => { setReqInfoOpen(false); setReqInfoText(''); }}>Cancel</Button>
+                  <Button size="small" onClick={cancelDraft}>Cancel</Button>
                   <Button
                     size="small"
                     type="primary"
                     icon={<MessageFilled />}
-                    disabled={!reqInfoText.trim()}
+                    disabled={!reqDraftText.trim()}
                     onClick={() => {
-                      setReqInfoOpen(false);
-                      setReqInfoText('');
-                      setReqInfoSent();
-                      addToActivityLog(`Additional information requested from ${event.reportedBy}.`);
+                      if (reqDraftOpen === 'edit') {
+                        saveEditedRequest();
+                      } else {
+                        sendInfoRequest(reqDraftText, infoThreads.length ? 'new' : 'initial');
+                        cancelDraft();
+                      }
                     }}
                   >
-                    Send Request
+                    {reqDraftOpen === 'edit' ? 'Save' : 'Send Request'}
                   </Button>
                 </div>
               </div>
-            ) : (
-              <Button block icon={<MessageFilled />} onClick={() => setReqInfoOpen(true)}>
+            ) : infoThreads.length === 0 ? (
+              <Button block icon={<MessageFilled />} onClick={startNewRequest}>
                 Request Additional Information
               </Button>
-            )}
+            ) : null}
           </Space>
         </>
       )}
@@ -489,6 +604,14 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', ...(isMobile ? {} : { height: '100vh', overflow: 'hidden' }) }}>
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        style={{ display: 'none' }}
+        onChange={handlePhotoFilesSelected}
+      />
       <CreateEscalationModal
         open={createEscOpen}
         onCancel={() => setCreateEscOpen(false)}
@@ -649,7 +772,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                     {!isMobile && 'Add Log'}
                   </Button>
                 ) : activeTab === 'photos' ? (
-                  <Button type="text" size="small" icon={<PlusOutlined />} />
+                  <Button type="text" size="small" icon={<PlusOutlined />} onClick={() => photoInputRef.current?.click()} />
                 ) : activeTab === 'attachments' ? null : null
               }
               style={isMobile ? undefined : { flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
@@ -676,7 +799,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                           { label: 'Branch',      node: <Text style={{ fontSize: token.fontSizeSM }}>{event.branch}</Text> },
                           { label: 'Plant',       node: <Text style={{ fontSize: token.fontSizeSM }}>{event.plant.split(' ')[0]}</Text> },
                           { label: 'Date',        node: <Text style={{ fontSize: token.fontSizeSM }}>{reportedDate}</Text> },
-                          ...(orderId ? [{ label: 'Order ID', node: <Link href={`/orders/${orderId}`} style={{ fontSize: token.fontSizeSM }}>{orderId}</Link> }] : []),
+                          ...(orderId ? [{ label: 'Order ID', node: <Link href={`/orders/${orderId}`} style={{ fontSize: token.fontSizeSM }}>{event.id}</Link> }] : []),
                         ] as { label: string; node: React.ReactNode }[]).map(({ label, node }, i, arr) => (
                           <Fragment key={label}>
                             <div>
@@ -782,16 +905,18 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                       <Divider style={{ margin: '16px 0 12px' }} />
                       <Row gutter={[16, 12]} style={{ flex: 1, alignItems: 'stretch', minHeight: 0 }}>
                         <Col xs={24} sm={12} style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-                          {sectionLabel('Parts Request')}
-                          {event.partsRequest && event.partsRequest.length > 0 ? (
+                          <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600, color: token.colorText, display: 'block', marginBottom: 10 }}>
+                            Parts Request
+                          </Text>
+                          {partsState.length > 0 ? (
                             <>
-                              {event.partsRequest.length > 1 && (
+                              {partsState.length > 1 && (
                                 <div style={{ marginBottom: 10 }}>
                                   <Select
                                     size="small"
                                     value={selectedPartIdx}
                                     onChange={setSelectedPartIdx}
-                                    options={event.partsRequest.map((_, i) => ({ value: i, label: `Part ${i + 1}` }))}
+                                    options={partsState.map((_, i) => ({ value: i, label: `Part ${i + 1}` }))}
                                     style={{ width: 120 }}
                                   />
                                 </div>
@@ -803,7 +928,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                                       <Form.Item label="Part #" style={{ marginBottom: 10 }}>
                                         <Select
                                           showSearch
-                                          value={editPartNumber || event.partsRequest[selectedPartIdx].partNumber}
+                                          value={editPartNumber || partsState[selectedPartIdx].partNumber}
                                           options={PART_CATALOG.map(p => ({ value: p.partNumber, label: p.partNumber }))}
                                           onChange={v => {
                                             setEditPartNumber(v);
@@ -818,7 +943,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                                       <Form.Item label="Part Description" style={{ marginBottom: 10 }}>
                                         <Select
                                           showSearch
-                                          value={editPartDescription || event.partsRequest[selectedPartIdx].description}
+                                          value={editPartDescription || partsState[selectedPartIdx].description}
                                           options={PART_CATALOG.map(p => ({ value: p.partDescription, label: p.partDescription }))}
                                           onChange={v => {
                                             setEditPartDescription(v);
@@ -834,26 +959,33 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                                     <Col flex={1}>
                                       <Form.Item label="Quantity Type" style={{ marginBottom: 0 }}>
                                         <Select
-                                          defaultValue={event.partsRequest[selectedPartIdx].quantityType}
+                                          defaultValue={partsState[selectedPartIdx].quantityType}
                                           options={['Piece', 'Length'].map(v => ({ value: v, label: v }))}
                                         />
                                       </Form.Item>
                                     </Col>
                                     <Col style={{ width: 72 }}>
                                       <Form.Item label="Qty" style={{ marginBottom: 0 }}>
-                                        <Input defaultValue={String(event.partsRequest[selectedPartIdx].quantity)} />
+                                        <Input defaultValue={String(partsState[selectedPartIdx].quantity)} />
                                       </Form.Item>
                                     </Col>
                                   </Row>
                                 </Form>
                               ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                                  {displayField('Part #', event.partsRequest[selectedPartIdx].partNumber, false, true)}
-                                  {displayField('Parts Description', event.partsRequest[selectedPartIdx].description)}
+                                  {displayField('Part #', partsState[selectedPartIdx].partNumber, false, true)}
+                                  {displayField('Parts Description', partsState[selectedPartIdx].description)}
                                   <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-                                    {displayField('Quantity Type', event.partsRequest[selectedPartIdx].quantityType)}
-                                    {displayField('Qty', event.partsRequest[selectedPartIdx].quantity)}
+                                    {displayField('Quantity Type', partsState[selectedPartIdx].quantityType)}
+                                    {displayField('Qty', partsState[selectedPartIdx].quantity)}
                                   </div>
+                                </div>
+                              )}
+                              {status !== 'Invalidated' && (
+                                <div style={{ marginTop: 12 }}>
+                                  <Button size="small" type="dashed" icon={<PlusOutlined />} onClick={openAddPartRequest}>
+                                    Add Parts Request
+                                  </Button>
                                 </div>
                               )}
                             </>
@@ -868,9 +1000,11 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                               <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary, lineHeight: 1.5 }}>
                                 No parts request filed for this event.
                               </Text>
-                              <Button size="small" type="dashed" icon={<PlusOutlined />}>
-                                Add Parts Request
-                              </Button>
+                              {status !== 'Invalidated' && (
+                                <Button size="small" type="dashed" icon={<PlusOutlined />} onClick={openAddPartRequest}>
+                                  Add Parts Request
+                                </Button>
+                              )}
                             </div>
                           )}
                         </Col>
@@ -889,9 +1023,11 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                               <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary, lineHeight: 1.5 }}>
                                 No hardware kit on file for this event.
                               </Text>
-                              <Button size="small" type="dashed" icon={<PlusOutlined />} onClick={() => setHkMode('entire')}>
-                                Add Hardware Kit
-                              </Button>
+                              {status !== 'Invalidated' && (
+                                <Button size="small" type="dashed" icon={<PlusOutlined />} onClick={openAddPartRequest}>
+                                  Add Hardware Kit
+                                </Button>
+                              )}
                             </div>
                           ) : editingProduct ? (
                             <Form layout="vertical" size="small">
@@ -1010,6 +1146,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                         type="text"
                         icon={<PlusOutlined style={{ fontSize: token.fontSizeSM }} />}
                         style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary }}
+                        onClick={() => photoInputRef.current?.click()}
                       >
                         Upload Photo
                       </Button>
@@ -1032,6 +1169,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                   if (ext === 'pdf') return <FilePdfOutlined style={{ fontSize: 20, color: '#ff4d4f' }} />;
                   if (['xlsx', 'xls', 'csv'].includes(ext ?? '')) return <FileExcelOutlined style={{ fontSize: 20, color: '#52c41a' }} />;
                   if (['doc', 'docx'].includes(ext ?? '')) return <FileWordOutlined style={{ fontSize: 20, color: '#1677ff' }} />;
+                  if (['eml', 'msg'].includes(ext ?? '')) return <MessageFilled style={{ fontSize: 20, color: '#1677ff' }} />;
                   return <FileOutlined style={{ fontSize: 20, color: token.colorTextTertiary }} />;
                 };
                 return (
@@ -1070,7 +1208,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                     <Upload.Dragger
                       multiple
-                      accept=".pdf,.png,.jpg,.jpeg,.csv,.txt,.xlsx,.xls,.doc,.docx,.ppt,.pptx"
+                      accept=".pdf,.png,.jpg,.jpeg,.csv,.txt,.xlsx,.xls,.doc,.docx,.ppt,.pptx,.eml,.msg"
                       showUploadList={false}
                       beforeUpload={(file) => {
                         const blobUrl = URL.createObjectURL(file);
@@ -1084,10 +1222,10 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                       <p style={{ margin: 0, paddingBottom: 4 }}><InboxOutlined style={{ fontSize: 24, color: token.colorPrimary }} /></p>
                       <p style={{ margin: 0, fontSize: token.fontSizeSM, color: token.colorText }}>Drag files here or <span style={{ color: token.colorPrimary }}>click to upload</span></p>
                       <p style={{ margin: '4px 0 0', fontSize: token.fontSizeXS, color: token.colorTextTertiary }}>
-                        Preview in-app: PDF, PNG, JPG, CSV, TXT
+                        PDF · Excel · CSV · Images
                       </p>
                       <p style={{ margin: '2px 0 0', fontSize: token.fontSizeXS, color: token.colorTextQuaternary }}>
-                        Download only: Excel, Word, PowerPoint
+                        Email chains: .eml (standard) or .msg (Outlook)
                       </p>
                     </Upload.Dragger>
                     {attachments.length > 0 && (
@@ -1398,8 +1536,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
           patchEvent(event.id, { status: 'Under Investigation' });
           addToActivityLog('Investigation started.', 'Under Investigation');
           if (startInvReqInfo) {
-            setReqInfoSent();
-            addToActivityLog(`Additional information requested from ${event.reportedBy}.`, 'Under Investigation');
+            sendInfoRequest(startInvNote, infoThreads.length ? 'new' : 'initial', 'Under Investigation');
           }
           setStartInvSuccess(true);
         }}
@@ -1532,6 +1669,117 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
         <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
           Link escalation <strong>{pendingEscalation}</strong> to this event?
         </Text>
+      </Modal>
+
+      {/* ADD PART REQUEST MODAL */}
+      <Modal
+        title="Add Part Request"
+        open={partModalOpen}
+        onCancel={() => { setPartModalOpen(false); partForm.resetFields(); }}
+        onOk={handleSavePartRequest}
+        okText="Add Part"
+        width={540}
+      >
+        <Form form={partForm} layout="vertical" size="small" style={{ marginTop: 8 }}>
+          <Row gutter={8}>
+            <Col style={{ width: 148 }}>
+              <Form.Item label="Job No." name="jobNo" rules={[{ required: true }]} style={{ marginBottom: 10 }}>
+                <Input />
+              </Form.Item>
+            </Col>
+            {isSO && (
+              <Col style={{ width: 76 }}>
+                <Form.Item label="EL LIN" name="elLineItem" style={{ marginBottom: 10 }}>
+                  <InputNumber min={1} controls={false} style={{ width: '100%' }} />
+                </Form.Item>
+              </Col>
+            )}
+          </Row>
+          <Form.Item label="Door Type" name="door" rules={[{ required: true }]} style={{ marginBottom: 10 }}>
+            <Select
+              showSearch
+              optionFilterProp="label"
+              options={DOOR_OPTIONS.map(v => ({ value: v, label: v }))}
+            />
+          </Form.Item>
+          <Row gutter={8}>
+            <Col flex={1}>
+              <Form.Item label="Part #" name="partNumber" rules={[{ required: true }]} style={{ marginBottom: 10 }}>
+                <Select
+                  showSearch
+                  optionFilterProp="label"
+                  options={PART_CATALOG.map(p => ({ value: p.partNumber, label: p.partNumber }))}
+                  onChange={(v: string) => {
+                    const m = PART_CATALOG.find(p => p.partNumber === v);
+                    if (m) partForm.setFieldValue('partDescription', m.partDescription);
+                  }}
+                />
+              </Form.Item>
+            </Col>
+            <Col flex={1}>
+              <Form.Item label="Part Description" name="partDescription" rules={[{ required: true }]} style={{ marginBottom: 10 }}>
+                <Select
+                  showSearch
+                  optionFilterProp="label"
+                  options={PART_CATALOG.map(p => ({ value: p.partDescription, label: p.partDescription }))}
+                  onChange={(v: string) => {
+                    const m = PART_CATALOG.find(p => p.partDescription === v);
+                    if (m) partForm.setFieldValue('partNumber', m.partNumber);
+                  }}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+          {isMissingHardware && (
+            <Row gutter={8}>
+              <Col flex={1}>
+                <Form.Item label="Hardware Kit Information" name="hardwareKitInfo" style={{ marginBottom: 10 }}>
+                  <Select
+                    allowClear
+                    placeholder="None"
+                    options={['Entire Hardware Kit', 'Components within Hardware Kit'].map(v => ({ value: v, label: v }))}
+                  />
+                </Form.Item>
+              </Col>
+              {partModalKitInfo === 'Entire Hardware Kit' && (
+                <Col flex={1}>
+                  <Form.Item label="Serial #" name="serialNumber" style={{ marginBottom: 10 }}>
+                    <Input placeholder="Enter serial number" />
+                  </Form.Item>
+                </Col>
+              )}
+            </Row>
+          )}
+          <Form.Item label="Quantity Type" name="quantityType" rules={[{ required: true }]} style={{ marginBottom: 10 }}>
+            <Radio.Group buttonStyle="solid" size="small">
+              <Radio.Button value="Piece">Piece</Radio.Button>
+              <Radio.Button value="Length">Length</Radio.Button>
+            </Radio.Group>
+          </Form.Item>
+          <Form.Item label="Quantity" style={{ marginBottom: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <Slider
+                  min={1}
+                  max={100}
+                  value={partModalQty}
+                  onChange={(v) => partForm.setFieldValue('quantity', v)}
+                  marks={{ 1: '1', 25: '25', 50: '50', 75: '75', 100: '100' }}
+                />
+              </div>
+              <InputNumber
+                min={1}
+                max={100}
+                value={partModalQty}
+                onChange={(v) => partForm.setFieldValue('quantity', v ?? 1)}
+                style={{ width: 68 }}
+              />
+            </div>
+            <Form.Item name="quantity" noStyle rules={[{ required: true }]}>
+              <Input type="hidden" />
+            </Form.Item>
+          </Form.Item>
+        </Form>
       </Modal>
 
       {/* IMAGE EXPAND MODAL */}

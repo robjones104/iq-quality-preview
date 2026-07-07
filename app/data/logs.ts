@@ -82,6 +82,31 @@ function generateLogs(): ActivityLog[] {
     logDate = new Date(logDate.getTime() - 2 * 60 * 60 * 1000);
   }
 
+  // Sparse coverage across the bulk-generated event pool (QE_2001–2300, QE_2403–2677)
+  // so roughly a third of bulk events — including bulk-order-backed ones — carry at
+  // least one activity comment, not just the hand-crafted seed events above.
+  let bulkDate = new Date('2026-05-01T09:00:00');
+  const bulkRanges: Array<[number, number]> = [[2001, 2300], [2403, 2677]];
+  let n = 0;
+  for (const [start, end] of bulkRanges) {
+    for (let num = start; num <= end; num++) {
+      n++;
+      if (n % 3 !== 0) continue;
+
+      logs.push({
+        id: `LOG_B${String(n).padStart(4, '0')}`,
+        eventId: `QE_${num}`,
+        date: bulkDate.toISOString().replace('T', ' ').substring(0, 16),
+        role: roles[n % roles.length],
+        employee: employees[n % employees.length],
+        status: statusProgression[n % statusProgression.length],
+        comment: comments[n % comments.length],
+      });
+
+      bulkDate = new Date(bulkDate.getTime() + 55 * 60 * 1000);
+    }
+  }
+
   return logs;
 }
 

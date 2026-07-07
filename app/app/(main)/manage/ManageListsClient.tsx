@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  Button, Card, Grid, Input, List, Modal, Table, Tabs, Tag, Typography, theme,
+  Button, Card, Grid, Input, Modal, Table, Tabs, Tag, Typography, theme,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -64,16 +64,6 @@ export function ManageListsClient({
 
   const nextId = (_prefix: string, _list: ListItem[]) =>
     `${_prefix}-${Date.now()}`;
-
-  const sectionLabel = (text: string) => (
-    <Text style={{
-      fontSize: token.fontSizeSM, fontWeight: 600,
-      textTransform: 'uppercase' as const, letterSpacing: '0.5px',
-      color: token.colorTextTertiary,
-    }}>
-      {text}
-    </Text>
-  );
 
   // ── CRUD ───────────────────────────────────────────────────────────────────
 
@@ -182,7 +172,7 @@ export function ManageListsClient({
       </div>
 
       <div
-        style={{ display: 'flex', justifyContent: 'flex-end', gap: 4, marginTop: 4 }}
+        style={{ display: 'flex', justifyContent: 'flex-end', gap: 4, marginTop: 'auto' }}
         onClick={e => e.stopPropagation()}
       >
         {editingId === record.id ? (
@@ -336,7 +326,7 @@ export function ManageListsClient({
       title: 'Type',
       dataIndex: 'type',
       key: 'type',
-      width: 160,
+      width: 200,
       sorter: (a, b) => a.type.localeCompare(b.type),
       render: (t: string) => (
         <Tag style={{ fontSize: token.fontSizeSM, margin: 0 }}>{t}</Tag>
@@ -346,7 +336,8 @@ export function ManageListsClient({
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      width: 80,
+      width: 110,
+      align: 'center',
       sorter: (a, b) => a.status.localeCompare(b.status),
       render: (s: string) => (
         <Tag color={s === 'Closed' ? 'green' : 'blue'} style={{ fontSize: token.fontSizeSM, margin: 0 }}>
@@ -357,7 +348,8 @@ export function ManageListsClient({
     {
       title: 'Events',
       key: 'events',
-      width: 72,
+      width: 90,
+      align: 'center',
       sorter: (a, b) => a.eventIds.length - b.eventIds.length,
       render: (_: unknown, row: Escalation) => (
         <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>{row.eventIds.length}</Text>
@@ -366,9 +358,10 @@ export function ManageListsClient({
     {
       title: '',
       key: 'actions',
-      width: 64,
+      width: 90,
+      align: 'right',
       render: (_: unknown, row: Escalation) => (
-        <span style={{ display: 'flex', gap: 4 }}>
+        <span style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
           <Button size="small" type="text" icon={<EditFilled />}
             style={{ color: token.colorTextTertiary }}
             onClick={e => { e.stopPropagation(); router.push(`/escalations/${row.id}`); }} />
@@ -415,34 +408,35 @@ export function ManageListsClient({
   ) => (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
       {selectedKeys.length > 0 && batchToolbar(selectedKeys, setList, setKeys)}
-      {screens.lg === false ? (
-        <List
-          dataSource={list}
-          grid={{ gutter: 12, xs: 1, sm: 2 }}
-          pagination={false}
-          renderItem={(record) => (
-            <List.Item style={{ padding: 0, height: '100%' }}>
-              {listItemCard(type, record, list, setList)}
-            </List.Item>
-          )}
-        />
+      {screens.xl === false ? (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: screens.md !== false ? 'repeat(2, 1fr)' : '1fr',
+          gap: 12,
+        }}>
+          {list.map(record => listItemCard(type, record, list, setList))}
+        </div>
       ) : (
-        <Table
-          dataSource={list}
-          rowKey="id"
-          size="small"
-          pagination={false}
-          rowSelection={{ selectedRowKeys: selectedKeys, onChange: setKeys }}
-          columns={listColumns(type, list, setList)}
-          onRow={record => ({
-            onClick: () => router.push(
-              type === 'root-causes'
-                ? `/events?rootCause=${encodeURIComponent(record.name)}`
-                : `/events?tag=${encodeURIComponent(record.name)}`
-            ),
-            style: { cursor: 'pointer' },
-          })}
-        />
+        <Card size="small" styles={{ body: { padding: 0 } }}>
+          <Table
+            dataSource={list}
+            rowKey="id"
+            size="small"
+            tableLayout="fixed"
+            pagination={false}
+            locale={{ emptyText: type === 'root-causes' ? 'No root causes yet.' : 'No tags yet.' }}
+            rowSelection={{ selectedRowKeys: selectedKeys, onChange: setKeys }}
+            columns={listColumns(type, list, setList)}
+            onRow={record => ({
+              onClick: () => router.push(
+                type === 'root-causes'
+                  ? `/events?rootCause=${encodeURIComponent(record.name)}`
+                  : `/events?tag=${encodeURIComponent(record.name)}`
+              ),
+              style: { cursor: 'pointer' },
+            })}
+          />
+        </Card>
       )}
       {addRowUI(type)}
     </div>
@@ -450,79 +444,83 @@ export function ManageListsClient({
 
   const escalationsTabContent = (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
-      {screens.lg === false ? (
-        <List
-          dataSource={escalations}
-          grid={{ gutter: 12, xs: 1, sm: 2 }}
-          pagination={false}
-          renderItem={(esc) => (
-            <List.Item style={{ padding: 0, height: '100%' }}>
-              <Card
-                size="small"
-                hoverable
-                style={{ height: '100%' }}
-                styles={{ body: { padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 4 } }}
-                onClick={() => {
-                  const ids = esc.eventIds.join(',');
-                  router.push(ids ? `/events?ids=${ids}` : '/events');
-                }}
+      {screens.xl === false ? (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: screens.md !== false ? 'repeat(2, 1fr)' : '1fr',
+          gap: 12,
+        }}>
+          {escalations.map(esc => (
+            <Card
+              key={esc.id}
+              size="small"
+              hoverable
+              style={{ height: '100%' }}
+              styles={{ body: { padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 4 } }}
+              onClick={() => {
+                const ids = esc.eventIds.join(',');
+                router.push(ids ? `/events?ids=${ids}` : '/events');
+              }}
+            >
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                  <Link
+                    href={`/escalations/${esc.id}`}
+                    style={{ fontFamily: 'monospace', fontSize: token.fontSizeSM, color: token.colorPrimary }}
+                    onClick={e => e.stopPropagation()}
+                  >
+                    {esc.id}
+                  </Link>
+                  <Tag
+                    color={esc.status === 'Closed' ? 'green' : 'blue'}
+                    style={{ fontSize: token.fontSizeSM, margin: 0 }}
+                  >
+                    {esc.status}
+                  </Tag>
+                </div>
+
+                <Text style={{ fontSize: token.fontSize, fontWeight: 500, lineHeight: 1.4 }}>
+                  {esc.title}
+                </Text>
+
+                <Text type="secondary" style={{ fontSize: token.fontSizeSM, lineHeight: 1.4 }}>
+                  {esc.type} · {esc.eventIds.length} event{esc.eventIds.length !== 1 ? 's' : ''}
+                </Text>
+              </div>
+
+              <div
+                style={{ display: 'flex', justifyContent: 'flex-end', gap: 4, marginTop: 'auto' }}
+                onClick={e => e.stopPropagation()}
               >
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                    <Link
-                      href={`/escalations/${esc.id}`}
-                      style={{ fontFamily: 'monospace', fontSize: token.fontSizeSM, color: token.colorPrimary }}
-                      onClick={e => e.stopPropagation()}
-                    >
-                      {esc.id}
-                    </Link>
-                    <Tag
-                      color={esc.status === 'Closed' ? 'green' : 'blue'}
-                      style={{ fontSize: token.fontSizeSM, margin: 0 }}
-                    >
-                      {esc.status}
-                    </Tag>
-                  </div>
-
-                  <Text style={{ fontSize: token.fontSize, fontWeight: 500, lineHeight: 1.4 }}>
-                    {esc.title}
-                  </Text>
-
-                  <Text type="secondary" style={{ fontSize: token.fontSizeSM, lineHeight: 1.4 }}>
-                    {esc.type} · {esc.eventIds.length} event{esc.eventIds.length !== 1 ? 's' : ''}
-                  </Text>
-                </div>
-
-                <div
-                  style={{ display: 'flex', justifyContent: 'flex-end', gap: 4, marginTop: 4 }}
-                  onClick={e => e.stopPropagation()}
-                >
-                  <Button size="small" type="text" icon={<EditFilled />}
-                    style={{ color: token.colorTextTertiary }}
-                    onClick={() => router.push(`/escalations/${esc.id}`)} />
-                  <Button size="small" type="text" icon={<DeleteFilled />}
-                    style={{ color: token.colorTextTertiary }}
-                    onClick={() => setDeleteEscTarget(esc)} />
-                </div>
-              </Card>
-            </List.Item>
-          )}
-        />
+                <Button size="small" type="text" icon={<EditFilled />}
+                  style={{ color: token.colorTextTertiary }}
+                  onClick={() => router.push(`/escalations/${esc.id}`)} />
+                <Button size="small" type="text" icon={<DeleteFilled />}
+                  style={{ color: token.colorTextTertiary }}
+                  onClick={() => setDeleteEscTarget(esc)} />
+              </div>
+            </Card>
+          ))}
+        </div>
       ) : (
-        <Table
-          dataSource={escalations}
-          rowKey="id"
-          size="small"
-          pagination={false}
-          columns={escalationColumns}
-          onRow={record => ({
-            onClick: () => {
-              const ids = record.eventIds.join(',');
-              router.push(ids ? `/events?ids=${ids}` : '/events');
-            },
-            style: { cursor: 'pointer' },
-          })}
-        />
+        <Card size="small" styles={{ body: { padding: 0 } }}>
+          <Table
+            dataSource={escalations}
+            rowKey="id"
+            size="small"
+            tableLayout="fixed"
+            pagination={{ pageSize: 25, size: 'small' }}
+            locale={{ emptyText: 'No escalations yet.' }}
+            columns={escalationColumns}
+            onRow={record => ({
+              onClick: () => {
+                const ids = record.eventIds.join(',');
+                router.push(ids ? `/events?ids=${ids}` : '/events');
+              },
+              style: { cursor: 'pointer' },
+            })}
+          />
+        </Card>
       )}
     </div>
   );
