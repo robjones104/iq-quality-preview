@@ -3,15 +3,13 @@
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import dayjs from 'dayjs';
-import { AutoComplete, Input, Pagination, Table, Button, Select, Space, Tag, Typography, Tooltip, notification, theme, Grid } from 'antd';
+import { AutoComplete, Input, Pagination, Table, Button, Space, Tag, Typography, Tooltip, theme, Grid } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { CloseOutlined, SearchOutlined, ArrowLeftOutlined, ExportOutlined } from '@ant-design/icons';
 import { CopyableValue } from '@/components/CopyableValue';
 import Link from 'next/link';
 import { events } from '@/data/events';
 import { orders } from '@/data/orders';
-import { DEFAULT_TAGS, ESCALATION_TYPE_OPTIONS } from '@/data/manageLists';
-import { CreateEscalationModal } from '@/components/CreateEscalationModal';
 import { StatusTag } from '@/components/StatusTag';
 import { EventCard } from '@/components/EventCard';
 
@@ -85,42 +83,19 @@ function EventsPageContent() {
   const { token } = theme.useToken();
 
   const [selectedEventKeys, setSelectedEventKeys] = useState<string[]>([]);
-  const [batchTagId, setBatchTagId]               = useState<string | undefined>();
-  const [batchEscId, setBatchEscId]               = useState<string | undefined>();
-  const [createEscOpen, setCreateEscOpen]         = useState(false);
-  const [notifApi, notifContextHolder]            = notification.useNotification();
   const [cardPage, setCardPage] = useState(1);
   useEffect(() => { setCardPage(1); }, [appliedFiltersLocal, dateRange]);
 
   const handleExportEvents = () => {
-    const selected = filtered.filter(e => selectedEventKeys.includes(e.id));
+    const toExport = selectedEventKeys.length > 0 ? filtered.filter(e => selectedEventKeys.includes(e.id)) : filtered;
     const headers = ['Event ID', 'Job No.', 'Status', 'Discrepancy', 'Door', 'Product', 'Reported By', 'Branch', 'Plant', 'Date'];
-    const rows = selected.map(e => [e.id, e.jobNo, e.status, e.discrepancy, e.door, e.product, e.reportedBy, e.branch, e.plant, e.date]);
+    const rows = toExport.map(e => [e.id, e.jobNo, e.status, e.discrepancy, e.door, e.product, e.reportedBy, e.branch, e.plant, e.date]);
     const lines = [headers, ...rows].map(r => r.map(cell => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','));
     const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = `events-export-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
     URL.revokeObjectURL(url);
-  };
-
-  const handleApplyTag = (tagId: string) => {
-    const tag = DEFAULT_TAGS.find(t => t.id === tagId);
-    if (!tag) return;
-    notifApi.success({ message: `"${tag.name}" applied to ${selectedEventKeys.length} event${selectedEventKeys.length > 1 ? 's' : ''}`, placement: 'bottomRight', duration: 4 });
-    setBatchTagId(undefined);
-    setSelectedEventKeys([]);
-  };
-
-  const handleAddToEscalation = (escType: string) => {
-    if (escType === 'Custom') {
-      setBatchEscId(undefined);
-      setCreateEscOpen(true);
-      return;
-    }
-    notifApi.success({ message: `${selectedEventKeys.length} event${selectedEventKeys.length > 1 ? 's' : ''} added to ${escType}`, placement: 'bottomRight', duration: 4 });
-    setBatchEscId(undefined);
-    setSelectedEventKeys([]);
   };
 
   const router = useRouter();
@@ -320,15 +295,6 @@ function EventsPageContent() {
 
   return (
     <>
-      {notifContextHolder}
-
-      <CreateEscalationModal
-        open={createEscOpen}
-        onCancel={() => setCreateEscOpen(false)}
-        onSuccess={() => { setCreateEscOpen(false); setSelectedEventKeys([]); }}
-        eventIds={selectedEventKeys}
-      />
-
       <PageHeader
         left={
           backToParam ? (
@@ -404,39 +370,25 @@ function EventsPageContent() {
           </div>
         ) : (
           <>
-            {selectedEventKeys.length > 0 && (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, padding: '6px 10px', background: token.colorFillSecondary, borderRadius: token.borderRadius, border: `1px solid ${token.colorBorderSecondary}` }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>{selectedEventKeys.length} selected</Text>
-                  <Button type="link" size="small" style={{ padding: 0 }} onClick={() => setSelectedEventKeys([])}>Clear</Button>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Select
-                    showSearch
-                    size="small"
-                    placeholder="Apply tag..."
-                    value={batchTagId}
-                    onChange={handleApplyTag}
-                    filterOption={(input, opt) => (opt?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                    options={DEFAULT_TAGS.map(t => ({ value: t.id, label: t.name }))}
-                    style={{ width: 160 }}
-                  />
-                  <Select
-                    showSearch
-                    size="small"
-                    placeholder="Add to escalation..."
-                    value={batchEscId}
-                    onChange={handleAddToEscalation}
-                    filterOption={(input, opt) => (opt?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                    options={ESCALATION_TYPE_OPTIONS}
-                    style={{ width: 260 }}
-                  />
-                  <Button size="small" icon={<ExportOutlined />} onClick={handleExportEvents}>
-                    Export
-                  </Button>
-                </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, padding: '6px 10px', background: token.colorFillSecondary, borderRadius: token.borderRadius, border: `1px solid ${token.colorBorderSecondary}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {selectedEventKeys.length > 0 ? (
+                  <>
+                    <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>{selectedEventKeys.length} selected</Text>
+                    <Button type="link" size="small" style={{ padding: 0 }} onClick={() => setSelectedEventKeys([])}>Clear</Button>
+                  </>
+                ) : (
+                  <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
+                    {filtered.length} event{filtered.length !== 1 ? 's' : ''}
+                  </Text>
+                )}
               </div>
-            )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Button size="small" icon={<ExportOutlined />} onClick={handleExportEvents}>
+                  Export
+                </Button>
+              </div>
+            </div>
 
             <Table
               dataSource={filtered}
