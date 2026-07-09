@@ -6,11 +6,11 @@ import { useRouter } from 'next/navigation';
 import { useEventStore } from '@/store/eventStore';
 import {
   Button, Card, Col, Divider, Drawer, Dropdown, Form, Grid, Input, InputNumber, List, message, Modal, Radio, Row,
-  Select, Slider, Space, Switch, Table, Typography, Upload, theme,
+  Segmented, Select, Slider, Space, Switch, Table, Tooltip, Typography, Upload, theme,
 } from 'antd';
 import {
-  ArrowLeftOutlined, CheckCircleFilled, CheckOutlined, CloseCircleFilled, CloseOutlined, DeleteOutlined, EditFilled, ExclamationCircleFilled,
-  FileAddFilled, FileExcelOutlined, MessageFilled, MoreOutlined, FileOutlined, FilePdfOutlined, FileWordOutlined, InboxOutlined, PaperClipOutlined, PictureFilled, PlusOutlined,
+  ArrowLeftOutlined, ArrowRightOutlined, CheckCircleFilled, CheckOutlined, CloseCircleFilled, CloseOutlined, DeleteOutlined, EditFilled, ExclamationCircleFilled,
+  FileAddFilled, FileExcelOutlined, LockFilled, MessageFilled, MoreOutlined, FileOutlined, FilePdfOutlined, FileWordOutlined, InboxOutlined, PaperClipOutlined, PictureFilled, PlusOutlined,
   RollbackOutlined, SaveFilled, SearchOutlined, StarFilled, StopFilled, ToolFilled,
 } from '@ant-design/icons';
 import { CopyableValue } from '@/components/CopyableValue';
@@ -20,9 +20,10 @@ import { PageHeader } from '@/components/PageHeader';
 import { logs } from '@/data/logs';
 import { events as allEvents } from '@/data/events';
 import { ESCALATION_TYPE_OPTIONS } from '@/data/manageLists';
-import { DISCREPANCY_OPTIONS, DOOR_OPTIONS, PART_CATALOG, PRODUCT_OPTIONS } from '@/data/filterOptions';
+import { DISCREPANCY_OPTIONS, DOOR_OPTIONS, PART_CATALOG, PLANT_OPTIONS, PRODUCT_OPTIONS } from '@/data/filterOptions';
 import { CreateEscalationModal } from '@/components/CreateEscalationModal';
-import type { QualityEvent, EventStatus, RootCause, ActivityLog, AdditionalInfoRequest } from '@/data/types';
+import { useInfoRequestThread, InfoRequestThreadPanel } from '@/components/InfoRequestThread';
+import type { QualityEvent, EventStatus, RootCause, ActivityLog } from '@/data/types';
 const { Text, Paragraph } = Typography;
 
 const ROOT_CAUSE_OPTIONS = [
@@ -89,10 +90,13 @@ function generateHistoricalInsights(event: QualityEvent, pool: QualityEvent[]): 
 
 
 export default function EventDetailClient({ event, orderId }: { event: QualityEvent; orderId: string | null }) {
-  const { mutations: evtMutations, patchEvent, pushActivityLog, pushAdditionalInfoRequest, updateAdditionalInfoRequest } = useEventStore();
+  const { mutations: evtMutations, patchEvent, pushActivityLog } = useEventStore();
   const evtStored = evtMutations[event.id] ?? {};
 
   const [status, setStatus]                   = useState<EventStatus>(evtStored.status ?? event.status);
+  const [plant, setPlant]                     = useState<string>(evtStored.plant ?? event.plant);
+  const [editingPlant, setEditingPlant]       = useState(false);
+  const [plantDraft, setPlantDraft]           = useState(plant);
   const [editingProduct, setEditingProduct]   = useState(false);
   const [selectedPartIdx, setSelectedPartIdx] = useState(0);
   const [rootCause, setRootCause]             = useState<string | null>(
@@ -116,19 +120,11 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   const [loadingHistorical, setLoadingHistorical] = useState(false);
   const [insightsStep, setInsightsStep]       = useState<null | 'summary' | 'historical'>(null);
   const [activeTab, setActiveTab]             = useState<'details' | 'log' | 'photos' | 'attachments'>('details');
-  const [addingLog, setAddingLog]             = useState(false);
-  const [newLogComment, setNewLogComment]     = useState('');
   const [validateOpen, setValidateOpen]       = useState(false);
   const [invalidateOpen, setInvalidateOpen]   = useState(false);
   const [startInvOpen,      setStartInvOpen]      = useState(false);
   const [startInvNote,      setStartInvNote]      = useState('');
   const [startInvReqInfo,   setStartInvReqInfo]   = useState(true);
-  const [reqDraftOpen,      setReqDraftOpen]      = useState<'new' | 'edit' | false>(false);
-  const [reqDraftText,      setReqDraftText]      = useState('');
-  const [editingRequestId,  setEditingRequestId]  = useState<string | null>(null);
-  const infoRequests: AdditionalInfoRequest[] = evtStored.additionalInfoRequests ?? event.additionalInfoRequests ?? [];
-  const infoThreads = infoRequests.filter(r => r.kind === 'initial' || r.kind === 'new');
-  const followupsFor = (threadId: string) => infoRequests.filter(r => r.relatesTo === threadId);
   const [reopenEvtOpen,     setReopenEvtOpen]     = useState(false);
   const [validateNote,      setValidateNote]      = useState('');
   const [validateSuccess,   setValidateSuccess]   = useState(false);
@@ -143,6 +139,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   const [escSearch,         setEscSearch]         = useState('');
   const [expandedImg,       setExpandedImg]       = useState<number | null>(null);
   const [analysisDrawerOpen, setAnalysisDrawerOpen] = useState(false);
+  const [analysisTab, setAnalysisTab]         = useState<'analysis' | 'messages'>('messages');
   const eventSeedLogs = logs.filter(l => l.eventId === event.id);
   const [activityLog, setActivityLog] = useState<ActivityLog[]>(() => [
     ...eventSeedLogs,
@@ -203,55 +200,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
     addToActivityLog(`${field} updated`, undefined, from ?? '—', to ?? '—');
   };
 
-  const sendInfoRequest = (text: string, kind: 'initial' | 'new', forStatus?: EventStatus) => {
-    const entry: AdditionalInfoRequest = { id: `air_${Date.now()}`, text, sentAt: nowTs(), kind };
-    pushAdditionalInfoRequest(event.id, entry);
-    addToActivityLog(
-      kind === 'new'
-        ? `Additional information requested from ${event.reportedBy} (new request).`
-        : `Additional information requested from ${event.reportedBy}.`,
-      forStatus
-    );
-  };
-
-  const resendRequest = (id: string) => {
-    const root = infoRequests.find(r => r.id === id);
-    if (!root) return;
-    const followup: AdditionalInfoRequest = {
-      id: `air_${Date.now()}`, text: root.text, sentAt: nowTs(), kind: 'followup', relatesTo: id,
-    };
-    pushAdditionalInfoRequest(event.id, followup);
-    updateAdditionalInfoRequest(event.id, id, { resendCount: (root.resendCount ?? 0) + 1 });
-    addToActivityLog(`Follow-up reminder sent to ${event.reportedBy}.`);
-    message.success('Follow-up reminder sent.');
-  };
-
-  const startEditRequest = (id: string) => {
-    const root = infoRequests.find(r => r.id === id);
-    if (!root) return;
-    setEditingRequestId(id);
-    setReqDraftText(root.text);
-    setReqDraftOpen('edit');
-  };
-
-  const saveEditedRequest = () => {
-    if (!editingRequestId) return;
-    updateAdditionalInfoRequest(event.id, editingRequestId, { text: reqDraftText, sentAt: nowTs() });
-    addToActivityLog('Additional information request edited.');
-    cancelDraft();
-  };
-
-  const startNewRequest = () => {
-    setEditingRequestId(null);
-    setReqDraftText('');
-    setReqDraftOpen('new');
-  };
-
-  const cancelDraft = () => {
-    setReqDraftOpen(false);
-    setReqDraftText('');
-    setEditingRequestId(null);
-  };
+  const thread = useInfoRequestThread(event, 'Field Quality', { onActivity: addToActivityLog });
 
   const handleSaveEdits = () => {
     const values = editForm.getFieldsValue();
@@ -303,6 +252,9 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   );
   const [editPartNumber, setEditPartNumber] = useState<string>('');
   const [editPartDescription, setEditPartDescription] = useState<string>('');
+
+  const locked        = status === 'Validated' || status === 'Invalidated';
+  const reopenTarget: EventStatus = 'Under Investigation';
 
   const stepIdx      = STATUS_STEP[status];
   const reportedDate = event.reportedAt.replace('T', ' ').substring(0, 16);
@@ -390,7 +342,6 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   const photosContent = (
     <>
       <div style={{
-        flex: 1,
         minHeight: 360,
         background: token.colorFillTertiary,
         border: `1px dashed ${token.colorBorderSecondary}`,
@@ -400,34 +351,39 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
         alignItems: 'center',
         justifyContent: 'center',
         gap: 6,
-        marginBottom: 8,
         cursor: 'pointer',
+        marginBottom: 8,
       }} onClick={() => setExpandedImg(0)}>
         <PictureFilled style={{ fontSize: token.fontSizeHeading3, color: token.colorTextQuaternary }} />
         <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No photos attached</Text>
         <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Click to expand</Text>
       </div>
       <div style={{ display: 'flex', gap: 6 }}>
-        {[0, 1, 2].map(i => (
+        {[1, 2].map(i => (
           <div key={i} onClick={() => setExpandedImg(i)} style={{
             flex: 1, aspectRatio: '1',
             background: token.colorFillTertiary,
             border: `1px solid ${token.colorBorderSecondary}`,
             borderRadius: token.borderRadiusSM,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
             cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <PictureFilled style={{ fontSize: token.fontSizeSM, color: token.colorTextQuaternary }} />
+            <PictureFilled style={{ fontSize: token.fontSize, color: token.colorTextQuaternary }} />
           </div>
         ))}
       </div>
     </>
   );
 
-  const analysisBody = (
+  const analysisContent = (
     <>
       {insightsStep !== null ? (
         <>
+          <Button type="text" size="small" icon={<ArrowLeftOutlined style={{ fontSize: token.fontSizeSM }} />} onClick={() => setInsightsStep(null)} style={{ marginBottom: 8, paddingInline: 4 }}>
+            Back
+          </Button>
           <Text style={{ fontSize: token.fontSizeSM, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: token.colorTextTertiary, display: 'block', marginBottom: 6 }}>
             Summary
           </Text>
@@ -455,6 +411,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
             <Form.Item label="Root Cause" style={{ marginBottom: 10 }}>
               <Select
                 showSearch
+                disabled={locked}
                 value={rootCause ?? undefined}
                 placeholder="Select or add root cause..."
                 filterOption={false}
@@ -479,35 +436,39 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
               />
             </Form.Item>
             <Form.Item label="Escalation" style={{ marginBottom: 10 }}>
-              <Select
-                showSearch
-                value={escalation ?? undefined}
-                placeholder="Link to escalation"
-                filterOption={false}
-                onSearch={setEscSearch}
-                onChange={(v: string | undefined) => {
-                  if (!v) { setEscalation(null); patchEvent(event.id, { escalation: null }); setEscSearch(''); return; }
-                  const isExisting = ESCALATION_OPTIONS.some(o => o.value === v);
-                  if (!isExisting) { setCreateEscOpen(true); setEscSearch(''); return; }
-                  setPendingEscalation(v);
-                  setEscConfirmOpen(true);
-                }}
-                options={(() => {
-                  const q = escSearch.toLowerCase();
-                  const matches = q
-                    ? ESCALATION_OPTIONS.filter(o => o.value.toLowerCase().includes(q))
-                    : ESCALATION_OPTIONS;
-                  const hasExact = ESCALATION_OPTIONS.some(o => o.value.toLowerCase() === q);
-                  return q && !hasExact
-                    ? [...matches, { value: escSearch, label: `+ Create "${escSearch}"` }]
-                    : matches;
-                })()}
-                allowClear
-              />
+              <Tooltip title={status !== 'Validated' ? 'An event can only be linked to an escalation once it has been validated.' : ''}>
+                <Select
+                  showSearch
+                  disabled={status !== 'Validated'}
+                  value={escalation ?? undefined}
+                  placeholder="Link to escalation"
+                  filterOption={false}
+                  onSearch={setEscSearch}
+                  onChange={(v: string | undefined) => {
+                    if (!v) { setEscalation(null); patchEvent(event.id, { escalation: null }); setEscSearch(''); return; }
+                    const isExisting = ESCALATION_OPTIONS.some(o => o.value === v);
+                    if (!isExisting) { setCreateEscOpen(true); setEscSearch(''); return; }
+                    setPendingEscalation(v);
+                    setEscConfirmOpen(true);
+                  }}
+                  options={(() => {
+                    const q = escSearch.toLowerCase();
+                    const matches = q
+                      ? ESCALATION_OPTIONS.filter(o => o.value.toLowerCase().includes(q))
+                      : ESCALATION_OPTIONS;
+                    const hasExact = ESCALATION_OPTIONS.some(o => o.value.toLowerCase() === q);
+                    return q && !hasExact
+                      ? [...matches, { value: escSearch, label: `+ Create "${escSearch}"` }]
+                      : matches;
+                  })()}
+                  allowClear
+                />
+              </Tooltip>
             </Form.Item>
             <Form.Item label="Tags" style={{ marginBottom: 0 }}>
               <Select
                 mode="tags"
+                disabled={locked}
                 value={tags}
                 onChange={(t: string[]) => { setTags(t); patchEvent(event.id, { tags: t }); }}
                 placeholder="Add tags"
@@ -522,84 +483,25 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
             <Button block icon={<StarFilled />} loading={loadingInsights} onClick={handleGenerateInsights}>
               Generate AI Insights
             </Button>
-            {infoThreads.map(t => {
-              const followups = followupsFor(t.id);
-              const last = followups[followups.length - 1];
-              return (
-                <div key={t.id} style={{ padding: '6px 10px', background: token.colorFillTertiary, borderRadius: token.borderRadiusSM }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                      <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: token.fontSize, flexShrink: 0 }} />
-                      <Text style={{ fontSize: token.fontSizeSM }}>Additional information requested from {event.reportedBy}</Text>
-                    </div>
-                    <Dropdown
-                      trigger={['click']}
-                      menu={{
-                        items: [
-                          { key: 'resend', label: 'Resend as Follow-up', onClick: () => resendRequest(t.id) },
-                          { key: 'edit', label: 'Edit Request', onClick: () => startEditRequest(t.id) },
-                          { key: 'new', label: 'Create New Message', onClick: startNewRequest },
-                        ],
-                      }}
-                    >
-                      <Button type="text" size="small" icon={<MoreOutlined />} />
-                    </Dropdown>
-                  </div>
-                  {followups.length > 0 && (
-                    <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary }}>
-                      Followed up {followups.length}x — last {last.sentAt}
-                    </Text>
-                  )}
-                </div>
-              );
-            })}
-            {reqDraftOpen ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <Input.TextArea
-                  autoFocus
-                  rows={4}
-                  placeholder="Describe what additional information is needed from the field tech..."
-                  value={reqDraftText}
-                  onChange={e => setReqDraftText(e.target.value)}
-                />
-                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                  <Button size="small" onClick={cancelDraft}>Cancel</Button>
-                  <Button
-                    size="small"
-                    type="primary"
-                    icon={<MessageFilled />}
-                    disabled={!reqDraftText.trim()}
-                    onClick={() => {
-                      if (reqDraftOpen === 'edit') {
-                        saveEditedRequest();
-                      } else {
-                        sendInfoRequest(reqDraftText, infoThreads.length ? 'new' : 'initial');
-                        cancelDraft();
-                      }
-                    }}
-                  >
-                    {reqDraftOpen === 'edit' ? 'Save' : 'Send Request'}
-                  </Button>
-                </div>
-              </div>
-            ) : infoThreads.length === 0 ? (
-              <Button block icon={<MessageFilled />} onClick={startNewRequest}>
-                Request Additional Information
-              </Button>
-            ) : null}
           </Space>
         </>
       )}
     </>
   );
 
+  const messagesContent = (
+    <InfoRequestThreadPanel {...thread} reportedBy={event.reportedBy} canSend={!locked} />
+  );
+
   const mobileActionItems = [
     ...(status === 'Reported' ? [{ key: 'start-inv', icon: <SearchOutlined />, label: 'Start Investigation', onClick: () => setStartInvOpen(true) }] : []),
-    ...(status !== 'Reported' ? [{ key: 'reopen', icon: <RollbackOutlined />, label: 'Reopen', onClick: () => setReopenEvtOpen(true) }] : []),
-    ...(status === 'Validated' ? [{ key: 'escalate', icon: <ExclamationCircleFilled />, label: 'Escalate', onClick: () => router.push('/escalations/new') }] : []),
-    { type: 'divider' as const },
-    { key: 'invalidate', icon: <StopFilled />, label: 'Invalidate', disabled: status === 'Invalidated', onClick: () => setInvalidateOpen(true) },
-    { key: 'validate', icon: <CheckOutlined />, label: 'Validate', disabled: status === 'Validated', onClick: () => setValidateOpen(true) },
+    ...(status === 'Validated' || status === 'Invalidated' ? [{ key: 'reopen', icon: <RollbackOutlined />, label: 'Reopen', onClick: () => setReopenEvtOpen(true) }] : []),
+    ...(status === 'Validated' && !escalation ? [{ key: 'escalate', icon: <ExclamationCircleFilled />, label: 'Escalate', onClick: () => router.push('/escalations/new') }] : []),
+    ...(!locked ? [
+      { type: 'divider' as const },
+      { key: 'invalidate', icon: <StopFilled />, label: 'Invalidate', onClick: () => setInvalidateOpen(true) },
+      { key: 'validate', icon: <CheckOutlined />, label: 'Validate', onClick: () => setValidateOpen(true) },
+    ] : []),
   ];
 
   return (
@@ -642,43 +544,49 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                   Start Investigation
                 </Button>
               )}
-              {status === 'Under Investigation' && (
-                <Button type="text" icon={<RollbackOutlined />} onClick={() => setReopenEvtOpen(true)}>
-                  Reopen
-                </Button>
-              )}
               {(status === 'Validated' || status === 'Invalidated') && (
                 <Button type="text" icon={<RollbackOutlined />} onClick={() => setReopenEvtOpen(true)}>
                   Reopen
                 </Button>
               )}
-              {status === 'Validated' && (
+              {status === 'Validated' && !escalation && (
                 <Button icon={<ExclamationCircleFilled />} onClick={() => router.push('/escalations/new')}>
                   Escalate
                 </Button>
               )}
-              <Divider type="vertical" style={{ margin: '0 4px' }} />
-              <Button
-                icon={<StopFilled />}
-                disabled={status === 'Invalidated'}
-                onClick={() => setInvalidateOpen(true)}
-              >
-                Invalidate
-              </Button>
-              <Button
-                icon={<CheckOutlined />}
-                type="primary"
-                disabled={status === 'Validated'}
-                onClick={() => setValidateOpen(true)}
-              >
-                Validate
-              </Button>
+              {!locked && (
+                <>
+                  <Divider type="vertical" style={{ margin: '0 4px' }} />
+                  <Button
+                    icon={<StopFilled />}
+                    onClick={() => setInvalidateOpen(true)}
+                  >
+                    Invalidate
+                  </Button>
+                  <Button
+                    icon={<CheckOutlined />}
+                    type="primary"
+                    onClick={() => setValidateOpen(true)}
+                  >
+                    Validate
+                  </Button>
+                </>
+              )}
             </Space>
           )
         }
       />
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: isMobile ? undefined : 'hidden', padding: isMobile ? '0 12px 80px' : '0 20px 16px', minHeight: 0 }}>
+
+        {locked && (
+          <Space size={6} style={{ marginTop: 12, flexShrink: 0, color: token.colorTextTertiary }}>
+            <LockFilled style={{ fontSize: token.fontSizeSM }} />
+            <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary }}>
+              {status} — locked from further edits. Reopen to resume editing.
+            </Text>
+          </Space>
+        )}
 
         {/* Status strip */}
         <div style={{ display: 'flex', alignItems: 'center', padding: '16px 0 12px', maxWidth: isMobile ? undefined : 560, flexShrink: 0 }}>
@@ -757,7 +665,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
               onTabChange={(key) => setActiveTab(key as 'details' | 'log' | 'photos' | 'attachments')}
               tabBarExtraContent={
                 activeTab === 'details' ? (
-                  editingProduct ? (
+                  locked ? null : editingProduct ? (
                     <Space size={isMobile ? 8 : 4}>
                       <Button type="text" size="small" icon={<CloseOutlined />} onClick={() => setEditingProduct(false)}>Cancel</Button>
                       <Button type="primary" size="small" icon={<SaveFilled />} onClick={handleSaveEdits}>{!isMobile && 'Save'}</Button>
@@ -767,12 +675,10 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                       {!isMobile && 'Edit'}
                     </Button>
                   )
-                ) : activeTab === 'log' ? (
-                  <Button type="text" size="small" icon={<PlusOutlined />} onClick={() => setAddingLog(v => !v)}>
-                    {!isMobile && 'Add Log'}
-                  </Button>
                 ) : activeTab === 'photos' ? (
-                  <Button type="text" size="small" icon={<PlusOutlined />} onClick={() => photoInputRef.current?.click()} />
+                  locked ? null : (
+                    <Button type="text" size="small" icon={<PlusOutlined />} onClick={() => photoInputRef.current?.click()} />
+                  )
                 ) : activeTab === 'attachments' ? null : null
               }
               style={isMobile ? undefined : { flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
@@ -786,7 +692,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                     <Col xs={24} md={15} style={{ display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
                       {/* Upper content — scrolls independently if tall */}
                       <div style={{ overflow: 'auto', flexShrink: 1, minHeight: 0 }}>
-                      {/* Submission metadata — always read-only */}
+                      {/* Submission metadata — Plant has its own inline edit affordance; the rest is read-only */}
                       <div style={{
                         display: 'flex', gap: 24, marginBottom: 14,
                         padding: '8px 12px',
@@ -797,9 +703,50 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                         {([
                           { label: 'Reported By', node: <Text style={{ fontSize: token.fontSizeSM }}>{event.reportedBy}</Text> },
                           { label: 'Branch',      node: <Text style={{ fontSize: token.fontSizeSM }}>{event.branch}</Text> },
-                          { label: 'Plant',       node: <Text style={{ fontSize: token.fontSizeSM }}>{event.plant.split(' ')[0]}</Text> },
+                          { label: 'Plant',       node: editingPlant ? (
+                              <Space size={4}>
+                                <Select
+                                  autoFocus
+                                  size="small"
+                                  value={plantDraft}
+                                  onChange={setPlantDraft}
+                                  options={PLANT_OPTIONS.map(v => ({ value: v, label: v }))}
+                                  style={{ width: 160 }}
+                                />
+                                <Button
+                                  type="text" size="small" icon={<CheckOutlined style={{ fontSize: token.fontSizeSM }} />}
+                                  onClick={() => {
+                                    if (plantDraft !== plant) {
+                                      logEditEntry('Plant', plant, plantDraft);
+                                      patchEvent(event.id, { plant: plantDraft });
+                                      setPlant(plantDraft);
+                                    }
+                                    setEditingPlant(false);
+                                  }}
+                                />
+                                <Button
+                                  type="text" size="small" icon={<CloseOutlined style={{ fontSize: token.fontSizeSM }} />}
+                                  onClick={() => setEditingPlant(false)}
+                                />
+                              </Space>
+                            ) : (
+                              <Space size={6}>
+                                <Text style={{ fontSize: token.fontSizeSM }}>{plant.split(' ')[0]}</Text>
+                                {!locked && (
+                                  <Button
+                                    type="text" size="small"
+                                    icon={<EditFilled style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary }} />}
+                                    onClick={() => { setPlantDraft(plant); setEditingPlant(true); }}
+                                  />
+                                )}
+                              </Space>
+                            ) },
                           { label: 'Date',        node: <Text style={{ fontSize: token.fontSizeSM }}>{reportedDate}</Text> },
-                          ...(orderId ? [{ label: 'Order ID', node: <Link href={`/orders/${orderId}`} style={{ fontSize: token.fontSizeSM }}>{event.id}</Link> }] : []),
+                          ...(orderId ? [{ label: ' ', node: (
+                            <Link href={`/orders/${orderId}`} style={{ fontSize: token.fontSizeSM, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              View Order <ArrowRightOutlined style={{ fontSize: token.fontSizeXS }} />
+                            </Link>
+                          ) }] : []),
                         ] as { label: string; node: React.ReactNode }[]).map(({ label, node }, i, arr) => (
                           <Fragment key={label}>
                             <div>
@@ -816,7 +763,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                       </div>
 
                       {sectionLabel('Product Issue')}
-                      {editingProduct ? (
+                      {editingProduct && !locked ? (
                         <Form
                           form={editForm}
                           layout="vertical"
@@ -921,7 +868,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                                   />
                                 </div>
                               )}
-                              {editingProduct ? (
+                              {editingProduct && !locked ? (
                                 <Form layout="vertical" size="small">
                                   <Row gutter={8}>
                                     <Col flex={1}>
@@ -981,7 +928,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                                   </div>
                                 </div>
                               )}
-                              {status !== 'Invalidated' && (
+                              {!locked && (
                                 <div style={{ marginTop: 12 }}>
                                   <Button size="small" type="dashed" icon={<PlusOutlined />} onClick={openAddPartRequest}>
                                     Add Parts Request
@@ -1000,7 +947,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                               <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary, lineHeight: 1.5 }}>
                                 No parts request filed for this event.
                               </Text>
-                              {status !== 'Invalidated' && (
+                              {!locked && (
                                 <Button size="small" type="dashed" icon={<PlusOutlined />} onClick={openAddPartRequest}>
                                   Add Parts Request
                                 </Button>
@@ -1023,13 +970,13 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                               <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary, lineHeight: 1.5 }}>
                                 No hardware kit on file for this event.
                               </Text>
-                              {status !== 'Invalidated' && (
+                              {!locked && (
                                 <Button size="small" type="dashed" icon={<PlusOutlined />} onClick={openAddPartRequest}>
                                   Add Hardware Kit
                                 </Button>
                               )}
                             </div>
-                          ) : editingProduct ? (
+                          ) : editingProduct && !locked ? (
                             <Form layout="vertical" size="small">
                               <Form.Item label="Hardware Kit Information" style={{ marginBottom: 10 }}>
                                 <Select
@@ -1112,6 +1059,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                     {!isMobile && <Col xs={24} md={9} style={{ display: 'flex', flexDirection: 'column' }}>
                       <div style={{
                         flex: 1,
+                        minHeight: 140,
                         background: token.colorFillTertiary,
                         border: `1px dashed ${token.colorBorderSecondary}`,
                         borderRadius: token.borderRadiusSM,
@@ -1120,36 +1068,40 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                         alignItems: 'center',
                         justifyContent: 'center',
                         gap: 6,
-                        marginBottom: 8,
                         cursor: 'pointer',
+                        marginBottom: 8,
                       }} onClick={() => setExpandedImg(0)}>
                         <PictureFilled style={{ fontSize: token.fontSizeHeading3, color: token.colorTextQuaternary }} />
                         <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No photos attached</Text>
                         <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Click to expand</Text>
                       </div>
                       <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
-                        {[0, 1, 2].map(i => (
+                        {[1, 2, 3].map(i => (
                           <div key={i} onClick={() => setExpandedImg(i)} style={{
                             flex: 1, aspectRatio: '1',
                             background: token.colorFillTertiary,
                             border: `1px solid ${token.colorBorderSecondary}`,
                             borderRadius: token.borderRadiusSM,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
                             cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
                           }}>
-                            <PictureFilled style={{ fontSize: token.fontSizeSM, color: token.colorTextQuaternary }} />
+                            <PictureFilled style={{ fontSize: token.fontSize, color: token.colorTextQuaternary }} />
                           </div>
                         ))}
                       </div>
-                      <Button
-                        size="small"
-                        type="text"
-                        icon={<PlusOutlined style={{ fontSize: token.fontSizeSM }} />}
-                        style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary }}
-                        onClick={() => photoInputRef.current?.click()}
-                      >
-                        Upload Photo
-                      </Button>
+                      {!locked && (
+                        <Button
+                          size="small"
+                          type="text"
+                          icon={<PlusOutlined style={{ fontSize: token.fontSizeSM }} />}
+                          style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary }}
+                          onClick={() => photoInputRef.current?.click()}
+                        >
+                          Upload Photo
+                        </Button>
+                      )}
                     </Col>}
 
                   </Row>
@@ -1206,28 +1158,30 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                     })()}
                   </Modal>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    <Upload.Dragger
-                      multiple
-                      accept=".pdf,.png,.jpg,.jpeg,.csv,.txt,.xlsx,.xls,.doc,.docx,.ppt,.pptx,.eml,.msg"
-                      showUploadList={false}
-                      beforeUpload={(file) => {
-                        const blobUrl = URL.createObjectURL(file);
-                        const att = { uid: `att_${Date.now()}_${file.name}`, name: file.name, size: file.size, date: nowTs(), blobUrl };
-                        setAttachments(prev => [...prev, att]);
-                        addToActivityLog(`Attachment added: ${file.name}`);
-                        return false;
-                      }}
-                      style={{ borderRadius: token.borderRadiusSM }}
-                    >
-                      <p style={{ margin: 0, paddingBottom: 4 }}><InboxOutlined style={{ fontSize: 24, color: token.colorPrimary }} /></p>
-                      <p style={{ margin: 0, fontSize: token.fontSizeSM, color: token.colorText }}>Drag files here or <span style={{ color: token.colorPrimary }}>click to upload</span></p>
-                      <p style={{ margin: '4px 0 0', fontSize: token.fontSizeXS, color: token.colorTextTertiary }}>
-                        PDF · Excel · CSV · Images
-                      </p>
-                      <p style={{ margin: '2px 0 0', fontSize: token.fontSizeXS, color: token.colorTextQuaternary }}>
-                        Email chains: .eml (standard) or .msg (Outlook)
-                      </p>
-                    </Upload.Dragger>
+                    {!locked && (
+                      <Upload.Dragger
+                        multiple
+                        accept=".pdf,.png,.jpg,.jpeg,.csv,.txt,.xlsx,.xls,.doc,.docx,.ppt,.pptx,.eml,.msg"
+                        showUploadList={false}
+                        beforeUpload={(file) => {
+                          const blobUrl = URL.createObjectURL(file);
+                          const att = { uid: `att_${Date.now()}_${file.name}`, name: file.name, size: file.size, date: nowTs(), blobUrl };
+                          setAttachments(prev => [...prev, att]);
+                          addToActivityLog(`Attachment added: ${file.name}`);
+                          return false;
+                        }}
+                        style={{ borderRadius: token.borderRadiusSM }}
+                      >
+                        <p style={{ margin: 0, paddingBottom: 4 }}><InboxOutlined style={{ fontSize: 24, color: token.colorPrimary }} /></p>
+                        <p style={{ margin: 0, fontSize: token.fontSizeSM, color: token.colorText }}>Drag files here or <span style={{ color: token.colorPrimary }}>click to upload</span></p>
+                        <p style={{ margin: '4px 0 0', fontSize: token.fontSizeXS, color: token.colorTextTertiary }}>
+                          PDF · Excel · CSV · Images
+                        </p>
+                        <p style={{ margin: '2px 0 0', fontSize: token.fontSizeXS, color: token.colorTextQuaternary }}>
+                          Email chains: .eml (standard) or .msg (Outlook)
+                        </p>
+                      </Upload.Dragger>
+                    )}
                     {attachments.length > 0 && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         {attachments.map(att => (
@@ -1246,11 +1200,13 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                               <Text style={{ fontSize: token.fontSizeSM, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: token.colorPrimary }}>{att.name}</Text>
                               <Text style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary }}>{fmtSize(att.size)} · {att.date}</Text>
                             </div>
-                            <Button
-                              type="text" size="small" icon={<DeleteOutlined />}
-                              style={{ color: token.colorTextTertiary, flexShrink: 0 }}
-                              onClick={(e) => { e.stopPropagation(); setAttachments(prev => prev.filter(a => a.uid !== att.uid)); }}
-                            />
+                            {!locked && (
+                              <Button
+                                type="text" size="small" icon={<DeleteOutlined />}
+                                style={{ color: token.colorTextTertiary, flexShrink: 0 }}
+                                onClick={(e) => { e.stopPropagation(); setAttachments(prev => prev.filter(a => a.uid !== att.uid)); }}
+                              />
+                            )}
                           </div>
                         ))}
                       </div>
@@ -1262,36 +1218,6 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
 
               {activeTab === 'log' && (
                 <>
-                  {addingLog && (
-                    <div style={{
-                      marginBottom: 16,
-                      padding: 12,
-                      background: token.colorFillTertiary,
-                      borderRadius: token.borderRadiusSM,
-                      border: `1px solid ${token.colorBorderSecondary}`,
-                    }}>
-                      <Text style={{ fontSize: token.fontSizeSM, fontWeight: 500, display: 'block', marginBottom: 8 }}>New Log Entry</Text>
-                      <Input.TextArea
-                        value={newLogComment}
-                        onChange={e => setNewLogComment(e.target.value)}
-                        placeholder="Describe the action taken or observation made..."
-                        rows={3}
-                        style={{ marginBottom: 8 }}
-                      />
-                      <Space>
-                        <Button
-                          size="small"
-                          disabled={!newLogComment.trim()}
-                          onClick={() => { setAddingLog(false); setNewLogComment(''); }}
-                        >
-                          Save Entry
-                        </Button>
-                        <Button size="small" onClick={() => { setAddingLog(false); setNewLogComment(''); }}>
-                          Cancel
-                        </Button>
-                      </Space>
-                    </div>
-                  )}
                   {isMobile ? (
                     <List
                       dataSource={[...activityLog].reverse()}
@@ -1349,25 +1275,19 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
 
           {/* Right: analysis card — desktop only */}
           {!isMobile && (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
               <Card
                 size="small"
-                title={
-                  <span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>
-                    {insightsStep ? 'AI Insights' : 'Analysis'}
-                  </span>
-                }
-                extra={
-                  insightsStep ? (
-                    <Button type="text" size="small" icon={<ArrowLeftOutlined style={{ fontSize: token.fontSizeSM }} />} onClick={() => setInsightsStep(null)}>
-                      Back
-                    </Button>
-                  ) : undefined
-                }
+                tabList={[
+                  { key: 'messages', label: <span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Messages</span> },
+                  { key: 'analysis', label: <span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Assessment</span> },
+                ]}
+                activeTabKey={analysisTab}
+                onTabChange={key => setAnalysisTab(key as 'analysis' | 'messages')}
                 style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
                 styles={{ body: { flex: 1, overflow: 'auto', padding: 16, minHeight: 0 } }}
               >
-                {analysisBody}
+                {analysisTab === 'analysis' ? analysisContent : messagesContent}
               </Card>
             </div>
           )}
@@ -1391,7 +1311,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
               icon={<StarFilled />}
               onClick={() => setAnalysisDrawerOpen(true)}
             >
-              Analysis
+              Assessment
             </Button>
           </div>
           <Drawer
@@ -1408,15 +1328,8 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                   if (e.changedTouches[0].clientY - dragStartY.current > 60) setAnalysisDrawerOpen(false);
                 }}
               >
-                {insightsStep ? 'AI Insights' : 'Analysis'}
+                Assessment
               </div>
-            }
-            extra={
-              insightsStep ? (
-                <Button type="text" size="small" icon={<ArrowLeftOutlined style={{ fontSize: token.fontSizeSM }} />} onClick={() => setInsightsStep(null)}>
-                  Back
-                </Button>
-              ) : undefined
             }
             styles={{
               wrapper: { borderRadius: '12px 12px 0 0', overflow: 'hidden' },
@@ -1432,7 +1345,18 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
             >
               <div style={{ width: 36, height: 4, borderRadius: 2, background: token.colorFill }} />
             </div>
-            {analysisBody}
+            <Segmented
+              block
+              size="small"
+              value={analysisTab}
+              onChange={v => setAnalysisTab(v as 'analysis' | 'messages')}
+              options={[
+                { label: 'Messages', value: 'messages' },
+                { label: 'Assessment', value: 'analysis' },
+              ]}
+              style={{ marginBottom: 12 }}
+            />
+            {analysisTab === 'analysis' ? analysisContent : messagesContent}
           </Drawer>
         </>
       )}
@@ -1536,7 +1460,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
           patchEvent(event.id, { status: 'Under Investigation' });
           addToActivityLog('Investigation started.', 'Under Investigation');
           if (startInvReqInfo) {
-            sendInfoRequest(startInvNote, infoThreads.length ? 'new' : 'initial', 'Under Investigation');
+            thread.sendInfoRequest(startInvNote, thread.infoThreads.length ? 'new' : 'initial', 'Under Investigation');
           }
           setStartInvSuccess(true);
         }}
@@ -1591,9 +1515,9 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
         onCancel={() => { setReopenEvtOpen(false); setReopenEvtSuccess(false); }}
         footer={reopenEvtSuccess ? null : undefined}
         onOk={() => {
-          setStatus('Reported');
-          patchEvent(event.id, { status: 'Reported' });
-          addToActivityLog('Event reopened to Reported status.', 'Reported');
+          setStatus(reopenTarget);
+          patchEvent(event.id, { status: reopenTarget });
+          addToActivityLog(`Event reopened to ${reopenTarget} status.`, reopenTarget);
           setReopenEvtSuccess(true);
         }}
         okText="Reopen Event"
@@ -1605,7 +1529,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
               <Text style={{ fontSize: token.fontSize, fontWeight: 600 }}>Event Reopened</Text>
             </div>
             <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
-              {event.id} has been returned to Reported status and is ready for re-triage.
+              {event.id} has been returned to {reopenTarget} status.
             </Text>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <Button type="primary" onClick={() => { setReopenEvtOpen(false); setReopenEvtSuccess(false); }}>Done</Button>
@@ -1613,7 +1537,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
           </div>
         ) : (
           <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
-            This will reopen the event and return it to <strong>Reported</strong> status.
+            This will reopen the event and return it to <strong>{reopenTarget}</strong> status.
           </Text>
         )}
       </Modal>

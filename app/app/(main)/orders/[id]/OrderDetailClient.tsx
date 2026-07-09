@@ -5,15 +5,16 @@ import Link from 'next/link';
 import { useOrderStore } from '@/store/orderStore';
 import {
   Button, Card, Col, Divider, Dropdown, Form, Grid, Input, InputNumber, List, Modal,
-  Radio, Row, Select, Slider, Space, Switch, Table, Tag, Typography, theme,
+  Radio, Row, Segmented, Select, Slider, Space, Switch, Table, Tag, Typography, theme,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
-  ArrowLeftOutlined, BarcodeOutlined, CheckCircleFilled, CheckOutlined, CloseCircleFilled, CloseOutlined,
-  EditFilled, MoreOutlined, PlusOutlined, RollbackOutlined, SendOutlined,
+  ArrowLeftOutlined, ArrowRightOutlined, BarcodeOutlined, CheckCircleFilled, CheckOutlined, CloseCircleFilled, CloseOutlined,
+  EditFilled, MoreOutlined, PictureFilled, PlusOutlined, RollbackOutlined, SendOutlined,
 } from '@ant-design/icons';
 import { CopyableValue } from '@/components/CopyableValue';
 import { PageHeader } from '@/components/PageHeader';
+import { useInfoRequestThread, InfoRequestThreadPanel } from '@/components/InfoRequestThread';
 import type { Order, OrderPart } from '@/data/orders';
 import type { QualityEvent } from '@/data/types';
 import { DOOR_OPTIONS, PART_CATALOG } from '@/data/filterOptions';
@@ -101,9 +102,6 @@ export function OrderDetailClient({ order, event }: Props) {
     ...seedLogs,
     ...(ordStored.logAdditions ?? []) as LogEntry[],
   ]);
-  const [logDraft, setLogDraft] = useState('');
-  const [addingLog, setAddingLog] = useState(false);
-
   // Modals
   const [approveOpen, setApproveOpen]                             = useState(false);
   const [approveAssign, setApproveAssign]                         = useState(false);
@@ -116,11 +114,12 @@ export function OrderDetailClient({ order, event }: Props) {
   const [reopenReason, setReopenReason]                 = useState('');
   const [procurementOpen, setProcurementOpen]           = useState(false);
   const [procurementEmail, setProcurementEmail]         = useState('');
-  const [procurementOrderNo, setProcurementOrderNo]     = useState('');
   const [returnOpen, setReturnOpen]                     = useState(false);
   const [returnComment, setReturnComment]               = useState('');
 
   const [expandedScan,       setExpandedScan]       = useState<number | null>(null);
+  const [expandedPhoto,      setExpandedPhoto]      = useState<number | null>(null);
+  const [scanTab,            setScanTab]            = useState<'eventDetails' | 'messages'>('messages');
   const [approveSuccess,     setApproveSuccess]     = useState(false);
   const [declineSuccess,     setDeclineSuccess]     = useState(false);
   const [closeSuccess,       setCloseSuccess]       = useState(false);
@@ -152,6 +151,8 @@ export function OrderDetailClient({ order, event }: Props) {
     setLogs(prev => [...prev, entry]);
     pushOrderLog(order.id, entry);
   };
+
+  const thread = useInfoRequestThread(event, 'Customer Service', { onActivity: (s) => addLog(s, false) });
 
   // Status actions
   const handleApprove = () => setApproveOpen(true);
@@ -192,10 +193,6 @@ export function OrderDetailClient({ order, event }: Props) {
     if (!procurementEmail) return;
     setAssignedToProcurement(true);
     patchOrder(order.id, { assignedToProcurement: true });
-    if (procurementOrderNo.trim()) {
-      setReplacementOrderNo(procurementOrderNo);
-      patchOrder(order.id, { replacementOrderNo: procurementOrderNo });
-    }
     addLog(`Assigned to Procurement. Notified: ${procurementEmail}`, false);
     setProcurementSuccess(true);
   };
@@ -400,6 +397,84 @@ export function OrderDetailClient({ order, event }: Props) {
     ] : []),
   ];
 
+  const labelScanContent = (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10, minHeight: 0 }}>
+      <div style={{
+        flex: 1,
+        background: token.colorFillTertiary,
+        border: `1px dashed ${token.colorBorderSecondary}`,
+        borderRadius: token.borderRadiusSM,
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        gap: 6, minHeight: 160, cursor: 'pointer',
+      }} onClick={() => setExpandedScan(0)}>
+        <BarcodeOutlined style={{ fontSize: token.fontSizeHeading2, color: token.colorTextQuaternary }} />
+        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No label scans attached</Text>
+        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Click to expand</Text>
+      </div>
+      <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary, lineHeight: 1.5 }}>
+        Label scans are auto-captured when a tech submits the event. Verify part numbers and Config IDs against the label before approving.
+      </Text>
+    </div>
+  );
+
+  const eventDetailsContent = (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto', gap: 16 }}>
+
+      <div style={{
+        padding: '8px 12px',
+        background: token.colorFillTertiary,
+        borderRadius: token.borderRadiusSM,
+      }}>
+        <Text style={{ fontSize: token.fontSizeSM, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: token.colorTextTertiary, display: 'block', marginBottom: 6 }}>
+          Issue Description
+        </Text>
+        <Text style={{ fontSize: token.fontSizeSM, lineHeight: 1.6 }}>{event.issueDescription}</Text>
+      </div>
+
+      <Divider style={{ margin: 0 }} />
+
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        <Text style={{ fontSize: token.fontSizeSM, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: token.colorTextTertiary, display: 'block', marginBottom: 6 }}>
+          Photos
+        </Text>
+        <div style={{
+          flex: 1,
+          minHeight: 140,
+          background: token.colorFillTertiary,
+          border: `1px dashed ${token.colorBorderSecondary}`,
+          borderRadius: token.borderRadiusSM,
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center',
+          gap: 6, cursor: 'pointer', marginBottom: 8,
+        }} onClick={() => setExpandedPhoto(0)}>
+          <PictureFilled style={{ fontSize: token.fontSizeHeading3, color: token.colorTextQuaternary }} />
+          <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No photos attached</Text>
+          <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Click to expand</Text>
+        </div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {[1, 2, 3].map(i => (
+            <div key={i} onClick={() => setExpandedPhoto(i)} style={{
+              flex: 1, aspectRatio: '1',
+              background: token.colorFillTertiary,
+              border: `1px solid ${token.colorBorderSecondary}`,
+              borderRadius: token.borderRadiusSM,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer',
+            }}>
+              <PictureFilled style={{ fontSize: token.fontSize, color: token.colorTextQuaternary }} />
+            </div>
+          ))}
+        </div>
+      </div>
+
+    </div>
+  );
+
+  const messagesContent = (
+    <InfoRequestThreadPanel {...thread} reportedBy={event.reportedBy} canSend={canEdit} />
+  );
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       <PageHeader
@@ -481,7 +556,7 @@ export function OrderDetailClient({ order, event }: Props) {
 
           <Card
             size="small"
-            style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
+            style={{ flex: isMobile ? 1 : 3, display: 'flex', flexDirection: 'column', minHeight: 0 }}
             styles={{ body: { flex: 1, overflow: 'auto', padding: 16, minHeight: 0, display: 'flex', flexDirection: 'column' } }}
             tabList={[
               { key: 'details', label: <span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>{isMobile ? 'Details' : 'Order Details'}</span> },
@@ -491,11 +566,7 @@ export function OrderDetailClient({ order, event }: Props) {
             activeTabKey={activeTab}
             onTabChange={key => setActiveTab(key as 'details' | 'log' | 'scans')}
             tabBarExtraContent={
-              activeTab === 'log' && !addingLog ? (
-                <Button type="text" size="small" icon={<PlusOutlined />} onClick={() => setAddingLog(true)}>
-                  {!isMobile && 'Add Log'}
-                </Button>
-              ) : activeTab === 'details' && canEdit ? (
+              activeTab === 'details' && canEdit ? (
                 <Button type="text" size="small" icon={<PlusOutlined />} onClick={openAddPart}>
                   {!isMobile && 'Add Part'}
                 </Button>
@@ -546,7 +617,42 @@ export function OrderDetailClient({ order, event }: Props) {
                     { label: 'Product',      node: <Text style={{ fontSize: token.fontSizeSM }}>{event.product}</Text> },
                     { label: 'Door',         node: <Text style={{ fontSize: token.fontSizeSM }}>{event.door}</Text> },
                     { label: 'Last Updated', node: <Text style={{ fontSize: token.fontSizeSM }}>{order.lastUpdated}</Text> },
-                    { label: 'Event ID',     node: <Link href={`/events/${event.id}`} style={{ fontSize: token.fontSizeSM }}>{event.id}</Link> },
+                    { label: ' ', node: (
+                      <Link href={`/events/${event.id}`} style={{ fontSize: token.fontSizeSM, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        View Event <ArrowRightOutlined style={{ fontSize: token.fontSizeXS }} />
+                      </Link>
+                    ) },
+                    ...(approved ? [{
+                      label: 'Replacement Order #',
+                      node: status === 'Open' && editingReplacement ? (
+                        <Input
+                          size="small"
+                          placeholder="e.g. SO110029876"
+                          value={replacementDraft}
+                          onChange={e => setReplacementDraft(e.target.value)}
+                          onPressEnter={handleSaveReplacement}
+                          onKeyDown={e => { if (e.key === 'Escape') setEditingReplacement(false); }}
+                          onBlur={() => { if (replacementDraft.trim()) handleSaveReplacement(); else setEditingReplacement(false); }}
+                          autoFocus
+                          style={{ width: 140 }}
+                        />
+                      ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                          <Text style={{ fontSize: token.fontSizeSM, color: replacementOrderNo ? token.colorText : token.colorTextQuaternary }}>
+                            {replacementOrderNo || (status === 'Open' ? 'Not yet entered' : '—')}
+                          </Text>
+                          {status === 'Open' && (
+                            <Button
+                              type="text"
+                              size="small"
+                              icon={<EditFilled />}
+                              onClick={() => { setReplacementDraft(replacementOrderNo); setEditingReplacement(true); }}
+                              style={{ color: token.colorTextTertiary }}
+                            />
+                          )}
+                        </div>
+                      ),
+                    }] : []),
                   ] as { label: string; node: React.ReactNode }[]).map(({ label, node }, i, arr) => (
                     <Fragment key={label}>
                       <div>
@@ -562,54 +668,9 @@ export function OrderDetailClient({ order, event }: Props) {
                   ))}
                 </div>
 
-                {/* Replacement Order # — fillable ahead of close */}
-                {status === 'Open' && approved && (
-                  <div style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    gap: 12, marginBottom: 14, padding: '10px 12px',
-                    background: token.colorFillTertiary,
-                    border: `1px solid ${token.colorBorderSecondary}`,
-                    borderRadius: token.borderRadiusSM,
-                    flexWrap: 'wrap',
-                  }}>
-                    <div style={{ flex: 1, minWidth: 200 }}>
-                      <Text style={{
-                        display: 'block', fontSize: token.fontSizeXS, fontWeight: 600, letterSpacing: '0.5px',
-                        textTransform: 'uppercase', marginBottom: 4, color: token.colorTextTertiary,
-                      }}>
-                        Replacement Order #
-                      </Text>
-                      {editingReplacement ? (
-                        <Input
-                          placeholder="e.g. RO-2026-00123"
-                          value={replacementDraft}
-                          onChange={e => setReplacementDraft(e.target.value)}
-                          onPressEnter={handleSaveReplacement}
-                          autoFocus
-                          style={{ maxWidth: 260 }}
-                        />
-                      ) : (
-                        <Text style={{ fontSize: token.fontSizeSM, color: replacementOrderNo ? token.colorText : token.colorTextQuaternary }}>
-                          {replacementOrderNo || 'Not yet entered — add it here or when closing the order.'}
-                        </Text>
-                      )}
-                    </div>
-                    {editingReplacement ? (
-                      <Space>
-                        <Button size="small" type="primary" disabled={!replacementDraft.trim()} onClick={handleSaveReplacement}>Save</Button>
-                        <Button size="small" onClick={() => setEditingReplacement(false)}>Cancel</Button>
-                      </Space>
-                    ) : (
-                      <Button
-                        size="small"
-                        icon={<EditFilled />}
-                        onClick={() => { setReplacementDraft(replacementOrderNo); setEditingReplacement(true); }}
-                      >
-                        {replacementOrderNo ? 'Edit' : 'Add'}
-                      </Button>
-                    )}
-                  </div>
-                )}
+                {/* Parts / Ship to Branch + Label Scans */}
+                <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 16, flex: 1, minHeight: isMobile ? undefined : 0 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
 
                 {/* Parts header */}
                 <div style={{ marginBottom: 10 }}>
@@ -716,40 +777,18 @@ export function OrderDetailClient({ order, event }: Props) {
                     </div>
                   )}
                 </div>
+
+                </div>
+                <div style={{ width: isMobile ? '100%' : 360, flexShrink: 0, display: 'flex', flexDirection: 'column', minHeight: isMobile ? 220 : 0 }}>
+                  {labelScanContent}
+                </div>
+                </div>
               </div>
             )}
 
             {/* LOG TAB */}
             {activeTab === 'log' && (
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                {addingLog && (
-                  <div style={{
-                    marginBottom: 16, padding: 12,
-                    background: token.colorFillTertiary,
-                    borderRadius: token.borderRadiusSM,
-                    border: `1px solid ${token.colorBorderSecondary}`,
-                  }}>
-                    <Text style={{ fontSize: token.fontSizeSM, fontWeight: 500, display: 'block', marginBottom: 8 }}>New Note</Text>
-                    <Input.TextArea
-                      placeholder="Add a note to the activity log..."
-                      value={logDraft}
-                      onChange={e => setLogDraft(e.target.value)}
-                      rows={3}
-                      autoFocus
-                      style={{ marginBottom: 8 }}
-                    />
-                    <Space>
-                      <Button
-                        size="small" type="primary"
-                        disabled={!logDraft.trim()}
-                        onClick={() => { addLog(logDraft.trim(), false); setLogDraft(''); setAddingLog(false); }}
-                      >
-                        Save Note
-                      </Button>
-                      <Button size="small" onClick={() => { setAddingLog(false); setLogDraft(''); }}>Cancel</Button>
-                    </Space>
-                  </div>
-                )}
                 {isMobile ? (
                   <List
                     dataSource={[...logs].reverse()}
@@ -798,23 +837,18 @@ export function OrderDetailClient({ order, event }: Props) {
 
             {/* SCANS TAB — mobile only */}
             {activeTab === 'scans' && (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{
-                  flex: 1,
-                  background: token.colorFillTertiary,
-                  border: `1px dashed ${token.colorBorderSecondary}`,
-                  borderRadius: token.borderRadiusSM,
-                  display: 'flex', flexDirection: 'column',
-                  alignItems: 'center', justifyContent: 'center',
-                  gap: 6, minHeight: 160, cursor: 'pointer',
-                }} onClick={() => setExpandedScan(0)}>
-                  <BarcodeOutlined style={{ fontSize: token.fontSizeHeading2, color: token.colorTextQuaternary }} />
-                  <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No label scans attached</Text>
-                  <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Tap to expand</Text>
-                </div>
-                <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary, lineHeight: 1.5 }}>
-                  Label scans are auto-captured when a tech submits the event. Verify part numbers and Config IDs against the label before approving.
-                </Text>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10, minHeight: 0 }}>
+                <Segmented
+                  block
+                  size="small"
+                  value={scanTab}
+                  onChange={v => setScanTab(v as 'eventDetails' | 'messages')}
+                  options={[
+                    { label: 'Messages', value: 'messages' },
+                    { label: 'Event Details', value: 'eventDetails' },
+                  ]}
+                />
+                {scanTab === 'eventDetails' ? eventDetailsContent : messagesContent}
               </div>
             )}
 
@@ -823,27 +857,16 @@ export function OrderDetailClient({ order, event }: Props) {
           {/* Scan card — desktop only */}
           {!isMobile && <Card
             size="small"
-            title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Label Scans</span>}
-            style={{ width: 512, flexShrink: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}
-            styles={{ body: { flex: 1, overflow: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 10 } }}
+            tabList={[
+              { key: 'messages',     label: <span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Messages</span> },
+              { key: 'eventDetails', label: <span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Event Details</span> },
+            ]}
+            activeTabKey={scanTab}
+            onTabChange={key => setScanTab(key as 'eventDetails' | 'messages')}
+            style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}
+            styles={{ body: { flex: 1, overflow: 'auto', padding: 12, display: 'flex', flexDirection: 'column', minHeight: 0 } }}
           >
-            <div style={{
-              flex: 1,
-              background: token.colorFillTertiary,
-              border: `1px dashed ${token.colorBorderSecondary}`,
-              borderRadius: token.borderRadiusSM,
-              display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'center',
-              gap: 6, minHeight: 120, cursor: 'pointer',
-            }} onClick={() => setExpandedScan(0)}>
-              <BarcodeOutlined style={{ fontSize: token.fontSizeHeading2, color: token.colorTextQuaternary }} />
-              <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No label scans attached</Text>
-              <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Click to expand</Text>
-            </div>
-
-            <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary, lineHeight: 1.5 }}>
-              Label scans are auto-captured when a tech submits the event. Verify part numbers and Config IDs against the label before approving.
-            </Text>
+            {scanTab === 'eventDetails' ? eventDetailsContent : messagesContent}
           </Card>}
 
         </div>
@@ -993,7 +1016,7 @@ export function OrderDetailClient({ order, event }: Props) {
       <Modal
         title={procurementSuccess ? null : 'Assign to Procurement'}
         open={procurementOpen}
-        onCancel={() => { setProcurementOpen(false); setProcurementEmail(''); setProcurementOrderNo(''); setProcurementSuccess(false); }}
+        onCancel={() => { setProcurementOpen(false); setProcurementEmail(''); setProcurementSuccess(false); }}
         onOk={handleAssignProcurement}
         okText="Assign & Notify"
         okButtonProps={{ type: 'primary', disabled: !procurementEmail }}
@@ -1010,29 +1033,22 @@ export function OrderDetailClient({ order, event }: Props) {
               {order.eventId} has been assigned to procurement. Email notifications sent to {event.branch} branch and {procurementEmail}.
             </Text>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Button type="primary" onClick={() => { setProcurementOpen(false); setProcurementEmail(''); setProcurementOrderNo(''); setProcurementSuccess(false); }}>Done</Button>
+              <Button type="primary" onClick={() => { setProcurementOpen(false); setProcurementEmail(''); setProcurementSuccess(false); }}>Done</Button>
             </div>
           </div>
         ) : (
           <>
             <Text style={{ display: 'block', marginBottom: 16, fontSize: token.fontSize, color: token.colorTextSecondary }}>
-              Notify a procurement contact and optionally log the replacement order number.
+              Notify a procurement contact for this order.
             </Text>
             <Form layout="vertical" size="small">
-              <Form.Item label="Notify" style={{ marginBottom: 12 }}>
+              <Form.Item label="Notify" style={{ marginBottom: 0 }}>
                 <Select
                   placeholder="Select procurement contact..."
                   value={procurementEmail || undefined}
                   onChange={v => setProcurementEmail(v)}
                   options={PROCUREMENT_CONTACTS}
                   style={{ width: '100%' }}
-                />
-              </Form.Item>
-              <Form.Item label="Replacement Order # (optional)" style={{ marginBottom: 0 }}>
-                <Input
-                  placeholder="e.g. RO-2026-00123"
-                  value={procurementOrderNo}
-                  onChange={e => setProcurementOrderNo(e.target.value)}
                 />
               </Form.Item>
             </Form>
@@ -1071,7 +1087,7 @@ export function OrderDetailClient({ order, event }: Props) {
             <Form layout="vertical" size="small">
               <Form.Item label="Replacement Order #" required style={{ marginBottom: 0 }}>
                 <Input
-                  placeholder="e.g. RO-2026-00123"
+                  placeholder="e.g. SO110029876"
                   value={closeReplacementOrderNo}
                   onChange={e => setCloseReplacementOrderNo(e.target.value)}
                   autoFocus
@@ -1138,6 +1154,26 @@ export function OrderDetailClient({ order, event }: Props) {
         }}>
           <BarcodeOutlined style={{ fontSize: 48, color: token.colorTextQuaternary }} />
           <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No scan attached</Text>
+        </div>
+      </Modal>
+
+      {/* PHOTO EXPAND MODAL */}
+      <Modal
+        open={expandedPhoto !== null}
+        onCancel={() => setExpandedPhoto(null)}
+        footer={null}
+        width={560}
+        title="Photo"
+        centered
+      >
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          height: '78vh', gap: 12,
+          background: token.colorFillTertiary,
+          borderRadius: token.borderRadiusSM,
+        }}>
+          <PictureFilled style={{ fontSize: 48, color: token.colorTextQuaternary }} />
+          <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No photo attached</Text>
         </div>
       </Modal>
 

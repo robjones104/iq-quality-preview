@@ -280,11 +280,11 @@ export function TriageReview({ events, waitingViewAllHref, dataQualityViewAllHre
           </Card>
         </Col>
 
-        {/* Data Quality */}
+        {/* Poor Submissions by Branch */}
         <Col xs={24} lg={8}>
           <Card
             size="small"
-            title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Data Quality</span>}
+            title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Poor Submissions by Branch</span>}
             extra={
               allEdits.length === 0
                 ? undefined
@@ -308,9 +308,6 @@ export function TriageReview({ events, waitingViewAllHref, dataQualityViewAllHre
               <>
                 {/* By Branch */}
                 <div>
-                  <Text style={{ fontSize: token.fontSizeXS, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: token.colorTextTertiary, display: 'block', marginBottom: 8 }}>
-                    Recategorizations by Branch
-                  </Text>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {visibleBranches.map(({ branch, editedCount, totalCount, pct }) => (
                       <div
@@ -422,9 +419,6 @@ export function DataQualityChart({ events }: { events: QualityEvent[] }) {
         <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>of events recategorized</Text>
       </div>
       <div>
-        <Text style={{ fontSize: token.fontSizeXS, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: token.colorTextTertiary, display: 'block', marginBottom: 8 }}>
-          Recategorizations by Branch
-        </Text>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {visibleBranches.map(({ branch, count }) => (
             <div key={branch} role="button" tabIndex={0} onClick={() => router.push(`/events?branch=${encodeURIComponent(branch)}`)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/events?branch=${encodeURIComponent(branch)}`); } }} aria-label={`Filter events by branch: ${branch}`} style={{ cursor: 'pointer' }}>

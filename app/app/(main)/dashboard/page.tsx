@@ -1,10 +1,11 @@
 'use client';
 
 import React, { Fragment, Suspense, useRef, useMemo, useState } from 'react';
-import { AutoComplete, Button, Card, Col, Flex, Grid, Input, Progress, Row, Segmented, Select, Statistic, Tag, Space, Typography, theme } from 'antd';
+import { AutoComplete, Button, Card, Col, Flex, Grid, Input, Progress, Row, Segmented, Select, Statistic, Tag, Space, Tooltip, Typography, theme } from 'antd';
 import {
-  CloseOutlined, CaretDownFilled, CaretRightFilled, AppstoreFilled, FormOutlined, SearchOutlined, HourglassFilled,
-  CheckCircleFilled, ShoppingCartOutlined, CloseCircleFilled,
+  CloseOutlined, CaretDownFilled, CaretRightFilled, SearchOutlined,
+  FileTextFilled, FlagFilled, EyeFilled, MessageFilled, InfoCircleOutlined,
+  ClockCircleFilled, ShoppingFilled, CheckCircleFilled, CloseCircleFilled,
 } from '@ant-design/icons';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -57,11 +58,23 @@ function topEntry(events: QualityEvent[], key: keyof QualityEvent): string {
   return top ? top[0] : '--';
 }
 
+function MetricInfoIcon({ tooltip }: { tooltip: string }) {
+  const { token } = theme.useToken();
+  return (
+    <Tooltip title={tooltip}>
+      <InfoCircleOutlined
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        style={{ marginLeft: 6, color: token.colorTextTertiary, fontSize: token.fontSizeSM, cursor: 'help' }}
+      />
+    </Tooltip>
+  );
+}
+
 function KpiCard({
-  title, count, prior, accent, href, icon,
+  title, count, prior, accent, href, icon, tooltip,
 }: {
   title: string; count: number; prior: number | null; accent: string; href?: string;
-  icon: React.ReactNode;
+  icon: React.ReactNode; tooltip?: string;
 }) {
   const { token } = theme.useToken();
   const screens = Grid.useBreakpoint();
@@ -91,7 +104,12 @@ function KpiCard({
   const card = (
     <Card
       size="small"
-      title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>{title}</span>}
+      title={
+        <span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>
+          {title}
+          {tooltip && <MetricInfoIcon tooltip={tooltip} />}
+        </span>
+      }
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -124,7 +142,7 @@ function KpiCard({
           </div>
         </div>
         {!isMobile && (
-          <div style={{ fontSize: token.fontSizeHeading2, color: accent, opacity: 0.25, lineHeight: 1, flexShrink: 0 }}>
+          <div style={{ fontSize: token.fontSizeHeading2, color: accent, opacity: 0.3, lineHeight: 1, flexShrink: 0 }}>
             {icon}
           </div>
         )}
@@ -138,13 +156,14 @@ function KpiCard({
 }
 
 function SectionHeader({
-  label, stats, active, onClick, progress,
+  label, stats, active, onClick, progress, tooltip,
 }: {
   label: string;
   stats: { value: string | number; sub: string }[];
   active: boolean;
   onClick: () => void;
   progress?: { pct: number; color?: string; resolved?: number; total?: number };
+  tooltip?: string;
 }) {
   const { token } = theme.useToken();
   const [hovered, setHovered] = useState(false);
@@ -167,7 +186,12 @@ function SectionHeader({
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>{label}</span>}
+      title={
+        <span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>
+          {label}
+          {tooltip && <MetricInfoIcon tooltip={tooltip} />}
+        </span>
+      }
       extra={
         <ChevronIcon style={{ fontSize: token.fontSizeSM, color: active ? token.colorPrimary : hovered ? `${token.colorPrimary}99` : token.colorTextTertiary, transition: 'color 0.2s' }} />
       }
@@ -369,10 +393,14 @@ function DashboardPageContent() {
   const isWaiting  = (e: QualityEvent) => !!e.additionalInfoRequested;
 
   const kpis = [
-    { title: 'Total Events',        count: filteredEvents.length,                    prior: priorEvents?.length ?? null, accent: token.colorTextSecondary, href: buildKpiHref('/events', dateRange, appliedFilters),                                          icon: <AppstoreFilled /> },
-    { title: 'Reported',            count: filteredEvents.filter(isReported).length,  prior: prior(isReported),           accent: token.colorPrimary,       href: buildKpiHref('/events?status=Reported', dateRange, appliedFilters),                        icon: <FormOutlined /> },
-    { title: 'Under Investigation', count: filteredEvents.filter(isUnderInv).length,  prior: prior(isUnderInv),           accent: token.colorWarning,       href: buildKpiHref('/events?status=Under+Investigation', dateRange, appliedFilters),            icon: <SearchOutlined /> },
-    { title: 'Waiting on Additional Information', count: filteredEvents.filter(isWaiting).length,   prior: prior(isWaiting),            accent: token.colorTextSecondary,  href: buildKpiHref('/events?flag=additionalInfo', dateRange, appliedFilters),                  icon: <HourglassFilled /> },
+    { title: 'Total Events',        count: filteredEvents.length,                    prior: priorEvents?.length ?? null, accent: token.colorTextSecondary, href: buildKpiHref('/events', dateRange, appliedFilters),                                          icon: <FileTextFilled />,
+      tooltip: 'All events reported in the selected date range. Delta compares to the prior period of equal length.' },
+    { title: 'Reported',            count: filteredEvents.filter(isReported).length,  prior: prior(isReported),           accent: token.colorPrimary,       href: buildKpiHref('/events?status=Reported', dateRange, appliedFilters),                        icon: <FlagFilled />,
+      tooltip: 'Newly submitted events with status "Reported" — not yet picked up for investigation.' },
+    { title: 'Under Investigation', count: filteredEvents.filter(isUnderInv).length,  prior: prior(isUnderInv),           accent: token.colorWarning,       href: buildKpiHref('/events?status=Under+Investigation', dateRange, appliedFilters),            icon: <EyeFilled />,
+      tooltip: 'Events currently being investigated by Field Quality, including any awaiting a reply from the field.' },
+    { title: 'Waiting on Additional Information', count: filteredEvents.filter(isWaiting).length,   prior: prior(isWaiting),            accent: token.colorTextSecondary,  href: buildKpiHref('/events?flag=additionalInfo', dateRange, appliedFilters),                  icon: <MessageFilled />,
+      tooltip: 'Events where Field Quality has requested more information from the reporting tech and is awaiting a reply.' },
   ];
 
   const intakeStats = useMemo(() => {
@@ -434,10 +462,14 @@ function DashboardPageContent() {
   const isDeclinedOrder   = (o: Order) => !!o.declined;
 
   const orderKpis = [
-    { title: 'Pending Review',          count: filteredOrders.filter(isPendingReview).length,   prior: priorOrder(isPendingReview),   accent: token.colorWarning, href: buildKpiHref('/orders?orderStatus=Open', dateRange, {}),                   icon: <HourglassFilled /> },
-    { title: 'Assigned to Procurement', count: filteredOrders.filter(isWithProcurement).length,  prior: priorOrder(isWithProcurement), accent: token.colorInfo,    href: buildKpiHref('/orders?orderStatus=Open&decision=Approved', dateRange, {}), icon: <ShoppingCartOutlined /> },
-    { title: 'Approved',                count: filteredOrders.filter(isApprovedOrder).length,    prior: priorOrder(isApprovedOrder),   accent: token.colorPrimary, href: buildKpiHref('/orders?orderStatus=Open&decision=Approved', dateRange, {}), icon: <CheckCircleFilled /> },
-    { title: 'Declined',                count: filteredOrders.filter(isDeclinedOrder).length,    prior: priorOrder(isDeclinedOrder),   accent: token.colorError,   href: buildKpiHref('/orders?decision=Declined', dateRange, {}),                 icon: <CloseCircleFilled /> },
+    { title: 'Pending Review',          count: filteredOrders.filter(isPendingReview).length,   prior: priorOrder(isPendingReview),   accent: token.colorWarning, href: buildKpiHref('/orders?orderStatus=Open', dateRange, {}),                   icon: <ClockCircleFilled />,
+      tooltip: 'Open orders that CS has not yet approved or declined.' },
+    { title: 'Assigned to Procurement', count: filteredOrders.filter(isWithProcurement).length,  prior: priorOrder(isWithProcurement), accent: token.colorInfo,    href: buildKpiHref('/orders?orderStatus=Open&decision=Approved', dateRange, {}), icon: <ShoppingFilled />,
+      tooltip: 'Approved orders handed off to Procurement to source a replacement part.' },
+    { title: 'Approved',                count: filteredOrders.filter(isApprovedOrder).length,    prior: priorOrder(isApprovedOrder),   accent: token.colorPrimary, href: buildKpiHref('/orders?orderStatus=Open&decision=Approved', dateRange, {}), icon: <CheckCircleFilled />,
+      tooltip: 'Orders CS has approved but not yet assigned to Procurement.' },
+    { title: 'Declined',                count: filteredOrders.filter(isDeclinedOrder).length,    prior: priorOrder(isDeclinedOrder),   accent: token.colorError,   href: buildKpiHref('/orders?decision=Declined', dateRange, {}),                 icon: <CloseCircleFilled />,
+      tooltip: 'Orders CS declined to fulfill.' },
   ];
 
   const declinedStats = useMemo(() => {
@@ -562,7 +594,7 @@ function DashboardPageContent() {
                     ] : [
                       { title: 'Queue Health',      content: <QueueHealthChart events={filteredEvents} /> },
                       { title: 'Waiting on Additional Information',   content: <WaitingOnTechChart events={filteredEvents} /> },
-                      { title: 'Data Quality',      content: <DataQualityChart events={filteredEvents} /> },
+                      { title: 'Poor Submissions by Branch', content: <DataQualityChart events={filteredEvents} /> },
                     ]
                   ) : (
                     ordersSection === 'fulfillment' ? [
@@ -624,6 +656,7 @@ function DashboardPageContent() {
                       stats={intakeStats}
                       active={eventsSection === 'intake'}
                       onClick={() => setEventsSection('intake')}
+                      tooltip="Real-time view of what's coming in from the field — volume by branch, product, and discrepancy type."
                     />
                   </Col>
                   <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column' }}>
@@ -633,6 +666,7 @@ function DashboardPageContent() {
                       active={eventsSection === 'triage'}
                       onClick={() => setEventsSection('triage')}
                       progress={triageStats.progress}
+                      tooltip="Field Quality's active work queue — resolution rate (validated or invalidated) and recategorization rate for events in the selected period."
                     />
                   </Col>
                 </>
@@ -645,6 +679,7 @@ function DashboardPageContent() {
                       active={ordersSection === 'fulfillment'}
                       onClick={() => setOrdersSection('fulfillment')}
                       progress={orderStats.progress}
+                      tooltip="Parts-request orders and the CS handoff queue — share pending CS review and % of orders fulfilled (closed) in the selected period."
                     />
                   </Col>
                   <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column' }}>
@@ -653,6 +688,7 @@ function DashboardPageContent() {
                       stats={declinedStats.stats}
                       active={ordersSection === 'declined'}
                       onClick={() => setOrdersSection('declined')}
+                      tooltip="Orders CS declined to fulfill in the selected period, and the decline rate as a share of all orders."
                     />
                   </Col>
                 </>

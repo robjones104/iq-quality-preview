@@ -1,5 +1,6 @@
 import { Tag, Tooltip, theme } from 'antd';
 import { ShoppingCartOutlined, InfoCircleFilled } from '@ant-design/icons';
+import type { CSSProperties } from 'react';
 import type { EventStatus } from '@/data/types';
 
 // Hex values kept for chart library use (bar chart series colors in TriageReview)
@@ -25,6 +26,14 @@ const LIGHT_MODE_TEXT: Partial<Record<EventStatus, string>> = {
   'Under Investigation': '#873800',
   Validated:             '#237804',
 };
+
+// Reusable by any tag that needs to be colored by an event's status while showing its own label
+// (e.g. Orders/Procurement "Open"/"Closed" badges colored by the linked event's status).
+export function eventStatusTagProps(status: EventStatus, isDark: boolean): { color: string; style?: CSSProperties } {
+  const color = STATUS_PRESETS[status];
+  const textOverride = !isDark ? LIGHT_MODE_TEXT[status] : undefined;
+  return textOverride ? { color, style: { color: textOverride } } : { color };
+}
 
 type Props = {
   status: EventStatus;

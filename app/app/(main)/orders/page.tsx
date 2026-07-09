@@ -3,13 +3,13 @@
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import dayjs from 'dayjs';
 import {
-  AutoComplete, Dropdown, Form, Input, Modal, Pagination, Select,
+  AutoComplete, Form, Input, Modal, Pagination, Select,
   Switch, Table, Button, Tag, Tooltip, Typography, theme, Grid,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { MenuProps } from 'antd';
 import {
-  CheckCircleFilled, CheckOutlined, CloseCircleFilled, CloseOutlined, ExportOutlined, MoreOutlined, RollbackOutlined,
+  CheckCircleFilled, CheckOutlined, CloseCircleFilled, CloseOutlined, ExportOutlined, RollbackOutlined,
   SearchOutlined, SendOutlined,
 } from '@ant-design/icons';
 import { CopyableValue } from '@/components/CopyableValue';
@@ -24,15 +24,11 @@ import { EVENT_FILTER_CATEGORIES } from '@/data/filterOptions';
 import { useFilterStore } from '@/store/filterStore';
 import { useOrderStore } from '@/store/orderStore';
 import { OrderCard } from '@/components/OrderCard';
+import { eventStatusTagProps } from '@/components/StatusTag';
 import type { Order } from '@/data/orders';
 import type { QualityEvent } from '@/data/types';
 type OrderRow = Order & Pick<QualityEvent, 'discrepancy' | 'product' | 'door' | 'branch' | 'plant' | 'reportedBy' | 'status'>;
 type OrderStatus = 'Open' | 'Closed';
-
-const ORDER_STATUS_COLOR: Record<string, string> = {
-  Open:   'blue',
-  Closed: 'default',
-};
 
 const ORDER_STATUS_FILTER = [
   { key: 'orderStatus', label: 'Order Status', options: ['Open', 'Closed'] },
@@ -101,6 +97,7 @@ function OrdersPageContent() {
   const setAppliedFilters = (f: Record<string, string[]>) => { setAppliedFiltersLocal(f); setOrdersFilters(f); };
 
   const { token } = theme.useToken();
+  const isDark = token.colorBgContainer !== '#ffffff';
 
   const router = useRouter();
   const [searchText, setSearchText] = useState('');
@@ -170,7 +167,6 @@ function OrdersPageContent() {
 
   // Batch selection
   const [selectedOrderKeys, setSelectedOrderKeys] = useState<string[]>([]);
-  const [batchCloseOpen, setBatchCloseOpen]       = useState(false);
 
   // Row action target
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
@@ -196,15 +192,13 @@ function OrdersPageContent() {
   const [declineSuccess,    setDeclineSuccess]    = useState(false);
   const [closeSuccess,      setCloseSuccess]      = useState(false);
   const [reopenSuccess,     setReopenSuccess]     = useState(false);
-  const [batchCloseSuccess, setBatchCloseSuccess] = useState(false);
-  const [batchCloseCount,   setBatchCloseCount]   = useState(0);
   const [cardPage, setCardPage] = useState(1);
   useEffect(() => { setCardPage(1); }, [appliedFiltersLocal]);
 
   const handleExportOrders = () => {
-    const selected = filtered.filter(o => selectedOrderKeys.includes(o.id));
+    const toExport = selectedOrderKeys.length > 0 ? filtered.filter(o => selectedOrderKeys.includes(o.id)) : filtered;
     const headers = ['Order ID', 'Job No.', 'Order Status', 'Discrepancy', 'Product', 'Door Type', 'Reported By', 'Branch', 'Plant', 'Last Updated'];
-    const rows = selected.map(o => [o.id, o.jobNo, effectiveStatus(o), o.discrepancy, o.product, o.door, o.reportedBy, o.branch, o.plant, o.lastUpdated]);
+    const rows = toExport.map(o => [o.id, o.jobNo, effectiveStatus(o), o.discrepancy, o.product, o.door, o.reportedBy, o.branch, o.plant, o.lastUpdated]);
     const lines = [headers, ...rows].map(r => r.map(cell => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','));
     const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -243,17 +237,6 @@ function OrdersPageContent() {
     if (!activeOrderId || !reopenReason.trim()) return;
     patchOrder(activeOrderId, { status: 'Open', approved: false, declined: false, assignedToProcurement: false });
     setReopenSuccess(true);
-  };
-
-  const handleBatchClose = () => {
-    const toClose = selectedOrderKeys.filter(id => {
-      const row = orderRows.find(r => r.id === id);
-      return row && effectiveStatus(row) === 'Open';
-    });
-    if (toClose.length === 0) return;
-    toClose.forEach(id => patchOrder(id, { status: 'Closed' }));
-    setBatchCloseCount(toClose.length);
-    setBatchCloseSuccess(true);
   };
 
   const openRowAction = (key: string, row: OrderRow) => {
@@ -301,10 +284,6 @@ function OrdersPageContent() {
       matchDiscrepancy && matchDoor && matchProduct && matchBranch && matchPlant && matchReportedBy;
   });
 
-  const openCount = selectedOrderKeys.filter(id => {
-    const row = orderRows.find(r => r.id === id);
-    return row && effectiveStatus(row) === 'Open';
-  }).length;
 
   const evtColFilters = (key: string) =>
     (EVENT_FILTER_CATEGORIES.find(c => c.key === key)?.options ?? []).map(o => ({ text: o, value: o }));
@@ -407,34 +386,12 @@ function OrdersPageContent() {
       filteredValue: appliedFiltersLocal.orderStatus ?? null,
       width: 120,
       render: (_, record) => (
-        <Tag color={ORDER_STATUS_COLOR[effectiveStatus(record)] ?? 'default'}>
-          {effectiveStatus(record)}
-        </Tag>
+        <Tooltip title={`Event: ${record.status}`}>
+          <Tag {...eventStatusTagProps(record.status, isDark)}>
+            {effectiveStatus(record)}
+          </Tag>
+        </Tooltip>
       ),
-    },
-    {
-      title: '',
-      key: 'options',
-      width: 48,
-      render: (_, record) => {
-        const items = getMenuItems(record);
-        if (!items || items.length === 0) return null;
-        return (
-          <Dropdown
-            menu={{ items, onClick: ({ key }) => openRowAction(key, record) }}
-            trigger={['click']}
-          >
-            <Tooltip title="Actions">
-              <Button
-                type="text"
-                size="small"
-                icon={<MoreOutlined />}
-                onClick={e => e.stopPropagation()}
-              />
-            </Tooltip>
-          </Dropdown>
-        );
-      },
     },
   ];
 
@@ -620,40 +577,6 @@ function OrdersPageContent() {
         )}
       </Modal>
 
-      {/* BATCH CLOSE CONFIRM */}
-      <Modal
-        title={batchCloseSuccess ? null : 'Close Orders'}
-        open={batchCloseOpen}
-        onCancel={() => { setBatchCloseOpen(false); setBatchCloseSuccess(false); }}
-        onOk={handleBatchClose}
-        okText={`Close ${openCount} Order${openCount !== 1 ? 's' : ''}`}
-        okButtonProps={{ type: 'primary', disabled: openCount === 0 }}
-        footer={batchCloseSuccess ? null : undefined}
-      >
-        {batchCloseSuccess ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: token.fontSize }} />
-              <Typography.Text style={{ fontSize: token.fontSize, fontWeight: 600 }}>
-                {batchCloseCount} Order{batchCloseCount !== 1 ? 's' : ''} Closed
-              </Typography.Text>
-            </div>
-            <Typography.Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
-              {batchCloseCount} order{batchCloseCount !== 1 ? 's have' : ' has'} been closed successfully.
-            </Typography.Text>
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Button type="primary" onClick={() => { setBatchCloseOpen(false); setSelectedOrderKeys([]); setBatchCloseSuccess(false); }}>Done</Button>
-            </div>
-          </div>
-        ) : (
-          <Typography.Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
-            {openCount > 0
-              ? `This will close ${openCount} open order${openCount !== 1 ? 's' : ''}. They can be reopened individually if needed.`
-              : 'No open orders are selected.'}
-          </Typography.Text>
-        )}
-      </Modal>
-
       <PageHeader
         left={<DateRangeFilter value={dateRange} onChange={setDateRange} />}
         center={
@@ -706,6 +629,7 @@ function OrdersPageContent() {
                     key={row.id}
                     row={row}
                     status={effectiveStatus(row)}
+                    eventStatus={row.status}
                     menuItems={getMenuItems(row)}
                     onAction={key => openRowAction(key, row)}
                   />
@@ -726,37 +650,35 @@ function OrdersPageContent() {
             </div>
           ) : (
             <>
-              {selectedOrderKeys.length > 0 && (
-                <div style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  marginBottom: 8, padding: '6px 10px',
-                  background: token.colorFillSecondary,
-                  borderRadius: token.borderRadius,
-                  border: `1px solid ${token.colorBorderSecondary}`,
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                marginBottom: 8, padding: '6px 10px',
+                background: token.colorFillSecondary,
+                borderRadius: token.borderRadius,
+                border: `1px solid ${token.colorBorderSecondary}`,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {selectedOrderKeys.length > 0 ? (
+                    <>
+                      <Typography.Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
+                        {selectedOrderKeys.length} selected
+                      </Typography.Text>
+                      <Button type="link" size="small" style={{ padding: 0 }} onClick={() => setSelectedOrderKeys([])}>
+                        Clear
+                      </Button>
+                    </>
+                  ) : (
                     <Typography.Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
-                      {selectedOrderKeys.length} selected
+                      {filtered.length} order{filtered.length !== 1 ? 's' : ''}
                     </Typography.Text>
-                    <Button type="link" size="small" style={{ padding: 0 }} onClick={() => setSelectedOrderKeys([])}>
-                      Clear
-                    </Button>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Button
-                      size="small"
-                      icon={<CheckOutlined />}
-                      disabled={openCount === 0}
-                      onClick={() => setBatchCloseOpen(true)}
-                    >
-                      Close Orders{openCount > 0 ? ` (${openCount})` : ''}
-                    </Button>
-                    <Button size="small" icon={<ExportOutlined />} onClick={handleExportOrders}>
-                      Export
-                    </Button>
-                  </div>
+                  )}
                 </div>
-              )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Button size="small" icon={<ExportOutlined />} onClick={handleExportOrders}>
+                    Export
+                  </Button>
+                </div>
+              </div>
               <Table
                 dataSource={filtered}
                 columns={columns}
