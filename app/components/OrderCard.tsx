@@ -6,6 +6,8 @@ import { Button, Card, Dropdown, Tag, Tooltip, theme } from 'antd';
 import { MoreOutlined } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { CopyableValue } from './CopyableValue';
+import { eventStatusTagProps } from './StatusTag';
+import type { EventStatus } from '@/data/types';
 
 interface OrderCardRow {
   id: string;
@@ -17,20 +19,17 @@ interface OrderCardRow {
   product: string;
 }
 
-const ORDER_STATUS_COLOR: Record<string, string> = {
-  Open: 'blue',
-  Closed: 'default',
-};
-
 interface OrderCardProps {
   row: OrderCardRow;
   status: 'Open' | 'Closed';
+  eventStatus: EventStatus;
   menuItems: MenuProps['items'];
   onAction: (key: string) => void;
 }
 
-export function OrderCard({ row, status, menuItems, onAction }: OrderCardProps) {
+export function OrderCard({ row, status, eventStatus, menuItems, onAction }: OrderCardProps) {
   const { token } = theme.useToken();
+  const isDark = token.colorBgContainer !== '#ffffff';
   const router = useRouter();
 
   return (
@@ -52,7 +51,9 @@ export function OrderCard({ row, status, menuItems, onAction }: OrderCardProps) 
           {row.eventId}
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-          <Tag color={ORDER_STATUS_COLOR[status] ?? 'default'}>{status}</Tag>
+          <Tooltip title={`Event: ${eventStatus}`}>
+            <Tag {...eventStatusTagProps(eventStatus, isDark)}>{status}</Tag>
+          </Tooltip>
           {menuItems && menuItems.length > 0 && (
             <Dropdown
               menu={{ items: menuItems, onClick: ({ key }) => onAction(key) }}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { ConfigProvider, theme as antdTheme } from 'antd';
+import { App, ConfigProvider, theme as antdTheme } from 'antd';
 import { useThemeStore } from '@/store/themeStore';
 import { SEED_TOKENS, DARK_SEED_OVERRIDES, LIGHT_COMPONENT_TOKENS, DARK_COMPONENT_TOKENS } from '@/lib/theme';
 import { useLargeScreen } from '@/hooks/useLargeScreen';
@@ -31,8 +31,10 @@ export function AntdProvider({ children }: { children: React.ReactNode }) {
         components: darkMode ? DARK_COMPONENT_TOKENS : LIGHT_COMPONENT_TOKENS,
       }}
     >
-      <BodyBackground />
-      {children}
+      <App notification={{ placement: 'bottomRight' }}>
+        <BodyBackground />
+        {children}
+      </App>
     </ConfigProvider>
   );
 }

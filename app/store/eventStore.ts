@@ -4,6 +4,7 @@ import type { EventStatus, ActivityLog, EditHistoryEntry, AdditionalInfoRequest 
 
 type EventMutations = {
   status?: EventStatus;
+  plant?: string;
   rootCause?: string | null;
   escalation?: string | null;
   tags?: string[];

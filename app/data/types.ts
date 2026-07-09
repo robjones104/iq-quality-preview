@@ -26,7 +26,7 @@ export interface EditHistoryEntry {
   to: string | null;
 }
 
-export type AdditionalInfoRequestKind = 'initial' | 'followup' | 'edit' | 'new';
+export type AdditionalInfoRequestKind = 'initial' | 'followup' | 'new' | 'reply';
 
 export interface AdditionalInfoRequest {
   id: string;
@@ -35,6 +35,7 @@ export interface AdditionalInfoRequest {
   kind: AdditionalInfoRequestKind;
   relatesTo?: string;
   resendCount?: number;
+  sentBy?: 'Field Quality' | 'Customer Service' | 'Tech';
 }
 
 export interface QualityEvent {

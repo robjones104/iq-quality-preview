@@ -140,7 +140,12 @@ const SEED_EVENTS: QualityEvent[] = [
     tags: ['Urgent', 'Supplier Follow-up'],
     additionalInfoRequested: true,
     additionalInfoNote: 'Please confirm whether the secondary mounting bracket was present at delivery and provide a photo of the bracket mounting location on the unit.',
-    additionalInfoRequests: [{ id: 'air_2392_0', text: 'Please confirm whether the secondary mounting bracket was present at delivery and provide a photo of the bracket mounting location on the unit.', sentAt: '2026-06-05T15:44:00', kind: 'initial' }],
+    additionalInfoRequests: [
+      { id: 'air_2392_0', text: 'Please confirm whether the secondary mounting bracket was present at delivery and provide a photo of the bracket mounting location on the unit.', sentAt: '2026-06-05T15:44:00', kind: 'initial' },
+      { id: 'air_2392_1', text: "Bracket was not present at delivery — box only had the primary bracket and mounting screws. I'll attach a photo of the mounting location shortly.", sentAt: '2026-06-05T16:10:00', kind: 'reply', relatesTo: 'air_2392_0', sentBy: 'Tech' },
+      { id: 'air_2392_2', text: 'Thanks Lysandra — can you also confirm the serial number on the unit so we can check it against the packing list?', sentAt: '2026-06-05T16:45:00', kind: 'followup', relatesTo: 'air_2392_0', sentBy: 'Customer Service' },
+      { id: 'air_2392_3', text: 'Serial number is 43212345-07. Photo uploaded to the order attachments.', sentAt: '2026-06-05T17:02:00', kind: 'reply', relatesTo: 'air_2392_0', sentBy: 'Tech' },
+    ],
     partsRequest: [{
       partNumber: '43212345', quantityType: 'Piece', quantity: 5,
       description: 'Secondary mounting bracket for Motor Gearbox assembly. Required for Dura_Glide Greenstar 3000 installation.',
@@ -228,7 +233,12 @@ const SEED_EVENTS: QualityEvent[] = [
     id: 'QE_2370', date: '2026-06-01', jobNo: 'WO109805099', dfo: 2,
     status: 'Under Investigation', rootCause: null, additionalInfoRequested: true,
     additionalInfoNote: 'Can you confirm which firmware version was installed prior to the update, and whether all 6 units exhibit the same failure mode?',
-    additionalInfoRequests: [{ id: 'air_2370_0', text: 'Can you confirm which firmware version was installed prior to the update, and whether all 6 units exhibit the same failure mode?', sentAt: '2026-06-01T14:00:00', kind: 'initial' }],
+    additionalInfoRequests: [
+      { id: 'air_2370_0', text: 'Can you confirm which firmware version was installed prior to the update, and whether all 6 units exhibit the same failure mode?', sentAt: '2026-06-01T14:00:00', kind: 'initial' },
+      { id: 'air_2370_1', text: 'Firmware was on v2.3.1 before the update. All 6 units show the same failure — none register credentials after boot.', sentAt: '2026-06-01T15:20:00', kind: 'reply', relatesTo: 'air_2370_0', sentBy: 'Tech' },
+      { id: 'air_2370_2', text: 'Got it, thanks. Can you also check if a factory reset resolves it on just one unit before we escalate to engineering?', sentAt: '2026-06-01T15:50:00', kind: 'followup', relatesTo: 'air_2370_0', sentBy: 'Field Quality' },
+      { id: 'air_2370_3', text: "Tried a factory reset on unit #3 — same failure after reset. Doesn't look like a config issue.", sentAt: '2026-06-01T16:30:00', kind: 'reply', relatesTo: 'air_2370_0', sentBy: 'Tech' },
+    ],
     branch: 'New England', plant: 'MTC (Mount Comfort)', product: 'Controller',
     discrepancy: 'Will not Operate', door: 'Dura_Glide 2000 Series',
     issueDescription: 'Controller fails to register credentials after firmware update. Affects 6 units in same shipment.',
