@@ -699,7 +699,7 @@ export function OrderDetailClient({ order, event }: Props) {
                       <div style={{ display: 'flex', gap: 16 }}>
                         {displayField('Job No.', part.jobNo ?? order.jobNo, true)}
                         {isSO && displayField('EL LIN', part.elLineItem ?? event.elLine, true)}
-                        {displayField('DFO LIN', part.dfoLineItem, true)}
+                        {isSO && displayField('DFO LIN', part.dfoLineItem, true)}
                       </div>
                       <div style={{ display: 'flex', gap: 16 }}>
                         {displayField('Door Type', part.door)}
@@ -733,7 +733,7 @@ export function OrderDetailClient({ order, event }: Props) {
                         <div style={{ display: 'flex', gap: 12 }}>
                           {displayField('Job No.', part.jobNo ?? order.jobNo, true)}
                           {isSO && displayField('EL LIN', part.elLineItem ?? event.elLine, true)}
-                          {displayField('DFO LIN', part.dfoLineItem, true)}
+                          {isSO && displayField('DFO LIN', part.dfoLineItem, true)}
                         </div>
                       </div>
                       <div style={{ width: 1, background: token.colorBorderSecondary, alignSelf: 'stretch' }} />
@@ -1201,11 +1201,13 @@ export function OrderDetailClient({ order, event }: Props) {
                 </Form.Item>
               </Col>
             )}
-            <Col style={{ width: 80 }}>
-              <Form.Item label={<span style={{ whiteSpace: 'nowrap' }}>DFO LIN</span>} name="dfoLineItem" rules={[{ required: true, message: 'Required' }]} style={{ marginBottom: 10 }}>
-                <InputNumber min={1} controls={false} style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
+            {isSO && (
+              <Col style={{ width: 80 }}>
+                <Form.Item label={<span style={{ whiteSpace: 'nowrap' }}>DFO LIN</span>} name="dfoLineItem" rules={[{ required: true, message: 'Required' }]} style={{ marginBottom: 10 }}>
+                  <InputNumber min={1} controls={false} style={{ width: '100%' }} />
+                </Form.Item>
+              </Col>
+            )}
           </Row>
 
           {/* Row 2 — Door Type */}

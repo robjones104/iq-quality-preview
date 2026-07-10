@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card, List, Skeleton, Tag, Typography, Button, theme } from 'antd';
+import { Card, List, Skeleton, Tag, Tooltip, Typography, Button, theme } from 'antd';
 import { RobotFilled, ArrowRightOutlined, CaretDownFilled, CaretUpFilled } from '@ant-design/icons';
 import Link from 'next/link';
 import dayjs from 'dayjs';
@@ -166,7 +166,9 @@ export function AiSummary({
         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <RobotFilled style={{ color: token.colorPrimary }} />
           <span style={{ fontSize: token.fontSizeSM, fontWeight: 600 }}>AI Summary</span>
-          <Tag color="purple" style={{ fontSize: token.fontSizeXS, lineHeight: '16px', padding: '0 4px', marginLeft: 2 }}>Beta</Tag>
+          <Tooltip title="AI-generated from the events in the current filters — review before acting on it.">
+            <Tag color="purple" style={{ fontSize: token.fontSizeXS, lineHeight: '16px', padding: '0 4px', marginLeft: 2, cursor: 'help' }}>Beta</Tag>
+          </Tooltip>
         </span>
       }
       extra={

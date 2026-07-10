@@ -58,12 +58,12 @@ export function StatusTag({ status, hasOrder, additionalInfoRequested }: Props) 
     >
       {status}
       {hasOrder && (
-        <Tooltip title="Order attached" overlayInnerStyle={{ fontSize: token.fontSizeSM }}>
+        <Tooltip title="Order attached">
           <ShoppingCartOutlined style={{ fontSize: token.fontSizeSM }} />
         </Tooltip>
       )}
       {additionalInfoRequested && (
-        <Tooltip title="Additional info requested from tech" overlayInnerStyle={{ fontSize: token.fontSizeSM }}>
+        <Tooltip title="Additional info requested from tech">
           <InfoCircleFilled style={{ fontSize: token.fontSizeSM }} />
         </Tooltip>
       )}

@@ -11,6 +11,7 @@ app/tsconfig.tsbuildinfo
 # Local tooling
 .claude/
 app/.agents/
+app/dev-server.log
 
 # Research artifacts (local only)
 BACKLOG.md

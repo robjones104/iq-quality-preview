@@ -17,10 +17,11 @@ import { EVENT_FILTER_CATEGORIES } from '@/data/filterOptions';
 import { events } from '@/data/events';
 import { orders } from '@/data/orders';
 import { useFilterStore } from '@/store/filterStore';
+import { useOrderStore } from '@/store/orderStore';
 import { AiSummary } from '@/components/AiSummary';
 import { FieldIntake, EventsOverTimeChart, EventsByBranchChart, EventsByDiscrepancyChart } from '@/components/FieldIntake';
 import { TriageReview, QueueHealthChart, WaitingOnTechChart, DataQualityChart } from '@/components/TriageReview';
-import { OrderFulfillment, PendingCSReviewChart, DecisionTrendChart, DeclinedOrders, DeclinedOrdersPreview, DeclinedByBranchChart } from '@/components/OrderFulfillment';
+import { OrderFulfillment, PendingCSReviewChart, DecisionTrendChart, DeclinedOrdersPreview, DeclinedByBranchChart } from '@/components/OrderFulfillment';
 import type { QualityEvent } from '@/data/types';
 import type { Order } from '@/data/orders';
 import type { DateRange } from '@/components/DateRangeFilter';
@@ -155,6 +156,69 @@ function KpiCard({
     : <div>{card}</div>;
 }
 
+function SectionStats({
+  stats, progress,
+}: {
+  stats: { value: string | number; sub: string }[];
+  progress?: { pct: number; color?: string; resolved?: number; total?: number };
+}) {
+  const { token } = theme.useToken();
+  const divider = (
+    <div style={{
+      width: 1,
+      alignSelf: 'stretch',
+      background: token.colorBorderSecondary,
+      margin: '0 12px',
+      flexShrink: 0,
+    }} />
+  );
+  return (
+    <Flex align="center" style={{ flexWrap: 'nowrap' }}>
+      {stats.map((s, i) => (
+        <Fragment key={i}>
+          {i > 0 && divider}
+          <div style={{ minWidth: 0, flex: '1 1 auto' }}>
+            <div style={{
+              fontSize: token.fontSizeLG,
+              fontWeight: 700,
+              color: token.colorText,
+              lineHeight: 1,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}>
+              {s.value}
+            </div>
+            <div style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary, marginTop: 2, whiteSpace: 'nowrap' }}>
+              {s.sub}
+            </div>
+          </div>
+        </Fragment>
+      ))}
+      {progress && (
+        <>
+          {stats.length > 0 && divider}
+          <div style={{ flex: 1, minWidth: 48, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <Progress
+              percent={progress.pct}
+              showInfo={false}
+              size="small"
+              style={{ margin: 0 }}
+              strokeColor={progress.color ?? token.colorSuccess}
+              trailColor={token.colorFillSecondary}
+            />
+            {progress.resolved !== undefined && progress.total !== undefined && (
+              <div style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary }}>
+                {progress.resolved} resolved / {progress.total} total
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </Flex>
+  );
+}
+
 function SectionHeader({
   label, stats, active, onClick, progress, tooltip,
 }: {
@@ -168,15 +232,6 @@ function SectionHeader({
   const { token } = theme.useToken();
   const [hovered, setHovered] = useState(false);
   const ChevronIcon = active ? CaretDownFilled : CaretRightFilled;
-  const divider = (
-    <div style={{
-      width: 1,
-      alignSelf: 'stretch',
-      background: token.colorBorderSecondary,
-      margin: '0 12px',
-      flexShrink: 0,
-    }} />
-  );
   const borderColor = active
     ? token.colorPrimary
     : hovered ? `${token.colorPrimary}66` : token.colorBorderSecondary;
@@ -203,49 +258,7 @@ function SectionHeader({
         boxShadow: !active && hovered ? `0 4px 16px ${token.colorPrimary}22` : undefined,
       }}
     >
-      <Flex align="center" style={{ flexWrap: 'nowrap' }}>
-        {stats.map((s, i) => (
-          <Fragment key={i}>
-            {i > 0 && divider}
-            <div style={{ minWidth: 0, flex: '1 1 auto' }}>
-              <div style={{
-                fontSize: token.fontSizeLG,
-                fontWeight: 700,
-                color: token.colorText,
-                lineHeight: 1,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}>
-                {s.value}
-              </div>
-              <div style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary, marginTop: 2, whiteSpace: 'nowrap' }}>
-                {s.sub}
-              </div>
-            </div>
-          </Fragment>
-        ))}
-        {progress && (
-          <>
-            {stats.length > 0 && divider}
-            <div style={{ flex: 1, minWidth: 48, display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <Progress
-                percent={progress.pct}
-                showInfo={false}
-                size="small"
-                style={{ margin: 0 }}
-                strokeColor={progress.color ?? token.colorSuccess}
-                trailColor={token.colorFillSecondary}
-              />
-              {progress.resolved !== undefined && progress.total !== undefined && (
-                <div style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary }}>
-                  {progress.resolved} resolved / {progress.total} total
-                </div>
-              )}
-            </div>
-          </>
-        )}
-      </Flex>
+      <SectionStats stats={stats} progress={progress} />
     </Card>
   );
 }
@@ -285,6 +298,7 @@ function DashboardPageContent() {
   const screens = Grid.useBreakpoint();
   const sidePadding = screens.xxl ? '5%' : screens.xl ? '3.5%' : screens.md === false ? '20px' : `${token.paddingMD + 20}px`;
   const { dateRange, setDateRange, dashboardFilters: appliedFilters, setDashboardFilters: setAppliedFilters } = useFilterStore();
+  const { mutations: orderMutations } = useOrderStore();
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -369,13 +383,27 @@ function DashboardPageContent() {
     [dateRange, appliedFilters]
   );
 
+  const effectiveOrders = useMemo(() => orders.map(o => {
+    const m = orderMutations[o.id];
+    if (!m) return o;
+    return {
+      ...o,
+      orderStatus:           m.status ?? o.orderStatus,
+      approved:              m.approved ?? o.approved,
+      declined:              m.declined ?? o.declined,
+      declineReason:         m.declineReason ?? o.declineReason,
+      assignedToProcurement: m.assignedToProcurement ?? o.assignedToProcurement,
+      replacementOrderNo:    m.replacementOrderNo ?? o.replacementOrderNo,
+    };
+  }), [orderMutations]);
+
   const filteredOrders = useMemo(() => {
-    if (!dateRange) return orders;
-    return orders.filter(o => {
+    if (!dateRange) return effectiveOrders;
+    return effectiveOrders.filter(o => {
       const d = dayjs(o.lastUpdated, 'MM-DD-YYYY HH:mm');
       return !d.isBefore(dateRange[0], 'day') && !d.isAfter(dateRange[1], 'day');
     });
-  }, [dateRange]);
+  }, [effectiveOrders, dateRange]);
 
   const priorEvents = useMemo(() => {
     if (!dateRange) return null;
@@ -394,13 +422,13 @@ function DashboardPageContent() {
 
   const kpis = [
     { title: 'Total Events',        count: filteredEvents.length,                    prior: priorEvents?.length ?? null, accent: token.colorTextSecondary, href: buildKpiHref('/events', dateRange, appliedFilters),                                          icon: <FileTextFilled />,
-      tooltip: 'All events reported in the selected date range. Delta compares to the prior period of equal length.' },
+      tooltip: 'All events, in any status.' },
     { title: 'Reported',            count: filteredEvents.filter(isReported).length,  prior: prior(isReported),           accent: token.colorPrimary,       href: buildKpiHref('/events?status=Reported', dateRange, appliedFilters),                        icon: <FlagFilled />,
-      tooltip: 'Newly submitted events with status "Reported" — not yet picked up for investigation.' },
+      tooltip: "Newly submitted events that haven't been set to Under Investigation." },
     { title: 'Under Investigation', count: filteredEvents.filter(isUnderInv).length,  prior: prior(isUnderInv),           accent: token.colorWarning,       href: buildKpiHref('/events?status=Under+Investigation', dateRange, appliedFilters),            icon: <EyeFilled />,
-      tooltip: 'Events currently being investigated by Field Quality, including any awaiting a reply from the field.' },
+      tooltip: 'Events that are currently in review.' },
     { title: 'Waiting on Additional Information', count: filteredEvents.filter(isWaiting).length,   prior: prior(isWaiting),            accent: token.colorTextSecondary,  href: buildKpiHref('/events?flag=additionalInfo', dateRange, appliedFilters),                  icon: <MessageFilled />,
-      tooltip: 'Events where Field Quality has requested more information from the reporting tech and is awaiting a reply.' },
+      tooltip: 'Events awaiting additional info from the field.' },
   ];
 
   const intakeStats = useMemo(() => {
@@ -417,41 +445,27 @@ function DashboardPageContent() {
   const triageStats = useMemo(() => {
     const resolved      = filteredEvents.filter(e => e.status === 'Validated' || e.status === 'Invalidated').length;
     const rate          = filteredEvents.length > 0 ? Math.round((resolved / filteredEvents.length) * 100) : 0;
-    const eventsEdited  = filteredEvents.filter(e => !!e.editHistory?.length).length;
-    const reclassRate   = filteredEvents.length > 0 ? Math.round((eventsEdited / filteredEvents.length) * 100) : 0;
+    const eventsEdited  = filteredEvents.filter(e => e.editHistory?.some(entry => entry.field !== 'Root Cause')).length;
+    const editedRate    = filteredEvents.length > 0 ? Math.round((eventsEdited / filteredEvents.length) * 100) : 0;
     return {
       stats: [
         { value: `${rate}%`,       sub: 'events resolved' },
-        { value: `${reclassRate}%`, sub: 'events recategorized' },
+        { value: `${editedRate}%`, sub: 'events cleaned' },
       ],
       progress: { pct: rate, resolved, total: filteredEvents.length },
     };
   }, [filteredEvents]);
-
-  const orderStats = useMemo(() => {
-    const total   = filteredOrders.length;
-    const pending = filteredOrders.filter(o => o.orderStatus === 'Open' && !o.approved && !o.declined).length;
-    const closed  = filteredOrders.filter(o => o.orderStatus === 'Closed').length;
-    const pct     = total > 0 ? Math.round((closed / total) * 100) : 0;
-    return {
-      stats: [
-        { value: pending,    sub: 'pending review' },
-        { value: `${pct}%`, sub: 'fulfilled' },
-      ],
-      progress: { pct, resolved: closed, total },
-    };
-  }, [filteredOrders]);
 
   const priorOrders = useMemo(() => {
     if (!dateRange) return null;
     const duration = dateRange[1].diff(dateRange[0], 'day') + 1;
     const priorStart = dateRange[0].subtract(duration, 'day');
     const priorEnd = dateRange[0].subtract(1, 'day');
-    return orders.filter(o => {
+    return effectiveOrders.filter(o => {
       const d = dayjs(o.lastUpdated, 'MM-DD-YYYY HH:mm');
       return !d.isBefore(priorStart, 'day') && !d.isAfter(priorEnd, 'day');
     });
-  }, [dateRange]);
+  }, [effectiveOrders, dateRange]);
 
   const priorOrder = (fn: (o: Order) => boolean) =>
     priorOrders ? priorOrders.filter(fn).length : null;
@@ -463,26 +477,14 @@ function DashboardPageContent() {
 
   const orderKpis = [
     { title: 'Pending Review',          count: filteredOrders.filter(isPendingReview).length,   prior: priorOrder(isPendingReview),   accent: token.colorWarning, href: buildKpiHref('/orders?orderStatus=Open', dateRange, {}),                   icon: <ClockCircleFilled />,
-      tooltip: 'Open orders that CS has not yet approved or declined.' },
-    { title: 'Assigned to Procurement', count: filteredOrders.filter(isWithProcurement).length,  prior: priorOrder(isWithProcurement), accent: token.colorInfo,    href: buildKpiHref('/orders?orderStatus=Open&decision=Approved', dateRange, {}), icon: <ShoppingFilled />,
+      tooltip: 'Open orders awaiting an approve or decline decision.' },
+    { title: 'Assigned to Procurement', count: filteredOrders.filter(isWithProcurement).length,  prior: priorOrder(isWithProcurement), accent: token.colorInfo,    href: buildKpiHref('/orders?orderStatus=Open&flag=procurement', dateRange, {}), icon: <ShoppingFilled />,
       tooltip: 'Approved orders handed off to Procurement to source a replacement part.' },
     { title: 'Approved',                count: filteredOrders.filter(isApprovedOrder).length,    prior: priorOrder(isApprovedOrder),   accent: token.colorPrimary, href: buildKpiHref('/orders?orderStatus=Open&decision=Approved', dateRange, {}), icon: <CheckCircleFilled />,
-      tooltip: 'Orders CS has approved but not yet assigned to Procurement.' },
+      tooltip: 'Orders approved but not yet assigned to Procurement.' },
     { title: 'Declined',                count: filteredOrders.filter(isDeclinedOrder).length,    prior: priorOrder(isDeclinedOrder),   accent: token.colorError,   href: buildKpiHref('/orders?decision=Declined', dateRange, {}),                 icon: <CloseCircleFilled />,
-      tooltip: 'Orders CS declined to fulfill.' },
+      tooltip: 'Orders declined for fulfillment.' },
   ];
-
-  const declinedStats = useMemo(() => {
-    const total = filteredOrders.length;
-    const declined = filteredOrders.filter(o => o.declined).length;
-    const rate = total > 0 ? Math.round((declined / total) * 100) : 0;
-    return {
-      stats: [
-        { value: declined,   sub: 'declined this period' },
-        { value: `${rate}%`, sub: 'decline rate' },
-      ],
-    };
-  }, [filteredOrders]);
 
   const carouselRef = useRef<HTMLDivElement>(null);
   const [carouselIndex, setCarouselIndex] = useState(0);
@@ -646,62 +648,42 @@ function DashboardPageContent() {
                 );
               })()}
             </div>
-          ) : (
+          ) : view === 'events' ? (
             <Row gutter={token.marginSM} style={{ alignItems: 'stretch' }}>
-              {view === 'events' ? (
-                <>
-                  <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column' }}>
-                    <SectionHeader
-                      label="Field Intake"
-                      stats={intakeStats}
-                      active={eventsSection === 'intake'}
-                      onClick={() => setEventsSection('intake')}
-                      tooltip="Real-time view of what's coming in from the field — volume by branch, product, and discrepancy type."
-                    />
-                  </Col>
-                  <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column' }}>
-                    <SectionHeader
-                      label="Triage / Review"
-                      stats={triageStats.stats}
-                      active={eventsSection === 'triage'}
-                      onClick={() => setEventsSection('triage')}
-                      progress={triageStats.progress}
-                      tooltip="Field Quality's active work queue — resolution rate (validated or invalidated) and recategorization rate for events in the selected period."
-                    />
-                  </Col>
-                </>
-              ) : (
-                <>
-                  <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column' }}>
-                    <SectionHeader
-                      label="Order Fulfillment"
-                      stats={orderStats.stats}
-                      active={ordersSection === 'fulfillment'}
-                      onClick={() => setOrdersSection('fulfillment')}
-                      progress={orderStats.progress}
-                      tooltip="Parts-request orders and the CS handoff queue — share pending CS review and % of orders fulfilled (closed) in the selected period."
-                    />
-                  </Col>
-                  <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column' }}>
-                    <SectionHeader
-                      label="Declined Orders"
-                      stats={declinedStats.stats}
-                      active={ordersSection === 'declined'}
-                      onClick={() => setOrdersSection('declined')}
-                      tooltip="Orders CS declined to fulfill in the selected period, and the decline rate as a share of all orders."
-                    />
-                  </Col>
-                </>
-              )}
+              <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column' }}>
+                <SectionHeader
+                  label="Field Intake"
+                  stats={intakeStats}
+                  active={eventsSection === 'intake'}
+                  onClick={() => setEventsSection('intake')}
+                  tooltip="All events, by branch, product, and discrepancy type."
+                />
+              </Col>
+              <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column' }}>
+                <SectionHeader
+                  label="In Review"
+                  stats={triageStats.stats}
+                  active={eventsSection === 'triage'}
+                  onClick={() => setEventsSection('triage')}
+                  progress={triageStats.progress}
+                  tooltip="Review workload. What still needs attention, and what's being cleaned."
+                />
+              </Col>
             </Row>
-          )}
+          ) : null}
 
           {screens.md !== false && (
             <div>
-              {view === 'events' && eventsSection === 'intake'      && <FieldIntake events={filteredEvents} dateRange={dateRange} />}
-              {view === 'events' && eventsSection === 'triage'      && <TriageReview events={filteredEvents} waitingViewAllHref={buildKpiHref('/events?flag=additionalInfo', dateRange, {})} dataQualityViewAllHref={buildKpiHref('/events?flag=edited', dateRange, {})} />}
-              {view === 'orders' && ordersSection === 'fulfillment' && <OrderFulfillment events={filteredEvents} orders={filteredOrders} viewAllHref={buildKpiHref('/orders?orderStatus=Open&decision=Pending', dateRange, {})} />}
-              {view === 'orders' && ordersSection === 'declined'    && <DeclinedOrders orders={filteredOrders} viewAllHref={buildKpiHref('/orders?decision=Declined', dateRange, {})} />}
+              {view === 'events' && eventsSection === 'intake' && <FieldIntake events={filteredEvents} dateRange={dateRange} />}
+              {view === 'events' && eventsSection === 'triage' && <TriageReview events={filteredEvents} waitingViewAllHref={buildKpiHref('/events?flag=additionalInfo', dateRange, {})} dataQualityViewAllHref={buildKpiHref('/events?flag=edited', dateRange, {})} />}
+              {view === 'orders' && (
+                <OrderFulfillment
+                  events={filteredEvents}
+                  orders={filteredOrders}
+                  fulfillmentHref={buildKpiHref('/orders?orderStatus=Open&decision=Pending', dateRange, {})}
+                  declinedHref={buildKpiHref('/orders?decision=Declined', dateRange, {})}
+                />
+              )}
             </div>
           )}
         </Flex>

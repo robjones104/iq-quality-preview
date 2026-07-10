@@ -3,19 +3,15 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { theme, Grid, Badge, Button, Drawer, Menu } from 'antd';
+import { theme, Grid, Button, Drawer, Menu } from 'antd';
 import {
   MenuOutlined, MoonFilled, SunFilled,
   HomeFilled, CalendarFilled, ShoppingFilled, ContainerFilled,
-  DatabaseFilled, BellFilled, UserOutlined, EditOutlined, LogoutOutlined,
+  DatabaseFilled, UserOutlined, EditOutlined, LogoutOutlined,
 } from '@ant-design/icons';
 import { useThemeStore } from '@/store/themeStore';
 import { useFilterStore } from '@/store/filterStore';
 import { useSignOut, CURRENT_USER_EMAIL } from '@/lib/auth';
-import { events } from '@/data/events';
-import { orders } from '@/data/orders';
-import { escalations } from '@/data/escalations';
-import { getNotifications, countNewNotifications } from '@/lib/notifications';
 import dayjs from 'dayjs';
 
 const { useBreakpoint } = Grid;
@@ -37,7 +33,6 @@ export function PageHeader({ left, middle, center, right }: Props) {
   const close = () => setMobileNavOpen(false);
   const { dateRange } = useFilterStore();
   const signOut = useSignOut();
-  const newNotificationCount = countNewNotifications(getNotifications(events, escalations, orders));
 
   const navHref = (base: string): string => {
     if ((base !== '/events' && base !== '/orders') || !dateRange) return base;
@@ -58,7 +53,6 @@ export function PageHeader({ left, middle, center, right }: Props) {
     if (pathname.startsWith('/events'))       return '/events';
     if (pathname.startsWith('/orders'))       return '/orders';
     if (pathname.startsWith('/procurement'))  return '/procurement';
-    if (pathname.startsWith('/notifications')) return '/notifications';
     if (pathname.startsWith('/account'))      return 'edit-password';
     return '';
   })();
@@ -68,9 +62,7 @@ export function PageHeader({ left, middle, center, right }: Props) {
     { key: '/events',             icon: <CalendarFilled />, label: <Link href={navHref('/events')}  onClick={close}>Events</Link> },
     { key: '/orders',             icon: <ShoppingFilled />, label: <Link href={navHref('/orders')}  onClick={close}>Orders</Link> },
     { key: '/procurement',        icon: <ContainerFilled />, label: <Link href="/procurement"        onClick={close}>Procurement</Link> },
-    { key: '/manage/root-causes', icon: <DatabaseFilled />, label: <Link href="/manage/root-causes" onClick={close}>Manage Lists</Link> },
-    { type: 'divider' as const },
-    { key: '/notifications',      icon: <Badge count={newNotificationCount} size="small" offset={[2, 0]}><BellFilled /></Badge>, label: <Link href="/notifications" onClick={close}>Notifications</Link> },
+    { key: '/manage/root-causes', icon: <DatabaseFilled />, label: <Link href="/manage/root-causes" onClick={close}>Categories</Link> },
     { type: 'divider' as const },
     {
       key: 'account',

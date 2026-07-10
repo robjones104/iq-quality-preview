@@ -8,22 +8,17 @@ import {
   ShoppingFilled,
   ContainerFilled,
   DatabaseFilled,
-  BellFilled,
   UserOutlined,
   EditOutlined,
   MoonFilled,
   SunFilled,
   LogoutOutlined,
 } from '@ant-design/icons';
-import { Badge, Dropdown, Grid, Switch, Tooltip, theme } from 'antd';
+import { Dropdown, Grid, Switch, Tooltip, theme } from 'antd';
 import { useThemeStore } from '@/store/themeStore';
 import { useFilterStore } from '@/store/filterStore';
 import { useSignOut, CURRENT_USER_EMAIL } from '@/lib/auth';
-import { NAV_TOP, NAV_BOTTOM } from '@/lib/nav';
-import { events } from '@/data/events';
-import { orders } from '@/data/orders';
-import { escalations } from '@/data/escalations';
-import { getNotifications, countNewNotifications } from '@/lib/notifications';
+import { NAV_TOP } from '@/lib/nav';
 import dayjs from 'dayjs';
 
 // Icon mapping — keyed to label strings from lib/nav.ts
@@ -32,7 +27,6 @@ const ICON_MAP: Record<string, React.ComponentType<{ style?: React.CSSProperties
   'Events': CalendarFilled,
   'Orders': ShoppingFilled,
   'Procurement': ContainerFilled,
-  'Notifications': BellFilled,
 };
 
 // Pages that carry the active dashboard date range when navigating from the sidebar
@@ -48,7 +42,6 @@ export function SidebarNav() {
   const expanded = !!screens.xxl;
   const { dateRange } = useFilterStore();
   const signOut = useSignOut();
-  const newNotificationCount = countNewNotifications(getNotifications(events, escalations, orders));
 
   const accountMenuItems = [
     { key: 'edit-password', icon: <EditOutlined />, label: <Link href="/account">Edit Password</Link> },
@@ -105,9 +98,7 @@ export function SidebarNav() {
           transition: 'background 0.15s',
         }}
       >
-        <Badge count={label === 'Notifications' ? newNotificationCount : 0} size="small" offset={[-2, 2]}>
-          <Icon style={{ fontSize: token.fontSizeXL, flexShrink: 0, color: active ? activeNavColor : token.colorTextSecondary, transition: 'color 0.15s' }} />
-        </Badge>
+        <Icon style={{ fontSize: token.fontSizeXL, flexShrink: 0, color: active ? activeNavColor : token.colorTextSecondary, transition: 'color 0.15s' }} />
         {expanded && (
           <span style={{ fontSize: token.fontSize, fontWeight: active ? 600 : 400, color: active ? activeNavColor : token.colorTextSecondary, transition: 'color 0.15s', whiteSpace: 'nowrap' }}>
             {label}
@@ -164,7 +155,7 @@ return (
 
         {NAV_TOP.map(({ href, label }) => navButton(href, label, navHref(href)))}
 
-        {/* Manage Lists — direct link */}
+        {/* Categories — direct link */}
         {(() => {
           const link = (
             <Link
@@ -187,19 +178,17 @@ return (
               <DatabaseFilled style={{ fontSize: token.fontSizeXL, flexShrink: 0, color: isManageActive ? activeNavColor : token.colorTextSecondary, transition: 'color 0.15s' }} />
               {expanded && (
                 <span style={{ fontSize: token.fontSize, fontWeight: isManageActive ? 600 : 400, color: isManageActive ? activeNavColor : token.colorTextSecondary, transition: 'color 0.15s', whiteSpace: 'nowrap' }}>
-                  Manage Lists
+                  Categories
                 </span>
               )}
             </Link>
           );
-          return expanded ? link : <Tooltip title="Manage Lists" placement="right">{link}</Tooltip>;
+          return expanded ? link : <Tooltip title="Categories" placement="right">{link}</Tooltip>;
         })()}
       </div>
 
       {/* Bottom: utility nav + theme toggle */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20, alignItems: expanded ? 'flex-start' : 'center', width: '100%' }}>
-        {NAV_BOTTOM.map(({ href, label }) => navButton(href, label))}
-
         <Dropdown menu={{ items: accountMenuItems }} trigger={['click']} placement="topLeft">
           <Tooltip title={expanded ? null : CURRENT_USER_EMAIL} placement="right">
             <div
