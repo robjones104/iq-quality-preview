@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { EventStatus, ActivityLog, EditHistoryEntry, AdditionalInfoRequest } from '@/data/types';
+import type { EventStatus, ActivityLog, EditHistoryEntry, AdditionalInfoRequest, QualityEvent } from '@/data/types';
 
 type EventMutations = {
   status?: EventStatus;
@@ -13,6 +13,14 @@ type EventMutations = {
   rootCauseOptions?: { value: string; label: string }[];
   editHistory?: EditHistoryEntry[];
   activityLogAdditions?: ActivityLog[];
+  discrepancy?: string;
+  product?: string;
+  door?: string;
+  jobNo?: string;
+  issueDescription?: string;
+  dfo?: number;
+  elLine?: number;
+  partsRequest?: QualityEvent['partsRequest'];
 };
 
 type EventMutationStore = {

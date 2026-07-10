@@ -18,7 +18,3 @@ export const NAV_MANAGE: NavItem[] = [
   { href: '/manage/tags', label: 'Tags' },
   { href: '/manage/escalations', label: 'Escalation Types' },
 ];
-
-export const NAV_BOTTOM: NavItem[] = [
-  { href: '/notifications', label: 'Notifications' },
-];

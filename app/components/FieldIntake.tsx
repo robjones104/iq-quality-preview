@@ -11,7 +11,6 @@ import { ExpandToggle } from './CardControls';
 
 const { Text } = Typography;
 
-
 function countBy<T>(arr: T[], key: (item: T) => string): Record<string, number> {
   return arr.reduce<Record<string, number>>((acc, item) => {
     const k = key(item);
@@ -120,7 +119,12 @@ export function FieldIntake({
 
         {/* Events over time */}
         <Col xs={24} lg={8}>
-          <Card size="small" title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Events Over Time</span>} style={{ marginBottom: token.marginSM }} styles={{ body: { minHeight: 320 } }}>
+          <Card
+            size="small"
+            title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Events Over Time</span>}
+            style={{ marginBottom: token.marginSM }}
+            styles={{ body: { minHeight: 320 } }}
+          >
             <div style={{ cursor: 'pointer' }}>
               <Line
                 key={plotTheme}

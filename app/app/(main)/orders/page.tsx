@@ -69,6 +69,7 @@ function OrdersPageContent() {
   const searchParams = useSearchParams();
   const orderStatusParam = searchParams.get('orderStatus');
   const decisionParam    = searchParams.get('decision');
+  const flagParam        = searchParams.get('flag');
   const fromParam        = searchParams.get('from');
   const toParam          = searchParams.get('to');
 
@@ -162,6 +163,8 @@ function OrdersPageContent() {
     orderMutations[row.id]?.approved ?? row.approved ?? false;
   const isDeclined = (row: OrderRow): boolean =>
     orderMutations[row.id]?.declined ?? row.declined ?? false;
+  const isWithProcurement = (row: OrderRow): boolean =>
+    orderMutations[row.id]?.assignedToProcurement ?? row.assignedToProcurement ?? false;
   const effectiveReplacementOrderNo = (row: OrderRow): string =>
     orderMutations[row.id]?.replacementOrderNo ?? row.replacementOrderNo ?? '';
 
@@ -269,6 +272,7 @@ function OrdersPageContent() {
       const d = dayjs(o.lastUpdated, 'MM-DD-YYYY HH:mm');
       if (d.isBefore(dateRange[0], 'day') || d.isAfter(dateRange[1], 'day')) return false;
     }
+    if (flagParam === 'procurement' && !(isApproved(o) && isWithProcurement(o))) return false;
     const matchOrderStatus   = !appliedFiltersLocal.orderStatus?.length   || appliedFiltersLocal.orderStatus.includes(effectiveStatus(o));
     const matchDecision      = !appliedFiltersLocal.decision?.length      || appliedFiltersLocal.decision.some(d =>
       (d === 'Approved' && isApproved(o)) || (d === 'Declined' && isDeclined(o)) || (d === 'Pending' && !isApproved(o) && !isDeclined(o))

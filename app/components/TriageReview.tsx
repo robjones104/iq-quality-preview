@@ -1,8 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Card, Col, Row, Typography, theme } from 'antd';
-import { HourglassFilled, EditOutlined } from '@ant-design/icons';
+import { Card, Col, Row, Tooltip, Typography, theme } from 'antd';
+import { HourglassFilled, EditOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import dayjs from 'dayjs';
@@ -11,7 +11,7 @@ import { useFilterStore } from '@/store/filterStore';
 import { STATUS_COLORS, StatusTag } from '@/components/StatusTag';
 import { ExpandToggle, Dot } from './CardControls';
 
-const { Text } = Typography;
+const { Text, Paragraph } = Typography;
 const TODAY = dayjs();
 
 const FRESH_MAX = 3;
@@ -20,6 +20,17 @@ const LIST_MAX  = 8;
 
 function ageDays(date: string): number {
   return TODAY.diff(dayjs(date), 'day');
+}
+
+function MetricInfoIcon({ tooltip, token }: { tooltip: string; token: ReturnType<typeof theme.useToken>['token'] }) {
+  return (
+    <Tooltip title={tooltip}>
+      <InfoCircleOutlined
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        style={{ marginLeft: 6, color: token.colorTextTertiary, fontSize: token.fontSizeSM, cursor: 'help' }}
+      />
+    </Tooltip>
+  );
 }
 
 function WaitingCard({ event }: { event: QualityEvent }) {
@@ -50,17 +61,19 @@ function WaitingCard({ event }: { event: QualityEvent }) {
       {/* Right: comment + days side by side, both top-aligned */}
       <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
         {event.additionalInfoNote && (
-          <Text style={{
-            flex: 1,
-            fontSize: token.fontSizeSM,
-            color: token.colorTextSecondary,
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
-          }}>
+          <Paragraph
+            ellipsis={{ rows: 2 }}
+            style={{
+              flex: 1,
+              minWidth: 0,
+              marginBottom: 0,
+              fontSize: token.fontSizeSM,
+              color: token.colorTextSecondary,
+              overflowWrap: 'anywhere',
+            }}
+          >
             {event.additionalInfoNote}
-          </Text>
+          </Paragraph>
         )}
         <Text style={{
           flexShrink: 0,
@@ -119,13 +132,17 @@ export function TriageReview({ events, waitingViewAllHref, dataQualityViewAllHre
     [events]
   );
 
+  // Root Cause is set as part of normal resolution, not a correction to a poor submission —
+  // exclude it so this card reflects only edits to what the tech originally reported.
+  const isPoorSubmissionEdit = (entry: { field: string }) => entry.field !== 'Root Cause';
+
   const allEdits = useMemo(() =>
-    events.flatMap(e => e.editHistory ?? []),
+    events.flatMap(e => (e.editHistory ?? []).filter(isPoorSubmissionEdit)),
     [events]
   );
 
   const eventsEdited = useMemo(() =>
-    events.filter(e => e.editHistory && e.editHistory.length > 0).length,
+    events.filter(e => e.editHistory?.some(isPoorSubmissionEdit)).length,
     [events]
   );
 
@@ -134,7 +151,7 @@ export function TriageReview({ events, waitingViewAllHref, dataQualityViewAllHre
     const editedByBranch: Record<string, number> = {};
     for (const e of events) {
       totalByBranch[e.branch] = (totalByBranch[e.branch] ?? 0) + 1;
-      if (e.editHistory?.length) editedByBranch[e.branch] = (editedByBranch[e.branch] ?? 0) + 1;
+      if (e.editHistory?.some(isPoorSubmissionEdit)) editedByBranch[e.branch] = (editedByBranch[e.branch] ?? 0) + 1;
     }
     return Object.entries(editedByBranch)
       .map(([branch, editedCount]) => {
@@ -185,7 +202,7 @@ export function TriageReview({ events, waitingViewAllHref, dataQualityViewAllHre
         type="secondary"
         style={{ display: 'block', marginBottom: 8, fontSize: token.fontSizeSM, fontWeight: 600, letterSpacing: '0.6px', textTransform: 'uppercase' }}
       >
-        Triage / Review
+        In Review
       </Text>
 
       <Row gutter={token.marginSM} style={{ alignItems: 'flex-start' }}>
@@ -194,7 +211,12 @@ export function TriageReview({ events, waitingViewAllHref, dataQualityViewAllHre
         <Col xs={24} lg={8}>
           <Card
             size="small"
-            title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Queue Health</span>}
+            title={
+              <span style={{ fontSize: token.fontSizeSM, fontWeight: 500, display: 'flex', alignItems: 'center' }}>
+                Queue Health
+                <MetricInfoIcon tooltip="Open events by age." token={token} />
+              </span>
+            }
             extra={<span style={{ fontSize: token.fontSizeSM, color: token.colorTextQuaternary }}>{openTotal} open · {resolutionRate}% resolved</span>}
             style={{ display: 'flex', flexDirection: 'column' }}
             styles={{ body: { display: 'flex', flexDirection: 'column', minHeight: 320 } }}
@@ -222,20 +244,22 @@ export function TriageReview({ events, waitingViewAllHref, dataQualityViewAllHre
                     ...matrixCols.map(col => {
                       const count = matrix[row.key][col.key];
                       const bg = rowHeat[row.key];
+                      const label = `${count} ${col.status} events — ${row.label}`;
                       return (
-                        <div
-                          key={`${row.key}-${col.key}`}
-                          role="button"
-                          tabIndex={0}
-                          aria-label={`${count} ${col.status} events — ${row.label}`}
-                          onClick={() => navigate(row.dr(), col.status)}
-                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(row.dr(), col.status); } }}
-                          style={{ background: bg, padding: '16px 8px', textAlign: 'center', cursor: 'pointer', transition: 'background 0.15s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                          onMouseEnter={e => (e.currentTarget.style.background = token.colorFillSecondary)}
-                          onMouseLeave={e => (e.currentTarget.style.background = bg)}
-                        >
-                          <Text style={{ fontSize: token.fontSizeHeading3, fontWeight: 700, lineHeight: 1 }}>{count}</Text>
-                        </div>
+                        <Tooltip key={`${row.key}-${col.key}`} title={label}>
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            aria-label={label}
+                            onClick={() => navigate(row.dr(), col.status)}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(row.dr(), col.status); } }}
+                            style={{ background: bg, padding: '16px 8px', textAlign: 'center', cursor: 'pointer', transition: 'background 0.15s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            onMouseEnter={e => (e.currentTarget.style.background = token.colorFillSecondary)}
+                            onMouseLeave={e => (e.currentTarget.style.background = bg)}
+                          >
+                            <Text style={{ fontSize: token.fontSizeHeading3, fontWeight: 700, lineHeight: 1 }}>{count}</Text>
+                          </div>
+                        </Tooltip>
                       );
                     }),
                   ]))}
@@ -249,7 +273,12 @@ export function TriageReview({ events, waitingViewAllHref, dataQualityViewAllHre
         <Col xs={24} lg={8}>
           <Card
             size="small"
-            title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Waiting on Additional Information</span>}
+            title={
+              <span style={{ fontSize: token.fontSizeSM, fontWeight: 500, display: 'flex', alignItems: 'center' }}>
+                Waiting on Additional Information
+                <MetricInfoIcon tooltip="Events waiting on info from the field." token={token} />
+              </span>
+            }
             extra={
               waitingEvents.length === 0
                 ? <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextSecondary }}>All clear</Text>
@@ -284,7 +313,12 @@ export function TriageReview({ events, waitingViewAllHref, dataQualityViewAllHre
         <Col xs={24} lg={8}>
           <Card
             size="small"
-            title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Poor Submissions by Branch</span>}
+            title={
+              <span style={{ fontSize: token.fontSizeSM, fontWeight: 500, display: 'flex', alignItems: 'center' }}>
+                Events Cleaned by Branch
+                <MetricInfoIcon tooltip="Events cleaned up or edited after submission, by branch." token={token} />
+              </span>
+            }
             extra={
               allEdits.length === 0
                 ? undefined
@@ -309,28 +343,32 @@ export function TriageReview({ events, waitingViewAllHref, dataQualityViewAllHre
                 {/* By Branch */}
                 <div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {visibleBranches.map(({ branch, editedCount, totalCount, pct }) => (
-                      <div
-                        key={branch}
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => router.push(`/events?branch=${encodeURIComponent(branch)}`)}
-                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/events?branch=${encodeURIComponent(branch)}`); } }}
-                        aria-label={`Filter events by branch: ${branch}`}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 3 }}>
-                          <Text style={{ fontSize: token.fontSizeSM }}>{branch}</Text>
-                          <span>
-                            <Text style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary, marginRight: 6 }}>{editedCount} of {totalCount}</Text>
-                            <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600, color: pct >= 20 ? token.colorWarning : token.colorText }}>{pct}%</Text>
-                          </span>
-                        </div>
-                        <div style={{ height: 4, borderRadius: 2, background: token.colorFillSecondary, overflow: 'hidden' }}>
-                          <div style={{ height: '100%', width: `${pct}%`, background: token.colorWarning, borderRadius: 2, transition: 'width 0.4s' }} />
-                        </div>
-                      </div>
-                    ))}
+                    {visibleBranches.map(({ branch, editedCount, totalCount, pct }) => {
+                      const label = `${branch}: ${editedCount} of ${totalCount} events edited (${pct}%)`;
+                      return (
+                        <Tooltip key={branch} title={label}>
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => router.push(`/events?branch=${encodeURIComponent(branch)}`)}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/events?branch=${encodeURIComponent(branch)}`); } }}
+                            aria-label={label}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 3 }}>
+                              <Text style={{ fontSize: token.fontSizeSM }}>{branch}</Text>
+                              <span>
+                                <Text style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary, marginRight: 6 }}>{editedCount} of {totalCount}</Text>
+                                <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600, color: pct >= 20 ? token.colorWarning : token.colorText }}>{pct}%</Text>
+                              </span>
+                            </div>
+                            <div style={{ height: 4, borderRadius: 2, background: token.colorFillSecondary, overflow: 'hidden' }}>
+                              <div style={{ height: '100%', width: `${pct}%`, background: token.colorWarning, borderRadius: 2, transition: 'width 0.4s' }} />
+                            </div>
+                          </div>
+                        </Tooltip>
+                      );
+                    })}
                   </div>
                 </div>
 

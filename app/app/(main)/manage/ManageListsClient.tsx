@@ -548,7 +548,7 @@ export function ManageListsClient({
       <PageHeader
         left={
           <Text style={{ fontSize: token.fontSizeLG, fontWeight: 600, color: token.colorText }}>
-            Manage Lists
+            Categories
           </Text>
         }
         right={headerAction}

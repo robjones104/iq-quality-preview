@@ -1,22 +1,22 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button, Card, Col, Row, Tag, Tooltip, Typography, theme } from 'antd';
+import { Badge, Button, Card, Col, Row, Tag, Tooltip, Typography, theme } from 'antd';
 import { Column } from '@ant-design/plots';
-import { CommentOutlined, ExportOutlined, ShoppingCartOutlined } from '@ant-design/icons';
+import { ExportOutlined, InfoCircleOutlined, ShoppingCartOutlined } from '@ant-design/icons';
 import Link from 'next/link';
 import dayjs from 'dayjs';
 import type { QualityEvent } from '@/data/types';
 import type { Order } from '@/data/orders';
 import { events as allEvents } from '@/data/events';
 import { logs as allLogs } from '@/data/logs';
-import { ExpandToggle, Dot } from './CardControls';
+import { Dot } from './CardControls';
 
-const { Text } = Typography;
+const { Text, Paragraph } = Typography;
 const CARD_H = 320;
 const STALE_DAYS = 3;
-const QUEUE_PREVIEW = 4;
+const QUEUE_PREVIEW = 9;
 const DECLINED_PREVIEW = 4;
 
 
@@ -29,11 +29,11 @@ for (const log of allLogs) {
   LOGS_BY_EVENT.set(log.eventId, arr);
 }
 
-function commentsFor(eventId: string): { count: number; latest: string | null } {
+function commentsFor(eventId: string): { count: number; latest: string | null; latestRole: string | null } {
   const eventLogs = LOGS_BY_EVENT.get(eventId) ?? [];
-  if (eventLogs.length === 0) return { count: 0, latest: null };
+  if (eventLogs.length === 0) return { count: 0, latest: null, latestRole: null };
   const sorted = [...eventLogs].sort((a, b) => dayjs(b.date).valueOf() - dayjs(a.date).valueOf());
-  return { count: sorted.length, latest: sorted[0].comment };
+  return { count: sorted.length, latest: sorted[0].comment, latestRole: sorted[0].role };
 }
 
 function parseOrderDate(lastUpdated: string): dayjs.Dayjs {
@@ -53,6 +53,7 @@ type PendingItem = {
   ageDays: number;
   commentCount: number;
   latestComment: string | null;
+  techReplied: boolean;
 };
 
 function exportToCsv(filename: string, headers: string[], rows: (string | number)[][]) {
@@ -64,9 +65,21 @@ function exportToCsv(filename: string, headers: string[], rows: (string | number
   URL.revokeObjectURL(url);
 }
 
+function MetricInfoIcon({ tooltip, token }: { tooltip: string; token: ReturnType<typeof theme.useToken>['token'] }) {
+  return (
+    <Tooltip title={tooltip}>
+      <InfoCircleOutlined
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        style={{ marginLeft: 6, color: token.colorTextTertiary, fontSize: token.fontSizeSM, cursor: 'help' }}
+      />
+    </Tooltip>
+  );
+}
+
 function PendingRow({ item, token }: { item: PendingItem; token: ReturnType<typeof theme.useToken>['token'] }) {
   return (
     <div style={{
+      position: 'relative',
       background: token.colorFillQuaternary,
       border: `1px solid ${token.colorBorderSecondary}`,
       borderRadius: token.borderRadiusSM,
@@ -74,6 +87,14 @@ function PendingRow({ item, token }: { item: PendingItem; token: ReturnType<type
       display: 'flex',
       gap: 10,
     }}>
+      <Tooltip
+        title={item.techReplied
+          ? `Tech replied — ${item.commentCount} comment${item.commentCount !== 1 ? 's' : ''}`
+          : `Waiting on tech reply — ${item.commentCount} comment${item.commentCount !== 1 ? 's' : ''}`}
+      >
+        <Badge status={item.techReplied ? 'success' : 'error'} style={{ position: 'absolute', top: -2, left: -2, zIndex: 1 }} />
+      </Tooltip>
+
       {/* Left: ID + parts tag, then branch · product */}
       <div style={{ flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3 }}>
@@ -89,27 +110,22 @@ function PendingRow({ item, token }: { item: PendingItem; token: ReturnType<type
         </Text>
       </div>
 
-      {/* Right: latest comment + comment count + age, top-aligned */}
+      {/* Right: latest comment + age, top-aligned */}
       <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
         {item.latestComment && (
-          <Text style={{
-            flex: 1,
-            fontSize: token.fontSizeSM,
-            color: token.colorTextSecondary,
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
-          }}>
+          <Paragraph
+            ellipsis={{ rows: 2 }}
+            style={{
+              flex: 1,
+              minWidth: 0,
+              marginBottom: 0,
+              fontSize: token.fontSizeSM,
+              color: token.colorTextSecondary,
+              overflowWrap: 'anywhere',
+            }}
+          >
             {item.latestComment}
-          </Text>
-        )}
-        {item.commentCount > 0 && (
-          <Tooltip title={`${item.commentCount} comment${item.commentCount !== 1 ? 's' : ''}`}>
-            <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: token.fontSizeXS, color: token.colorTextTertiary, lineHeight: '16px' }}>
-              <CommentOutlined /> {item.commentCount}
-            </span>
-          </Tooltip>
+          </Paragraph>
         )}
         <Text style={{
           flexShrink: 0,
@@ -126,10 +142,19 @@ function PendingRow({ item, token }: { item: PendingItem; token: ReturnType<type
   );
 }
 
-export function OrderFulfillment({ events, orders, viewAllHref = '/orders?orderStatus=Open&decision=Pending' }: { events: QualityEvent[]; orders: Order[]; viewAllHref?: string }) {
+export function OrderFulfillment({
+  events,
+  orders,
+  fulfillmentHref = '/orders?orderStatus=Open&decision=Pending',
+  declinedHref = '/orders?decision=Declined',
+}: {
+  events: QualityEvent[];
+  orders: Order[];
+  fulfillmentHref?: string;
+  declinedHref?: string;
+}) {
   const router = useRouter();
   const { token } = theme.useToken();
-  const [showAll, setShowAll] = useState(false);
 
   const isDark = token.colorBgBase === '#000000';
   const plotTheme = isDark ? 'classicDark' : 'classic';
@@ -144,13 +169,13 @@ export function OrderFulfillment({ events, orders, viewAllHref = '/orders?orderS
     tickLineWidth:  1,
   };
 
-  // CS Pending Review — open orders awaiting CS decision (not approved, not declined)
+  // Pending Review — open orders with an active message thread, awaiting a decision
   const pendingItems = useMemo((): PendingItem[] =>
     orders
       .filter(o => o.orderStatus === 'Open' && !o.approved && !o.declined)
       .map(o => {
         const ev = EVENT_MAP.get(o.eventId);
-        const { count, latest } = commentsFor(o.eventId);
+        const { count, latest, latestRole } = commentsFor(o.eventId);
         return {
           id: o.id,
           eventId: o.eventId,
@@ -161,19 +186,24 @@ export function OrderFulfillment({ events, orders, viewAllHref = '/orders?orderS
           ageDays: TODAY.diff(parseOrderDate(o.lastUpdated), 'day'),
           commentCount: count,
           latestComment: latest,
+          techReplied: latestRole === 'Field Technician',
         };
       })
+      .filter(item => item.commentCount > 0)
       .sort((a, b) => b.ageDays - a.ageDays),
     [orders],
   );
 
-  const visibleItems = showAll ? pendingItems : pendingItems.slice(0, QUEUE_PREVIEW);
+  const visiblePending = pendingItems.slice(0, QUEUE_PREVIEW);
 
-  const handleExportPending = () => {
+  const declinedItems = useMemo(() => buildDeclinedItems(orders), [orders]);
+  const visibleDeclined = declinedItems.slice(0, DECLINED_PREVIEW);
+
+  const handleExportDeclined = () => {
     exportToCsv(
-      `pending-review-export-${new Date().toISOString().slice(0, 10)}.csv`,
-      ['Order ID', 'Job No.', 'Branch', 'Product', 'Parts', 'Age (days)'],
-      pendingItems.map(i => [i.eventId, i.jobNo, i.branch, i.product, i.partsCount, i.ageDays]),
+      `declined-orders-export-${new Date().toISOString().slice(0, 10)}.csv`,
+      ['Order ID', 'Job No.', 'Branch', 'Reason for Decline', 'Date Declined', 'Age (days)'],
+      declinedItems.map(d => [d.id, d.jobNo, d.branch, d.reason, d.dateDeclined, d.ageDays]),
     );
   };
 
@@ -205,65 +235,58 @@ export function OrderFulfillment({ events, orders, viewAllHref = '/orders?orderS
 
   return (
     <div>
-      <Text
-        type="secondary"
-        style={{ display: 'block', marginBottom: 8, fontSize: token.fontSizeSM, fontWeight: 600, letterSpacing: '0.6px', textTransform: 'uppercase' }}
-      >
-        Order Fulfillment
-      </Text>
+      <Row gutter={token.marginSM} style={{ alignItems: 'stretch' }}>
 
-      <Row gutter={token.marginSM} style={{ alignItems: 'flex-start' }}>
-
-        {/* Pending Review */}
-        <Col xs={24} lg={8}>
+        {/* Pending Review — tall card, stretches to match Decision Trend + Declined Orders stacked on the right */}
+        <Col xs={24} lg={8} style={{ display: 'flex', flexDirection: 'column' }}>
           <Card
             size="small"
-            title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Pending Review</span>}
+            title={
+              <span style={{ fontSize: token.fontSizeSM, fontWeight: 500, display: 'flex', alignItems: 'center' }}>
+                Inbox
+                <MetricInfoIcon tooltip="Open orders with additional info requests or replies connected to them." token={token} />
+              </span>
+            }
             extra={
               pendingItems.length === 0
                 ? <Tag color="green" style={{ fontSize: token.fontSizeXS, lineHeight: '16px', padding: '0 5px' }}>All clear</Tag>
-                : <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Link href={viewAllHref} style={{ fontSize: token.fontSizeSM }}>View in Table ({pendingItems.length})</Link>
-                    {pendingItems.length > QUEUE_PREVIEW && (
-                      <>
-                        <Dot />
-                        <ExpandToggle expanded={showAll} onToggle={() => setShowAll(v => !v)} />
-                      </>
-                    )}
-                    <Dot />
-                    <Tooltip title="Export to CSV">
-                      <Button size="small" icon={<ExportOutlined />} onClick={handleExportPending} />
-                    </Tooltip>
-                  </div>
+                : <Link href={fulfillmentHref} style={{ fontSize: token.fontSizeSM }}>View in Table ({pendingItems.length})</Link>
             }
-            style={{ marginBottom: token.marginSM }}
+            style={{ marginBottom: 0, flex: 1, display: 'flex', flexDirection: 'column' }}
             styles={{ body: {
-              minHeight: CARD_H,
+              flex: 1,
               padding: '8px 12px',
               display: 'flex',
               flexDirection: 'column',
               gap: 8,
+              overflow: 'auto',
             } }}
           >
             {pendingItems.length === 0 ? (
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: token.colorTextTertiary }}>
                 <ShoppingCartOutlined style={{ fontSize: token.fontSizeHeading3 }} />
-                <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No orders pending review</Text>
+                <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No pending orders with open message threads</Text>
               </div>
             ) : (
-              visibleItems.map(item => (
+              visiblePending.map(item => (
                 <PendingRow key={item.id} item={item} token={token} />
               ))
             )}
           </Card>
         </Col>
 
-        {/* Approval Trend */}
-        <Col xs={24} lg={16}>
+        <Col xs={24} lg={16} style={{ display: 'flex', flexDirection: 'column', gap: token.marginSM }}>
+
+          {/* Decision Trend — unchanged size/position */}
           <Card
             size="small"
-            title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Decision Trend</span>}
-            style={{ marginBottom: token.marginSM }}
+            title={
+              <span style={{ fontSize: token.fontSizeSM, fontWeight: 500, display: 'flex', alignItems: 'center' }}>
+                Decision Trend
+                <MetricInfoIcon tooltip="Orders approved vs. declined, grouped by calendar week (Mon–Sun)." token={token} />
+              </span>
+            }
+            style={{ marginBottom: 0 }}
             styles={{ body: { minHeight: CARD_H } }}
           >
             {trendData.length === 0 ? (
@@ -271,45 +294,85 @@ export function OrderFulfillment({ events, orders, viewAllHref = '/orders?orderS
                 <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No decision data</Text>
               </div>
             ) : (
-              <>
-                <div style={{ cursor: 'pointer' }}>
-                  <Column
-                    key={plotTheme}
-                    data={trendData}
-                    xField="week"
-                    yField="count"
-                    colorField="decision"
-                    group={true}
-                    height={256}
-                    theme={plotTheme}
-                    scale={{ color: { domain: ['Approved', 'Declined'], range: [token.colorSuccess, token.colorError] } }}
-                    label={false}
-                    animate={{ enter: { type: 'growInY', duration: 400 } }}
-                    interaction={{ elementHighlight: true }}
-                    state={{ active: { opacity: 1 }, inactive: { opacity: 0.15 } }}
-                    axis={{
-                      x: { ...axisStyle },
-                      y: { ...axisStyle, tickCount: 4 },
-                    }}
-                    legend={{ color: { position: 'bottom', itemLabelFill: token.colorText, itemLabelFontSize: token.fontSizeSM } }}
-                    tooltip={{
-                      title: (d: { week: string }) => d.week,
-                      items: [{ field: 'count', name: (d: { decision: string }) => d.decision }],
-                    }}
-                    onEvent={(_chart, event) => {
-                      if (event.type !== 'element:click') return;
-                      const datum = event.data?.data as { decision?: string; weekStart?: string; weekEnd?: string } | undefined;
-                      if (!datum?.decision) return;
-                      const params = new URLSearchParams({ decision: datum.decision });
-                      if (datum.weekStart && datum.weekEnd) {
-                        params.set('from', datum.weekStart);
-                        params.set('to', datum.weekEnd);
-                      }
-                      router.push('/orders?' + params.toString());
-                    }}
-                  />
-                </div>
-              </>
+              <div style={{ cursor: 'pointer' }}>
+                <Column
+                  key={plotTheme}
+                  data={trendData}
+                  xField="week"
+                  yField="count"
+                  colorField="decision"
+                  group={true}
+                  height={276}
+                  theme={plotTheme}
+                  scale={{ color: { domain: ['Approved', 'Declined'], range: [token.colorSuccess, token.colorError] } }}
+                  label={false}
+                  animate={{ enter: { type: 'growInY', duration: 400 } }}
+                  interaction={{ elementHighlight: true }}
+                  state={{ active: { opacity: 1 }, inactive: { opacity: 0.15 } }}
+                  axis={{
+                    x: { ...axisStyle },
+                    y: { ...axisStyle, tickCount: 4 },
+                  }}
+                  legend={{ color: { position: 'bottom', itemLabelFill: token.colorText, itemLabelFontSize: token.fontSizeSM } }}
+                  tooltip={{
+                    title: (d: { week: string }) => d.week,
+                    items: [{ field: 'count', name: (d: { decision: string }) => d.decision }],
+                  }}
+                  onEvent={(_chart, event) => {
+                    if (event.type !== 'element:click') return;
+                    const datum = event.data?.data as { decision?: string; weekStart?: string; weekEnd?: string } | undefined;
+                    if (!datum?.decision) return;
+                    const params = new URLSearchParams({ decision: datum.decision });
+                    if (datum.weekStart && datum.weekEnd) {
+                      params.set('from', datum.weekStart);
+                      params.set('to', datum.weekEnd);
+                    }
+                    router.push('/orders?' + params.toString());
+                  }}
+                />
+              </div>
+            )}
+          </Card>
+
+          {/* Declined Orders — fills the space below Decision Trend */}
+          <Card
+            size="small"
+            title={
+              <span style={{ fontSize: token.fontSizeSM, fontWeight: 500, display: 'flex', alignItems: 'center' }}>
+                Declined Orders
+                <MetricInfoIcon tooltip="Orders declined for fulfillment in this period, with the reason given." token={token} />
+              </span>
+            }
+            extra={
+              declinedItems.length === 0
+                ? undefined
+                : <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Link href={declinedHref} style={{ fontSize: token.fontSizeSM }}>View in Table ({declinedItems.length})</Link>
+                    <Dot />
+                    <Tooltip title="Export to CSV">
+                      <Button size="small" icon={<ExportOutlined />} onClick={handleExportDeclined} />
+                    </Tooltip>
+                  </div>
+            }
+            style={{ marginBottom: 0, flex: 1, display: 'flex', flexDirection: 'column' }}
+            styles={{ body: {
+              flex: 1,
+              padding: '8px 12px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+              overflow: 'auto',
+            } }}
+          >
+            {declinedItems.length === 0 ? (
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: token.colorTextTertiary }}>
+                <ShoppingCartOutlined style={{ fontSize: token.fontSizeHeading3 }} />
+                <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No declined orders in this period</Text>
+              </div>
+            ) : (
+              visibleDeclined.map(item => (
+                <DeclinedRow key={item.id} item={item} token={token} />
+              ))
             )}
           </Card>
         </Col>
@@ -326,9 +389,10 @@ export function PendingCSReviewChart({ orders }: { orders: Order[] }) {
       .filter(o => o.orderStatus === 'Open' && !o.approved && !o.declined)
       .map(o => {
         const ev = EVENT_MAP.get(o.eventId);
-        const { count, latest } = commentsFor(o.eventId);
-        return { id: o.id, eventId: o.eventId, jobNo: o.jobNo, branch: ev?.branch ?? '—', product: ev?.product ?? '—', partsCount: o.parts.length, ageDays: TODAY.diff(parseOrderDate(o.lastUpdated), 'day'), commentCount: count, latestComment: latest };
+        const { count, latest, latestRole } = commentsFor(o.eventId);
+        return { id: o.id, eventId: o.eventId, jobNo: o.jobNo, branch: ev?.branch ?? '—', product: ev?.product ?? '—', partsCount: o.parts.length, ageDays: TODAY.diff(parseOrderDate(o.lastUpdated), 'day'), commentCount: count, latestComment: latest, techReplied: latestRole === 'Field Technician' };
       })
+      .filter(item => item.commentCount > 0)
       .sort((a, b) => b.ageDays - a.ageDays),
     [orders]
   );
@@ -338,7 +402,7 @@ export function PendingCSReviewChart({ orders }: { orders: Order[] }) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 160, gap: 8, color: token.colorTextTertiary }}>
         <ShoppingCartOutlined style={{ fontSize: token.fontSizeHeading3 }} />
-        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No orders pending review</Text>
+        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No pending orders with open message threads</Text>
       </div>
     );
   }
@@ -473,17 +537,19 @@ function DeclinedRow({ item, token }: { item: DeclinedItem; token: ReturnType<ty
 
       {/* Right: decline reason + date + age, top-aligned */}
       <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-        <Text style={{
-          flex: 1,
-          fontSize: token.fontSizeSM,
-          color: token.colorTextSecondary,
-          display: '-webkit-box',
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: 'vertical',
-          overflow: 'hidden',
-        }}>
+        <Paragraph
+          ellipsis={{ rows: 2 }}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            marginBottom: 0,
+            fontSize: token.fontSizeSM,
+            color: token.colorTextSecondary,
+            overflowWrap: 'anywhere',
+          }}
+        >
           {item.reason}
-        </Text>
+        </Paragraph>
         <div style={{ flexShrink: 0, marginLeft: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
           <Text style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary, whiteSpace: 'nowrap' }}>
             {item.dateDeclined}
@@ -579,93 +645,6 @@ export function DeclinedByBranchChart({ orders, height = 220 }: { orders: Order[
         router.push('/orders?decision=Declined');
       }}
     />
-  );
-}
-
-export function DeclinedOrders({ orders, viewAllHref = '/orders?decision=Declined' }: { orders: Order[]; viewAllHref?: string }) {
-  const { token } = theme.useToken();
-  const [showAll, setShowAll] = useState(false);
-
-  const declinedItems = useMemo(() => buildDeclinedItems(orders), [orders]);
-  const visibleItems = showAll ? declinedItems : declinedItems.slice(0, DECLINED_PREVIEW);
-
-  const handleExport = () => {
-    exportToCsv(
-      `declined-orders-export-${new Date().toISOString().slice(0, 10)}.csv`,
-      ['Order ID', 'Job No.', 'Branch', 'Reason for Decline', 'Date Declined', 'Age (days)'],
-      declinedItems.map(d => [d.id, d.jobNo, d.branch, d.reason, d.dateDeclined, d.ageDays]),
-    );
-  };
-
-  return (
-    <div>
-      <Text
-        type="secondary"
-        style={{ display: 'block', marginBottom: 8, fontSize: token.fontSizeSM, fontWeight: 600, letterSpacing: '0.6px', textTransform: 'uppercase' }}
-      >
-        Declined Orders
-      </Text>
-
-      <Row gutter={token.marginSM} style={{ alignItems: 'flex-start' }}>
-
-        {/* Declined Orders list */}
-        <Col xs={24} lg={8}>
-          <Card
-            size="small"
-            title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Declined Orders</span>}
-            extra={
-              declinedItems.length === 0
-                ? undefined
-                : <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Link href={viewAllHref} style={{ fontSize: token.fontSizeSM }}>View in Table ({declinedItems.length})</Link>
-                    {declinedItems.length > DECLINED_PREVIEW && (
-                      <>
-                        <Dot />
-                        <ExpandToggle expanded={showAll} onToggle={() => setShowAll(v => !v)} />
-                      </>
-                    )}
-                    <Dot />
-                    <Tooltip title="Export to CSV">
-                      <Button size="small" icon={<ExportOutlined />} onClick={handleExport} />
-                    </Tooltip>
-                  </div>
-            }
-            style={{ marginBottom: token.marginSM }}
-            styles={{ body: {
-              minHeight: CARD_H,
-              padding: '8px 12px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 8,
-            } }}
-          >
-            {declinedItems.length === 0 ? (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: token.colorTextTertiary }}>
-                <ShoppingCartOutlined style={{ fontSize: token.fontSizeHeading3 }} />
-                <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No declined orders in this period</Text>
-              </div>
-            ) : (
-              visibleItems.map(item => (
-                <DeclinedRow key={item.id} item={item} token={token} />
-              ))
-            )}
-          </Card>
-        </Col>
-
-        {/* Declined by Branch */}
-        <Col xs={24} lg={16}>
-          <Card
-            size="small"
-            title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Declined by Branch</span>}
-            style={{ marginBottom: token.marginSM }}
-            styles={{ body: { minHeight: CARD_H } }}
-          >
-            <DeclinedByBranchChart orders={orders} height={276} />
-          </Card>
-        </Col>
-
-      </Row>
-    </div>
   );
 }
 

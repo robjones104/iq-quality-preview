@@ -150,16 +150,25 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   const [partModalOpen, setPartModalOpen]     = useState(false);
   const partModalKitInfo = Form.useWatch('hardwareKitInfo', partForm);
   const partModalQty     = (Form.useWatch('quantity', partForm) as number | undefined) ?? 1;
-  const isMissingHardware = event.discrepancy === 'Missing Hardware';
-  const isSO              = !event.jobNo.startsWith('WO');
-  const [partsState, setPartsState] = useState(event.partsRequest ?? []);
+  const currentDiscrepancy      = evtStored.discrepancy      ?? event.discrepancy;
+  const currentProduct          = evtStored.product          ?? event.product;
+  const currentDoor             = evtStored.door              ?? event.door;
+  const currentJobNo            = evtStored.jobNo             ?? event.jobNo;
+  const currentIssueDescription = evtStored.issueDescription  ?? event.issueDescription;
+  const currentDfo              = evtStored.dfo               ?? event.dfo;
+  const currentElLine           = evtStored.elLine            ?? event.elLine;
+  const isMissingHardware = currentDiscrepancy === 'Missing Hardware';
+  const isSO              = !currentJobNo.startsWith('WO');
+  const [partsState, setPartsState] = useState(evtStored.partsRequest ?? event.partsRequest ?? []);
   const lastLoggedRootCause = useRef<string | null>(event.rootCause);
   const lastSavedValues = useRef({
-    discrepancy:      event.discrepancy,
-    product:          event.product,
-    door:             event.door,
-    jobNo:            event.jobNo,
-    issueDescription: event.issueDescription,
+    discrepancy:      currentDiscrepancy,
+    product:          currentProduct,
+    door:             currentDoor,
+    jobNo:            currentJobNo,
+    issueDescription: currentIssueDescription,
+    dfo:              currentDfo,
+    elLine:           currentElLine,
   });
   const [attachments, setAttachments] = useState<Array<{ uid: string; name: string; size: number; date: string; blobUrl: string }>>([]);
   const [previewFile, setPreviewFile] = useState<{ name: string; blobUrl: string } | null>(null);
@@ -205,29 +214,53 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   const handleSaveEdits = () => {
     const values = editForm.getFieldsValue();
     const prev = lastSavedValues.current;
+    const nextDfo    = isSO && values.dfo !== undefined && values.dfo !== '' ? Number(values.dfo) : prev.dfo;
+    const nextElLine = isSO && values.elLine !== undefined && values.elLine !== '' ? Number(values.elLine) : prev.elLine;
     const tracked: Array<[string, string, string]> = [
       ['Discrepancy',       prev.discrepancy,      String(values.discrepancy      ?? prev.discrepancy)],
       ['Product',           prev.product,           String(values.product           ?? prev.product)],
       ['Door',              prev.door,              String(values.door              ?? prev.door)],
       ['Job No.',           prev.jobNo,             String(values.jobNo             ?? prev.jobNo)],
       ['Issue Description', prev.issueDescription,  String(values.issueDescription  ?? prev.issueDescription)],
+      ['DFO LIN',           prev.dfo != null ? String(prev.dfo) : '',       nextDfo != null ? String(nextDfo) : ''],
+      ['EL LIN',            prev.elLine != null ? String(prev.elLine) : '', nextElLine != null ? String(nextElLine) : ''],
     ];
     for (const [label, from, to] of tracked) {
       if (to !== from) logEditEntry(label, from || '—', to || '—');
     }
-    lastSavedValues.current = {
+    const next = {
       discrepancy:      String(values.discrepancy      ?? prev.discrepancy),
       product:          String(values.product           ?? prev.product),
       door:             String(values.door              ?? prev.door),
       jobNo:            String(values.jobNo             ?? prev.jobNo),
       issueDescription: String(values.issueDescription  ?? prev.issueDescription),
+      dfo:              nextDfo,
+      elLine:            nextElLine,
     };
+
+    let nextPartsState = partsState;
+    if (partsState.length > 0) {
+      const selectedPart = partsState[selectedPartIdx];
+      const updatedPart = {
+        ...selectedPart,
+        partNumber:   editPartNumber || selectedPart.partNumber,
+        description:  editPartDescription || selectedPart.description,
+        quantityType: editPartQuantityType || selectedPart.quantityType,
+        quantity:     editPartQuantity !== '' ? Number(editPartQuantity) : selectedPart.quantity,
+      };
+      nextPartsState = partsState.map((p, i) => (i === selectedPartIdx ? updatedPart : p));
+      setPartsState(nextPartsState);
+      resetPartDrafts(updatedPart);
+    }
+
+    patchEvent(event.id, { ...next, partsRequest: nextPartsState });
+    lastSavedValues.current = next;
     setEditingProduct(false);
   };
 
   const openAddPartRequest = () => {
     partForm.resetFields();
-    partForm.setFieldsValue({ jobNo: event.jobNo, door: event.door, quantity: 1 });
+    partForm.setFieldsValue({ jobNo: currentJobNo, door: currentDoor, quantity: 1 });
     setPartModalOpen(true);
   };
 
@@ -252,6 +285,15 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   );
   const [editPartNumber, setEditPartNumber] = useState<string>('');
   const [editPartDescription, setEditPartDescription] = useState<string>('');
+  const [editPartQuantityType, setEditPartQuantityType] = useState<string>('');
+  const [editPartQuantity, setEditPartQuantity] = useState<string>('');
+
+  const resetPartDrafts = (part?: { partNumber: string; description: string; quantityType: string; quantity: number }) => {
+    setEditPartNumber(part?.partNumber ?? '');
+    setEditPartDescription(part?.description ?? '');
+    setEditPartQuantityType(part?.quantityType ?? '');
+    setEditPartQuantity(part?.quantity != null ? String(part.quantity) : '');
+  };
 
   const locked        = status === 'Validated' || status === 'Invalidated';
   const reopenTarget: EventStatus = 'Under Investigation';
@@ -288,7 +330,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   };
 
   const handleViewSimilarEvents = () => {
-    router.push(`/events?discrepancy=${encodeURIComponent(event.discrepancy)}&backTo=${event.id}`);
+    router.push(`/events?discrepancy=${encodeURIComponent(currentDiscrepancy)}&backTo=${event.id}`);
   };
 
   const sectionLabel = (text: string) => (
@@ -556,7 +598,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
               )}
               {!locked && (
                 <>
-                  <Divider type="vertical" style={{ margin: '0 4px' }} />
+                  {status === 'Reported' && <Divider type="vertical" style={{ margin: '0 4px' }} />}
                   <Button
                     icon={<StopFilled />}
                     onClick={() => setInvalidateOpen(true)}
@@ -671,7 +713,10 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                       <Button type="primary" size="small" icon={<SaveFilled />} onClick={handleSaveEdits}>{!isMobile && 'Save'}</Button>
                     </Space>
                   ) : (
-                    <Button type="text" size="small" icon={<EditFilled style={{ fontSize: token.fontSizeSM }} />} onClick={() => setEditingProduct(true)}>
+                    <Button type="text" size="small" icon={<EditFilled style={{ fontSize: token.fontSizeSM }} />} onClick={() => {
+                      resetPartDrafts(partsState[selectedPartIdx]);
+                      setEditingProduct(true);
+                    }}>
                       {!isMobile && 'Edit'}
                     </Button>
                   )
@@ -769,13 +814,13 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                           layout="vertical"
                           size="small"
                           initialValues={{
-                            discrepancy:      event.discrepancy,
-                            door:             event.door,
-                            jobNo:            event.jobNo,
-                            dfo:              String(event.dfo),
-                            elLine:           event.elLine != null ? String(event.elLine) : '',
-                            product:          event.product,
-                            issueDescription: event.issueDescription,
+                            discrepancy:      currentDiscrepancy,
+                            door:             currentDoor,
+                            jobNo:            currentJobNo,
+                            dfo:              String(currentDfo),
+                            elLine:           currentElLine != null ? String(currentElLine) : '',
+                            product:          currentProduct,
+                            issueDescription: currentIssueDescription,
                           }}
                         >
                           <Row gutter={8}>
@@ -796,7 +841,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                                 <Input maxLength={11} />
                               </Form.Item>
                             </Col>
-                            {!event.jobNo.startsWith('WO') && (
+                            {isSO && (
                               <>
                                 <Col style={{ width: 76 }}>
                                   <Form.Item name="dfo" label="DFO LIN" labelCol={{ style: { whiteSpace: 'nowrap' } }} style={{ marginBottom: 10 }}>
@@ -822,27 +867,27 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                         </Form>
                       ) : (
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 24px' }}>
-                          {displayField('Discrepancy', event.discrepancy, true)}
+                          {displayField('Discrepancy', currentDiscrepancy, true)}
                           <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-                            {displayField('Job No', event.jobNo, false, true)}
-                            {!event.jobNo.startsWith('WO') && event.elLine != null && (
+                            {displayField('Job No', currentJobNo, false, true)}
+                            {isSO && currentElLine != null && (
                               <>
                                 <Text style={{ color: token.colorTextTertiary, paddingBottom: 3 }}>·</Text>
-                                {displayField('EL LIN', event.elLine, false, true)}
+                                {displayField('EL LIN', currentElLine, false, true)}
                               </>
                             )}
-                            {!event.jobNo.startsWith('WO') && (
+                            {isSO && (
                               <>
                                 <Text style={{ color: token.colorTextTertiary, paddingBottom: 3 }}>|</Text>
-                                {displayField('DFO LIN', event.dfo, false, true)}
+                                {displayField('DFO LIN', currentDfo, false, true)}
                               </>
                             )}
                           </div>
                           <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-                            {displayField('Product', event.product)}
-                            {displayField('Door', event.door)}
+                            {displayField('Product', currentProduct)}
+                            {displayField('Door', currentDoor)}
                           </div>
-                          {displayField('Issue Description', event.issueDescription, true)}
+                          {displayField('Issue Description', currentIssueDescription, true)}
                         </div>
                       )}
 
@@ -862,7 +907,10 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                                   <Select
                                     size="small"
                                     value={selectedPartIdx}
-                                    onChange={setSelectedPartIdx}
+                                    onChange={idx => {
+                                      setSelectedPartIdx(idx);
+                                      resetPartDrafts(partsState[idx]);
+                                    }}
                                     options={partsState.map((_, i) => ({ value: i, label: `Part ${i + 1}` }))}
                                     style={{ width: 120 }}
                                   />
@@ -906,14 +954,18 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                                     <Col flex={1}>
                                       <Form.Item label="Quantity Type" style={{ marginBottom: 0 }}>
                                         <Select
-                                          defaultValue={partsState[selectedPartIdx].quantityType}
+                                          value={editPartQuantityType || partsState[selectedPartIdx].quantityType}
+                                          onChange={setEditPartQuantityType}
                                           options={['Piece', 'Length'].map(v => ({ value: v, label: v }))}
                                         />
                                       </Form.Item>
                                     </Col>
                                     <Col style={{ width: 72 }}>
                                       <Form.Item label="Qty" style={{ marginBottom: 0 }}>
-                                        <Input defaultValue={String(partsState[selectedPartIdx].quantity)} />
+                                        <Input
+                                          value={editPartQuantity || String(partsState[selectedPartIdx].quantity)}
+                                          onChange={e => setEditPartQuantity(e.target.value)}
+                                        />
                                       </Form.Item>
                                     </Col>
                                   </Row>
@@ -956,7 +1008,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                           )}
                         </Col>
 
-                        {event.product === 'Hardware Kit' && (
+                        {currentProduct === 'Hardware Kit' && (
                         <Col xs={24} sm={12} style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
                           {sectionLabel('Hardware Kit')}
                           {hkMode === null ? (
