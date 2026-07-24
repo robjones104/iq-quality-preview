@@ -141,7 +141,7 @@ export function EscalationDetailClient({ escalation, allEvents, isNew = false }:
       (searchQ.length === 0 ||
         e.id.toLowerCase().includes(searchQ) ||
         e.branch.toLowerCase().includes(searchQ) ||
-        e.product.toLowerCase().includes(searchQ))
+        e.component.toLowerCase().includes(searchQ))
   );
 
   const handleCancelEdit = () => {
@@ -363,7 +363,7 @@ export function EscalationDetailClient({ escalation, allEvents, isNew = false }:
     <div style={{ padding: '12px 0' }}>
       {editing && (
         <Input
-          placeholder="Search by QE ID, branch, product..."
+          placeholder="Search by QE ID, branch, component..."
           size="small"
           value={eventSearchValue}
           onChange={(e) => setEventSearchValue(e.target.value)}
@@ -402,7 +402,7 @@ export function EscalationDetailClient({ escalation, allEvents, isNew = false }:
               )}
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 2 }}>
                 <Text style={{ fontFamily: 'monospace', fontSize: token.fontSizeSM, fontWeight: 600 }}>{e.id}</Text>
-                <Tag style={{ fontSize: token.fontSizeXS, marginRight: 0 }}>{e.product}</Tag>
+                <Tag style={{ fontSize: token.fontSizeXS, marginRight: 0 }}>{e.component}</Tag>
               </div>
               <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
                 {e.branch} &middot; {e.reportedBy}
@@ -460,7 +460,7 @@ export function EscalationDetailClient({ escalation, allEvents, isNew = false }:
                   <span>
                     <Text style={{ fontFamily: 'monospace', fontSize: token.fontSizeSM }}>{e.id}</Text>
                     <Text type="secondary" style={{ fontSize: token.fontSizeSM, marginLeft: 8 }}>
-                      {e.product} &middot; {e.branch}
+                      {e.component} &middot; {e.branch}
                     </Text>
                   </span>
                   <PlusOutlined style={{ fontSize: token.fontSizeSM, color: token.colorPrimary }} />

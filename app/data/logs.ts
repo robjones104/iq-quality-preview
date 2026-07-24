@@ -46,7 +46,7 @@ const comments = [
   'Customer notified of delay. Alternative temporary solution implemented pending part arrival.',
   'Post-resolution audit completed. Corrective action documented in supplier quality file.',
   'Event linked to open escalation ESC_0047. See escalation for supplier correspondence.',
-  'Configuration ID cross-referenced with order history. Discrepancy confirmed at intake.',
+  'Configuration ID cross-referenced with order history. Issue confirmed at intake.',
   'Installation video reviewed. Non-conformance attributed to technician training gap. CAP initiated.',
   'Batch recall recommended pending broader supplier audit. Regional manager notified.',
   'Event closed per quality review. No systemic issue identified. Isolated incident confirmed.',
@@ -126,7 +126,7 @@ const SEED_LOGS: ActivityLog[] = [
 
   // QE_2395 — St.Louis, Hardware Kit, Short Shipping (Validated)
   { id: 'LOG_1109', eventId: 'QE_2395', date: '2026-06-17 10:30', role: 'Field Technician', employee: 'Balthazar C. Dunmoor', status: 'Reported', comment: 'Event reported via mobile field app. Hardware kit short by 6 mounting screws. Packing slip indicates full quantity was packed. Installation halted.' },
-  { id: 'LOG_1110', eventId: 'QE_2395', date: '2026-06-17 10:55', role: 'Field Quality', employee: 'Osric T. Dunwick', status: 'Reported', comment: 'Packing slip cross-referenced with order manifest. Short-ship discrepancy confirmed. FAR plant packing station flagged for audit.' },
+  { id: 'LOG_1110', eventId: 'QE_2395', date: '2026-06-17 10:55', role: 'Field Quality', employee: 'Osric T. Dunwick', status: 'Reported', comment: 'Packing slip cross-referenced with order manifest. Short-ship issue confirmed. FAR plant packing station flagged for audit.' },
   { id: 'LOG_1111', eventId: 'QE_2395', date: '2026-06-17 11:20', role: 'Field Quality', employee: 'Osric T. Dunwick', status: 'Under Investigation', comment: 'FAR plant quality team notified. Investigating whether packing station miscounted or order was picked short at warehouse.' },
   { id: 'LOG_1112', eventId: 'QE_2395', date: '2026-06-17 12:10', role: 'Field Quality', employee: 'Osric T. Dunwick', status: 'Validated', comment: 'Root cause confirmed as short shipping at FAR packing station. Corrective action submitted. Packing checklist update requested for this SKU.' },
   { id: 'LOG_1113', eventId: 'QE_2395', date: '2026-06-17 12:30', role: 'Customer Service', employee: 'Isolde B. Thornfield', status: 'Validated', comment: 'Replacement screw set and anchor kit order approved. Parts dispatched from warehouse. Estimated delivery tomorrow morning.' },

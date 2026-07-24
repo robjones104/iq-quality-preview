@@ -3,9 +3,7 @@
 import React, { Fragment, Suspense, useRef, useMemo, useState } from 'react';
 import { AutoComplete, Button, Card, Col, Flex, Grid, Input, Progress, Row, Segmented, Select, Statistic, Tag, Space, Tooltip, Typography, theme } from 'antd';
 import {
-  CloseOutlined, CaretDownFilled, CaretRightFilled, SearchOutlined,
-  FileTextFilled, FlagFilled, EyeFilled, MessageFilled, InfoCircleOutlined,
-  ClockCircleFilled, ShoppingFilled, CheckCircleFilled, CloseCircleFilled,
+  CloseOutlined, SearchOutlined, InfoCircleOutlined,
 } from '@ant-design/icons';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -19,7 +17,7 @@ import { orders } from '@/data/orders';
 import { useFilterStore } from '@/store/filterStore';
 import { useOrderStore } from '@/store/orderStore';
 import { AiSummary } from '@/components/AiSummary';
-import { FieldIntake, EventsOverTimeChart, EventsByBranchChart, EventsByDiscrepancyChart } from '@/components/FieldIntake';
+import { FieldIntake, EventsOverTimeChart, EventsByBranchChart, EventsByIssueChart } from '@/components/FieldIntake';
 import { TriageReview, QueueHealthChart, WaitingOnTechChart, DataQualityChart } from '@/components/TriageReview';
 import { OrderFulfillment, PendingCSReviewChart, DecisionTrendChart, DeclinedOrdersPreview, DeclinedByBranchChart } from '@/components/OrderFulfillment';
 import type { QualityEvent } from '@/data/types';
@@ -39,13 +37,13 @@ function applyFilters(list: QualityEvent[], dateRange: DateRange | null, applied
       if (d.isBefore(dateRange[0], 'day') || d.isAfter(dateRange[1], 'day')) return false;
     }
     const matchStatus      = !applied.status?.length      || applied.status.includes(e.status);
-    const matchDiscrepancy = !applied.discrepancy?.length || applied.discrepancy.includes(e.discrepancy);
-    const matchProduct     = !applied.product?.length     || applied.product.includes(e.product);
+    const matchIssue       = !applied.issue?.length       || applied.issue.includes(e.issue);
+    const matchComponent   = !applied.component?.length   || applied.component.includes(e.component);
     const matchRootCause   = !applied.rootCause?.length   || (e.rootCause !== null && applied.rootCause.includes(e.rootCause));
     const matchBranch      = !applied.branch?.length      || applied.branch.includes(e.branch);
     const matchPlant       = !applied.plant?.length       || applied.plant.includes(e.plant);
     const matchReportedBy  = !applied.reportedBy?.length  || applied.reportedBy.includes(e.reportedBy);
-    return matchStatus && matchDiscrepancy && matchProduct && matchRootCause && matchBranch && matchPlant && matchReportedBy;
+    return matchStatus && matchIssue && matchComponent && matchRootCause && matchBranch && matchPlant && matchReportedBy;
   });
 }
 
@@ -72,10 +70,10 @@ function MetricInfoIcon({ tooltip }: { tooltip: string }) {
 }
 
 function KpiCard({
-  title, count, prior, accent, href, icon, tooltip,
+  title, count, prior, href, tooltip,
 }: {
-  title: string; count: number; prior: number | null; accent: string; href?: string;
-  icon: React.ReactNode; tooltip?: string;
+  title: string; count: number; prior: number | null; href?: string;
+  tooltip?: string;
 }) {
   const { token } = theme.useToken();
   const screens = Grid.useBreakpoint();
@@ -124,29 +122,22 @@ function KpiCard({
         body: { padding: '8px 16px' },
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ minWidth: 0 }}>
-          <Statistic
-            value={count}
-            valueStyle={{ fontSize: token.fontSizeHeading3, fontWeight: 700, color: token.colorText, lineHeight: 1.2 }}
-          />
-          <div style={{
-            fontSize: token.fontSizeSM,
-            marginTop: 2,
-            minHeight: 16,
-            color: deltaColor,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}>
-            {isMobile ? mobileDeltaText : deltaText}
-          </div>
+      <div style={{ minWidth: 0 }}>
+        <Statistic
+          value={count}
+          valueStyle={{ fontSize: token.fontSizeHeading3, fontWeight: 700, color: token.colorText, lineHeight: 1.2 }}
+        />
+        <div style={{
+          fontSize: token.fontSizeSM,
+          marginTop: 2,
+          minHeight: 16,
+          color: deltaColor,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        }}>
+          {isMobile ? mobileDeltaText : deltaText}
         </div>
-        {!isMobile && (
-          <div style={{ fontSize: token.fontSizeHeading2, color: accent, opacity: 0.3, lineHeight: 1, flexShrink: 0 }}>
-            {icon}
-          </div>
-        )}
       </div>
     </Card>
   );
@@ -157,10 +148,9 @@ function KpiCard({
 }
 
 function SectionStats({
-  stats, progress,
+  stats,
 }: {
-  stats: { value: string | number; sub: string }[];
-  progress?: { pct: number; color?: string; resolved?: number; total?: number };
+  stats: { value: string | number; sub: string; progress?: { pct: number; color?: string } }[];
 }) {
   const { token } = theme.useToken();
   const divider = (
@@ -173,68 +163,68 @@ function SectionStats({
     }} />
   );
   return (
-    <Flex align="center" style={{ flexWrap: 'nowrap' }}>
+    <Flex align="flex-start" style={{ flexWrap: 'nowrap' }}>
       {stats.map((s, i) => (
         <Fragment key={i}>
           {i > 0 && divider}
           <div style={{ minWidth: 0, flex: '1 1 auto' }}>
-            <div style={{
-              fontSize: token.fontSizeLG,
-              fontWeight: 700,
-              color: token.colorText,
-              lineHeight: 1,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}>
-              {s.value}
-            </div>
-            <div style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary, marginTop: 2, whiteSpace: 'nowrap' }}>
-              {s.sub}
-            </div>
+            {s.progress ? (
+              <>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, whiteSpace: 'nowrap' }}>
+                  <span style={{ fontSize: token.fontSizeLG, fontWeight: 700, color: token.colorText, lineHeight: 1 }}>
+                    {s.value}
+                  </span>
+                  <span style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary }}>
+                    {s.sub}
+                  </span>
+                </div>
+                <Progress
+                  percent={s.progress.pct}
+                  showInfo={false}
+                  size="small"
+                  style={{ margin: '8px 0 0' }}
+                  strokeColor={s.progress.color ?? token.colorSuccess}
+                  railColor={token.colorFillSecondary}
+                />
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary, whiteSpace: 'nowrap' }}>
+                  {s.sub}
+                </div>
+                <div style={{
+                  fontSize: token.fontSizeLG,
+                  fontWeight: 700,
+                  color: token.colorText,
+                  lineHeight: 1,
+                  marginTop: 2,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}>
+                  {s.value}
+                </div>
+              </>
+            )}
           </div>
         </Fragment>
       ))}
-      {progress && (
-        <>
-          {stats.length > 0 && divider}
-          <div style={{ flex: 1, minWidth: 48, display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <Progress
-              percent={progress.pct}
-              showInfo={false}
-              size="small"
-              style={{ margin: 0 }}
-              strokeColor={progress.color ?? token.colorSuccess}
-              trailColor={token.colorFillSecondary}
-            />
-            {progress.resolved !== undefined && progress.total !== undefined && (
-              <div style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary }}>
-                {progress.resolved} resolved / {progress.total} total
-              </div>
-            )}
-          </div>
-        </>
-      )}
     </Flex>
   );
 }
 
 function SectionHeader({
-  label, stats, active, onClick, progress, tooltip,
+  label, stats, active, onClick, tooltip,
 }: {
   label: string;
-  stats: { value: string | number; sub: string }[];
+  stats: { value: string | number; sub: string; progress?: { pct: number; color?: string } }[];
   active: boolean;
   onClick: () => void;
-  progress?: { pct: number; color?: string; resolved?: number; total?: number };
   tooltip?: string;
 }) {
   const { token } = theme.useToken();
   const [hovered, setHovered] = useState(false);
-  const ChevronIcon = active ? CaretDownFilled : CaretRightFilled;
-  const borderColor = active
-    ? token.colorPrimary
-    : hovered ? `${token.colorPrimary}66` : token.colorBorderSecondary;
+  const borderColor = active || hovered ? token.colorPrimary : token.colorBorderSecondary;
   return (
     <Card
       size="small"
@@ -248,17 +238,33 @@ function SectionHeader({
         </span>
       }
       extra={
-        <ChevronIcon style={{ fontSize: token.fontSizeSM, color: active ? token.colorPrimary : hovered ? `${token.colorPrimary}99` : token.colorTextTertiary, transition: 'color 0.2s' }} />
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {!active && (
+            <span style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary }}>
+              Click to switch view
+            </span>
+          )}
+          <span
+            style={{
+              width: 10,
+              height: 10,
+              borderRadius: '50%',
+              border: `1.5px solid ${token.colorPrimary}`,
+              background: active ? token.colorPrimary : 'transparent',
+              transition: 'background-color 0.2s',
+            }}
+          />
+        </span>
       }
       style={{
         cursor: 'pointer',
         height: '100%',
-        borderLeft: `3px solid ${borderColor}`,
+        border: `1px solid ${borderColor}`,
         transition: 'border-color 0.2s, box-shadow 0.18s',
         boxShadow: !active && hovered ? `0 4px 16px ${token.colorPrimary}22` : undefined,
       }}
     >
-      <SectionStats stats={stats} progress={progress} />
+      <SectionStats stats={stats} />
     </Card>
   );
 }
@@ -322,7 +328,7 @@ function DashboardPageContent() {
         label: (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
             <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{e.id}</span>
-            <span style={{ fontSize: 11, color: token.colorTextTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.jobNo} · {e.discrepancy}</span>
+            <span style={{ fontSize: 11, color: token.colorTextTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.jobNo} · {e.issue}</span>
           </div>
         ),
       }));
@@ -416,29 +422,33 @@ function DashboardPageContent() {
   const prior = (fn: (e: QualityEvent) => boolean) =>
     priorEvents ? priorEvents.filter(fn).length : null;
 
-  const isReported = (e: QualityEvent) => e.status === 'Reported';
-  const isUnderInv = (e: QualityEvent) => e.status === 'Under Investigation';
-  const isWaiting  = (e: QualityEvent) => !!e.additionalInfoRequested;
+  const isReported    = (e: QualityEvent) => e.status === 'Reported';
+  const isUnderInv    = (e: QualityEvent) => e.status === 'Under Investigation';
+  const isWaiting     = (e: QualityEvent) => !!e.additionalInfoRequested;
+  const isValidated   = (e: QualityEvent) => e.status === 'Validated';
+  const isInvalidated = (e: QualityEvent) => e.status === 'Invalidated';
 
   const kpis = [
-    { title: 'Total Events',        count: filteredEvents.length,                    prior: priorEvents?.length ?? null, accent: token.colorTextSecondary, href: buildKpiHref('/events', dateRange, appliedFilters),                                          icon: <FileTextFilled />,
+    { title: 'Total Event Count',   count: filteredEvents.length,                     prior: priorEvents?.length ?? null, href: buildKpiHref('/events', dateRange, appliedFilters),
       tooltip: 'All events, in any status.' },
-    { title: 'Reported',            count: filteredEvents.filter(isReported).length,  prior: prior(isReported),           accent: token.colorPrimary,       href: buildKpiHref('/events?status=Reported', dateRange, appliedFilters),                        icon: <FlagFilled />,
+    { title: 'Reported',            count: filteredEvents.filter(isReported).length,   prior: prior(isReported),           href: buildKpiHref('/events?status=Reported', dateRange, appliedFilters),
       tooltip: "Newly submitted events that haven't been set to Under Investigation." },
-    { title: 'Under Investigation', count: filteredEvents.filter(isUnderInv).length,  prior: prior(isUnderInv),           accent: token.colorWarning,       href: buildKpiHref('/events?status=Under+Investigation', dateRange, appliedFilters),            icon: <EyeFilled />,
+    { title: 'Pending Information', count: filteredEvents.filter(isWaiting).length,    prior: prior(isWaiting),            href: buildKpiHref('/events?flag=additionalInfo', dateRange, appliedFilters),
+      tooltip: "Additional info requests that haven't been responded to yet." },
+    { title: 'Under Investigation', count: filteredEvents.filter(isUnderInv).length,    prior: prior(isUnderInv),           href: buildKpiHref('/events?status=Under+Investigation', dateRange, appliedFilters),
       tooltip: 'Events that are currently in review.' },
-    { title: 'Waiting on Additional Information', count: filteredEvents.filter(isWaiting).length,   prior: prior(isWaiting),            accent: token.colorTextSecondary,  href: buildKpiHref('/events?flag=additionalInfo', dateRange, appliedFilters),                  icon: <MessageFilled />,
-      tooltip: 'Events awaiting additional info from the field.' },
+    { title: 'Validated',           count: filteredEvents.filter(isValidated).length,   prior: prior(isValidated),          href: buildKpiHref('/events?status=Validated', dateRange, appliedFilters),
+      tooltip: 'Events confirmed as a valid quality issue.' },
+    { title: 'Invalidated',         count: filteredEvents.filter(isInvalidated).length, prior: prior(isInvalidated),        href: buildKpiHref('/events?status=Invalidated', dateRange, appliedFilters),
+      tooltip: 'Events found not to be a valid quality issue.' },
   ];
 
   const intakeStats = useMemo(() => {
-    const topBranch  = topEntry(filteredEvents, 'branch');
-    const topDisc    = topEntry(filteredEvents, 'discrepancy');
-    const topProduct = topEntry(filteredEvents, 'product');
+    const topComponent = topEntry(filteredEvents, 'component');
+    const topIssue      = topEntry(filteredEvents, 'issue');
     return [
-      { value: topBranch, sub: 'top branch' },
-      { value: topProduct, sub: 'top product' },
-      { value: topDisc, sub: 'top discrepancy' },
+      { value: topComponent, sub: 'most affected component' },
+      { value: topIssue, sub: 'most common issue' },
     ];
   }, [filteredEvents]);
 
@@ -449,10 +459,9 @@ function DashboardPageContent() {
     const editedRate    = filteredEvents.length > 0 ? Math.round((eventsEdited / filteredEvents.length) * 100) : 0;
     return {
       stats: [
-        { value: `${rate}%`,       sub: 'events resolved' },
-        { value: `${editedRate}%`, sub: 'events cleaned' },
+        { value: `${rate}%`,       sub: 'events resolved', progress: { pct: rate } },
+        { value: `${editedRate}%`, sub: 'events updated' },
       ],
-      progress: { pct: rate, resolved, total: filteredEvents.length },
     };
   }, [filteredEvents]);
 
@@ -476,13 +485,13 @@ function DashboardPageContent() {
   const isDeclinedOrder   = (o: Order) => !!o.declined;
 
   const orderKpis = [
-    { title: 'Pending Review',          count: filteredOrders.filter(isPendingReview).length,   prior: priorOrder(isPendingReview),   accent: token.colorWarning, href: buildKpiHref('/orders?orderStatus=Open', dateRange, {}),                   icon: <ClockCircleFilled />,
+    { title: 'Pending Review',          count: filteredOrders.filter(isPendingReview).length,   prior: priorOrder(isPendingReview),   href: buildKpiHref('/orders?orderStatus=Open', dateRange, {}),
       tooltip: 'Open orders awaiting an approve or decline decision.' },
-    { title: 'Assigned to Procurement', count: filteredOrders.filter(isWithProcurement).length,  prior: priorOrder(isWithProcurement), accent: token.colorInfo,    href: buildKpiHref('/orders?orderStatus=Open&flag=procurement', dateRange, {}), icon: <ShoppingFilled />,
+    { title: 'Assigned to Procurement', count: filteredOrders.filter(isWithProcurement).length,  prior: priorOrder(isWithProcurement), href: buildKpiHref('/orders?orderStatus=Open&flag=procurement', dateRange, {}),
       tooltip: 'Approved orders handed off to Procurement to source a replacement part.' },
-    { title: 'Approved',                count: filteredOrders.filter(isApprovedOrder).length,    prior: priorOrder(isApprovedOrder),   accent: token.colorPrimary, href: buildKpiHref('/orders?orderStatus=Open&decision=Approved', dateRange, {}), icon: <CheckCircleFilled />,
+    { title: 'Approved',                count: filteredOrders.filter(isApprovedOrder).length,    prior: priorOrder(isApprovedOrder),   href: buildKpiHref('/orders?orderStatus=Open&decision=Approved', dateRange, {}),
       tooltip: 'Orders approved but not yet assigned to Procurement.' },
-    { title: 'Declined',                count: filteredOrders.filter(isDeclinedOrder).length,    prior: priorOrder(isDeclinedOrder),   accent: token.colorError,   href: buildKpiHref('/orders?decision=Declined', dateRange, {}),                 icon: <CloseCircleFilled />,
+    { title: 'Declined',                count: filteredOrders.filter(isDeclinedOrder).length,    prior: priorOrder(isDeclinedOrder),   href: buildKpiHref('/orders?decision=Declined', dateRange, {}),
       tooltip: 'Orders declined for fulfillment.' },
   ];
 
@@ -509,7 +518,7 @@ function DashboardPageContent() {
             onChange={setSearchText}
             onSelect={handleSearchSelect}
             options={searchOptions}
-            placeholder="Search event ID, order ID, job no., branch, product..."
+            placeholder="Search event ID, order ID, job no., branch, component..."
             style={{ width: '100%' }}
             allowClear
           >
@@ -544,7 +553,7 @@ function DashboardPageContent() {
 
           <div style={{
             display: 'grid',
-            gridTemplateColumns: screens.md === false ? '1fr 1fr' : 'repeat(4, 1fr)',
+            gridTemplateColumns: screens.md === false ? '1fr 1fr' : `repeat(${view === 'events' ? 6 : 4}, 1fr)`,
             gap: token.marginSM,
           }}>
             {(view === 'events' ? kpis : orderKpis).map((k) => (
@@ -592,10 +601,10 @@ function DashboardPageContent() {
                     eventsSection === 'intake' ? [
                       { title: 'Events Over Time',  content: <EventsOverTimeChart events={filteredEvents} dateRange={dateRange} height={200} /> },
                       { title: 'Events by Branch',  content: <EventsByBranchChart events={filteredEvents} height={200} /> },
-                      { title: 'By Discrepancy',    content: <EventsByDiscrepancyChart events={filteredEvents} height={200} /> },
+                      { title: 'By Issue',          content: <EventsByIssueChart events={filteredEvents} height={200} /> },
                     ] : [
                       { title: 'Queue Health',      content: <QueueHealthChart events={filteredEvents} /> },
-                      { title: 'Waiting on Additional Information',   content: <WaitingOnTechChart events={filteredEvents} /> },
+                      { title: 'Pending Information',   content: <WaitingOnTechChart events={filteredEvents} /> },
                       { title: 'Poor Submissions by Branch', content: <DataQualityChart events={filteredEvents} /> },
                     ]
                   ) : (
@@ -652,20 +661,19 @@ function DashboardPageContent() {
             <Row gutter={token.marginSM} style={{ alignItems: 'stretch' }}>
               <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column' }}>
                 <SectionHeader
-                  label="Field Intake"
+                  label="Intake"
                   stats={intakeStats}
                   active={eventsSection === 'intake'}
                   onClick={() => setEventsSection('intake')}
-                  tooltip="All events, by branch, product, and discrepancy type."
+                  tooltip="All events, by branch, component, and issue type."
                 />
               </Col>
               <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column' }}>
                 <SectionHeader
-                  label="In Review"
+                  label="Review"
                   stats={triageStats.stats}
                   active={eventsSection === 'triage'}
                   onClick={() => setEventsSection('triage')}
-                  progress={triageStats.progress}
                   tooltip="Review workload. What still needs attention, and what's being cleaned."
                 />
               </Col>

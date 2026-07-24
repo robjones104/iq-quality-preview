@@ -17,7 +17,7 @@ import { eventStatusTagProps } from '@/components/StatusTag';
 import type { Order } from '@/data/orders';
 import type { QualityEvent } from '@/data/types';
 
-type OrderRow = Order & Pick<QualityEvent, 'discrepancy' | 'product' | 'door' | 'branch' | 'plant' | 'reportedBy' | 'status'>;
+type OrderRow = Order & Pick<QualityEvent, 'issue' | 'component' | 'door' | 'branch' | 'plant' | 'reportedBy' | 'status'>;
 type OrderStatus = 'Open' | 'Closed';
 
 const eventMap = new Map(events.map(e => [e.id, e]));
@@ -26,8 +26,8 @@ const orderRows: OrderRow[] = orders.map(o => {
   const event = eventMap.get(o.eventId)!;
   return {
     ...o,
-    discrepancy: event.discrepancy,
-    product:     event.product,
+    issue:       event.issue,
+    component:   event.component,
     door:        event.door,
     branch:      event.branch,
     plant:       event.plant,
@@ -92,18 +92,18 @@ export default function ProcurementPage() {
       render: (jobNo: string) => <CopyableValue value={jobNo} />,
     },
     {
-      title: 'Discrepancy',
-      dataIndex: 'discrepancy',
-      key: 'discrepancy',
-      sorter: (a, b) => a.discrepancy.localeCompare(b.discrepancy),
+      title: 'Issue',
+      dataIndex: 'issue',
+      key: 'issue',
+      sorter: (a, b) => a.issue.localeCompare(b.issue),
       ellipsis: { showTitle: true },
       width: 176,
     },
     {
-      title: 'Product',
-      dataIndex: 'product',
-      key: 'product',
-      sorter: (a, b) => a.product.localeCompare(b.product),
+      title: 'Component',
+      dataIndex: 'component',
+      key: 'component',
+      sorter: (a, b) => a.component.localeCompare(b.component),
       ellipsis: { showTitle: true },
       width: 140,
     },

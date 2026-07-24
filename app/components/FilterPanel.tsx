@@ -296,7 +296,7 @@ export function FilterPanel({ categories, applied, onApply }: Props) {
       onOpenChange={(v) => { if (!v) setOpen(false); }}
       placement="bottomRight"
       arrow={false}
-      styles={{ body: { padding: 0 } }}
+      styles={{ content: { padding: 0 } }}
     >
       <Button
         type="primary"

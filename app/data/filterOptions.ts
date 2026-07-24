@@ -41,7 +41,7 @@ export const PART_CATALOG: { partNumber: string; partDescription: string }[] = [
   { partNumber: '450901-1', partDescription: 'Panel Assembly - (DURAGUARD 3000, ANODIZED, NAR)' },
 ];
 
-export const DISCREPANCY_OPTIONS = [
+export const ISSUE_OPTIONS = [
   'Freight Damage',
   'Incorrect Build',
   'Loose Component',
@@ -76,7 +76,7 @@ export const DOOR_OPTIONS = [
   'Procare 8500A',
 ];
 
-export const PRODUCT_OPTIONS = [
+export const COMPONENT_OPTIONS = [
   'Complete Door Package',
   'Controller',
   'Glass',
@@ -212,9 +212,9 @@ export const STATUS_OPTIONS = [
 
 export const EVENT_FILTER_CATEGORIES: FilterCategory[] = [
   { key: 'status',      label: 'Status',       options: STATUS_OPTIONS },
-  { key: 'discrepancy', label: 'Discrepancy',   options: DISCREPANCY_OPTIONS },
+  { key: 'issue',       label: 'Issue',         options: ISSUE_OPTIONS },
   { key: 'door',        label: 'Door',          options: DOOR_OPTIONS },
-  { key: 'product',     label: 'Product',       options: PRODUCT_OPTIONS },
+  { key: 'component',   label: 'Component',     options: COMPONENT_OPTIONS },
   { key: 'rootCause',   label: 'Root Cause',    options: ROOT_CAUSE_OPTIONS },
   { key: 'branch',      label: 'Branch',        options: BRANCH_OPTIONS },
   { key: 'plant',       label: 'Plant',         options: PLANT_OPTIONS },

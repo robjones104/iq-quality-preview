@@ -102,28 +102,6 @@ function EmptyState({ icon, message }: { icon: React.ReactNode; message: string 
 export function TriageReview({ events, waitingViewAllHref, dataQualityViewAllHref }: { events: QualityEvent[]; waitingViewAllHref?: string; dataQualityViewAllHref?: string }) {
   const { token } = theme.useToken();
   const router    = useRouter();
-  const { dateRange } = useFilterStore();
-
-  const matrix = useMemo(() => {
-    const cells = {
-      fresh: { reported: 0, underInv: 0 },
-      aging: { reported: 0, underInv: 0 },
-      stale: { reported: 0, underInv: 0 },
-    };
-    for (const e of events) {
-      if (e.status !== 'Reported' && e.status !== 'Under Investigation') continue;
-      const age = ageDays(e.date);
-      const bucket = age < FRESH_MAX ? 'fresh' : age < STALE_MIN ? 'aging' : 'stale';
-      if (e.status === 'Reported') cells[bucket].reported++;
-      else cells[bucket].underInv++;
-    }
-    return cells;
-  }, [events]);
-
-  const openTotal = Object.values(matrix).reduce((sum, b) => sum + b.reported + b.underInv, 0);
-
-  const resolved = events.filter(e => e.status === 'Validated' || e.status === 'Invalidated').length;
-  const resolutionRate = events.length > 0 ? Math.round((resolved / events.length) * 100) : 0;
 
   const waitingEvents = useMemo(() =>
     events
@@ -173,28 +151,11 @@ export function TriageReview({ events, waitingViewAllHref, dataQualityViewAllHre
 
   const [showAllWaiting, setShowAllWaiting]     = useState(false);
   const [showAllBranches, setShowAllBranches]   = useState(false);
-  const WAITING_PREVIEW = 3;
-  const BRANCH_PREVIEW  = 6;
+  const WAITING_PREVIEW = 10;
+  const BRANCH_PREVIEW  = 10;
   const visibleWaiting  = showAllWaiting  ? waitingEvents  : waitingEvents.slice(0, WAITING_PREVIEW);
   const visibleBranches = showAllBranches ? editsByBranch : editsByBranch.slice(0, BRANCH_PREVIEW);
 
-
-  const matrixRows = [
-    { key: 'fresh' as const, label: 'Fresh', sub: `0–${FRESH_MAX - 1}d`, dr: (): [ReturnType<typeof dayjs>, ReturnType<typeof dayjs>] => [TODAY.subtract(FRESH_MAX - 1, 'day'), TODAY] },
-    { key: 'aging' as const, label: 'Aging', sub: `${FRESH_MAX}–${STALE_MIN - 1}d`, dr: (): [ReturnType<typeof dayjs>, ReturnType<typeof dayjs>] => [TODAY.subtract(STALE_MIN - 1, 'day'), TODAY.subtract(FRESH_MAX, 'day')] },
-    { key: 'stale' as const, label: 'Stale', sub: `${STALE_MIN}+d`, dr: (): [ReturnType<typeof dayjs>, ReturnType<typeof dayjs>] => [dateRange ? dateRange[0] : TODAY.subtract(2, 'year'), TODAY.subtract(STALE_MIN, 'day')] },
-  ];
-
-  const matrixCols = [
-    { key: 'reported' as const, label: 'Reported',   status: 'Reported',           color: STATUS_COLORS['Reported'] },
-    { key: 'underInv' as const, label: 'Under Inv.', status: 'Under Investigation', color: STATUS_COLORS['Under Investigation'] },
-  ];
-
-  const navigate = (dr: [ReturnType<typeof dayjs>, ReturnType<typeof dayjs>], status: string) => {
-    const from = dr[0].format('YYYY-MM-DD');
-    const to   = dr[1].format('YYYY-MM-DD');
-    router.push(`/events?status=${encodeURIComponent(status)}&from=${from}&to=${to}`);
-  };
 
   return (
     <div>
@@ -202,80 +163,18 @@ export function TriageReview({ events, waitingViewAllHref, dataQualityViewAllHre
         type="secondary"
         style={{ display: 'block', marginBottom: 8, fontSize: token.fontSizeSM, fontWeight: 600, letterSpacing: '0.6px', textTransform: 'uppercase' }}
       >
-        In Review
+        Review
       </Text>
 
       <Row gutter={token.marginSM} style={{ alignItems: 'flex-start' }}>
 
-        {/* Queue Health — Risk Matrix */}
-        <Col xs={24} lg={8}>
+        {/* Pending Information */}
+        <Col xs={24} lg={16}>
           <Card
             size="small"
             title={
               <span style={{ fontSize: token.fontSizeSM, fontWeight: 500, display: 'flex', alignItems: 'center' }}>
-                Queue Health
-                <MetricInfoIcon tooltip="Open events by age." token={token} />
-              </span>
-            }
-            extra={<span style={{ fontSize: token.fontSizeSM, color: token.colorTextQuaternary }}>{openTotal} open · {resolutionRate}% resolved</span>}
-            style={{ display: 'flex', flexDirection: 'column' }}
-            styles={{ body: { display: 'flex', flexDirection: 'column', minHeight: 320 } }}
-          >
-            {(() => {
-              const rowHeat: Record<string, string> = {
-                fresh: token.colorBgContainer,
-                aging: token.colorWarningBg,
-                stale: token.colorWarningBgHover,
-              };
-              return (
-                <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '64px 1fr 1fr', gridTemplateRows: 'auto 1fr 1fr 1fr', gap: 1, background: token.colorBorderSecondary, borderRadius: token.borderRadiusSM, overflow: 'hidden' }}>
-                  <div style={{ background: token.colorFillTertiary }} />
-                  {matrixCols.map(col => (
-                    <div key={col.key} style={{ background: token.colorFillTertiary, padding: '8px', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
-                      <span style={{ width: 7, height: 7, borderRadius: 1, background: col.color, display: 'inline-block', flexShrink: 0 }} />
-                      <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600 }}>{col.label}</Text>
-                    </div>
-                  ))}
-                  {matrixRows.map(row => ([
-                    <div key={`${row.key}-label`} style={{ background: rowHeat[row.key], padding: '8px 10px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                      <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600 }}>{row.label}</Text>
-                      <Text type="secondary" style={{ fontSize: token.fontSizeXS }}>{row.sub}</Text>
-                    </div>,
-                    ...matrixCols.map(col => {
-                      const count = matrix[row.key][col.key];
-                      const bg = rowHeat[row.key];
-                      const label = `${count} ${col.status} events — ${row.label}`;
-                      return (
-                        <Tooltip key={`${row.key}-${col.key}`} title={label}>
-                          <div
-                            role="button"
-                            tabIndex={0}
-                            aria-label={label}
-                            onClick={() => navigate(row.dr(), col.status)}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(row.dr(), col.status); } }}
-                            style={{ background: bg, padding: '16px 8px', textAlign: 'center', cursor: 'pointer', transition: 'background 0.15s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                            onMouseEnter={e => (e.currentTarget.style.background = token.colorFillSecondary)}
-                            onMouseLeave={e => (e.currentTarget.style.background = bg)}
-                          >
-                            <Text style={{ fontSize: token.fontSizeHeading3, fontWeight: 700, lineHeight: 1 }}>{count}</Text>
-                          </div>
-                        </Tooltip>
-                      );
-                    }),
-                  ]))}
-                </div>
-              );
-            })()}
-          </Card>
-        </Col>
-
-        {/* Waiting on Additional Information */}
-        <Col xs={24} lg={8}>
-          <Card
-            size="small"
-            title={
-              <span style={{ fontSize: token.fontSizeSM, fontWeight: 500, display: 'flex', alignItems: 'center' }}>
-                Waiting on Additional Information
+                Pending Information
                 <MetricInfoIcon tooltip="Events waiting on info from the field." token={token} />
               </span>
             }
@@ -315,7 +214,7 @@ export function TriageReview({ events, waitingViewAllHref, dataQualityViewAllHre
             size="small"
             title={
               <span style={{ fontSize: token.fontSizeSM, fontWeight: 500, display: 'flex', alignItems: 'center' }}>
-                Events Cleaned by Branch
+                Events Updated by Branch
                 <MetricInfoIcon tooltip="Events cleaned up or edited after submission, by branch." token={token} />
               </span>
             }

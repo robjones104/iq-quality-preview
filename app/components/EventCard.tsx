@@ -35,7 +35,7 @@ export function EventCard({ event, hasOrder }: EventCardProps) {
         </div>
 
         <div style={{ fontSize: token.fontSize, color: token.colorText, fontWeight: 500, lineHeight: 1.4 }}>
-          {event.discrepancy}
+          {event.issue}
         </div>
 
         {event.rootCause && (
@@ -45,7 +45,7 @@ export function EventCard({ event, hasOrder }: EventCardProps) {
         )}
 
         <div style={{ fontSize: token.fontSizeSM, color: token.colorTextSecondary, lineHeight: 1.4 }}>
-          {event.product} · {event.door}
+          {event.component} · {event.door}
         </div>
 
         <div style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary, lineHeight: 1.4, marginTop: 'auto' }}>

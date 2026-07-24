@@ -48,8 +48,8 @@ export interface QualityEvent {
   rootCause: RootCause | null;
   branch: string;
   plant: string;
-  product: string;
-  discrepancy: string;
+  component: string;
+  issue: string;
   door: string;
   issueDescription: string;
   assignee: string;

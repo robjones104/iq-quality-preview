@@ -27,7 +27,7 @@ import { OrderCard } from '@/components/OrderCard';
 import { eventStatusTagProps } from '@/components/StatusTag';
 import type { Order } from '@/data/orders';
 import type { QualityEvent } from '@/data/types';
-type OrderRow = Order & Pick<QualityEvent, 'discrepancy' | 'product' | 'door' | 'branch' | 'plant' | 'reportedBy' | 'status'>;
+type OrderRow = Order & Pick<QualityEvent, 'issue' | 'component' | 'door' | 'branch' | 'plant' | 'reportedBy' | 'status'>;
 type OrderStatus = 'Open' | 'Closed';
 
 const ORDER_STATUS_FILTER = [
@@ -53,8 +53,8 @@ const orderRows: OrderRow[] = orders.map(o => {
   const event = eventMap.get(o.eventId)!;
   return {
     ...o,
-    discrepancy: event.discrepancy,
-    product:     event.product,
+    issue:       event.issue,
+    component:   event.component,
     door:        event.door,
     branch:      event.branch,
     plant:       event.plant,
@@ -114,7 +114,7 @@ function OrdersPageContent() {
         label: (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
             <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{o.eventId}</span>
-            <span style={{ fontSize: 11, color: token.colorTextTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.jobNo} · {o.discrepancy}</span>
+            <span style={{ fontSize: 11, color: token.colorTextTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.jobNo} · {o.issue}</span>
           </div>
         ),
       }));
@@ -200,8 +200,8 @@ function OrdersPageContent() {
 
   const handleExportOrders = () => {
     const toExport = selectedOrderKeys.length > 0 ? filtered.filter(o => selectedOrderKeys.includes(o.id)) : filtered;
-    const headers = ['Order ID', 'Job No.', 'Order Status', 'Discrepancy', 'Product', 'Door Type', 'Reported By', 'Branch', 'Plant', 'Last Updated'];
-    const rows = toExport.map(o => [o.id, o.jobNo, effectiveStatus(o), o.discrepancy, o.product, o.door, o.reportedBy, o.branch, o.plant, o.lastUpdated]);
+    const headers = ['Order ID', 'Job No.', 'Order Status', 'Issue', 'Component', 'Door Type', 'Reported By', 'Branch', 'Plant', 'Last Updated'];
+    const rows = toExport.map(o => [o.id, o.jobNo, effectiveStatus(o), o.issue, o.component, o.door, o.reportedBy, o.branch, o.plant, o.lastUpdated]);
     const lines = [headers, ...rows].map(r => r.map(cell => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','));
     const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -278,14 +278,14 @@ function OrdersPageContent() {
       (d === 'Approved' && isApproved(o)) || (d === 'Declined' && isDeclined(o)) || (d === 'Pending' && !isApproved(o) && !isDeclined(o))
     );
     const matchEventStatus   = !appliedFiltersLocal.status?.length        || appliedFiltersLocal.status.includes(o.status);
-    const matchDiscrepancy   = !appliedFiltersLocal.discrepancy?.length   || appliedFiltersLocal.discrepancy.includes(o.discrepancy);
+    const matchIssue         = !appliedFiltersLocal.issue?.length         || appliedFiltersLocal.issue.includes(o.issue);
     const matchDoor          = !appliedFiltersLocal.door?.length          || appliedFiltersLocal.door.includes(o.door);
-    const matchProduct       = !appliedFiltersLocal.product?.length       || appliedFiltersLocal.product.includes(o.product);
+    const matchComponent     = !appliedFiltersLocal.component?.length     || appliedFiltersLocal.component.includes(o.component);
     const matchBranch        = !appliedFiltersLocal.branch?.length        || appliedFiltersLocal.branch.includes(o.branch);
     const matchPlant         = !appliedFiltersLocal.plant?.length         || appliedFiltersLocal.plant.includes(o.plant);
     const matchReportedBy    = !appliedFiltersLocal.reportedBy?.length    || appliedFiltersLocal.reportedBy.includes(o.reportedBy);
     return matchOrderStatus && matchDecision && matchEventStatus &&
-      matchDiscrepancy && matchDoor && matchProduct && matchBranch && matchPlant && matchReportedBy;
+      matchIssue && matchDoor && matchComponent && matchBranch && matchPlant && matchReportedBy;
   });
 
 
@@ -325,22 +325,22 @@ function OrdersPageContent() {
       render: (jobNo: string) => <CopyableValue value={jobNo} />,
     },
     {
-      title: 'Discrepancy',
-      dataIndex: 'discrepancy',
-      key: 'discrepancy',
-      sorter: (a, b) => a.discrepancy.localeCompare(b.discrepancy),
-      filters: evtColFilters('discrepancy'),
-      filteredValue: appliedFiltersLocal.discrepancy ?? null,
+      title: 'Issue',
+      dataIndex: 'issue',
+      key: 'issue',
+      sorter: (a, b) => a.issue.localeCompare(b.issue),
+      filters: evtColFilters('issue'),
+      filteredValue: appliedFiltersLocal.issue ?? null,
       ellipsis: { showTitle: true },
       width: 176,
     },
     {
-      title: 'Product',
-      dataIndex: 'product',
-      key: 'product',
-      sorter: (a, b) => a.product.localeCompare(b.product),
-      filters: evtColFilters('product'),
-      filteredValue: appliedFiltersLocal.product ?? null,
+      title: 'Component',
+      dataIndex: 'component',
+      key: 'component',
+      sorter: (a, b) => a.component.localeCompare(b.component),
+      filters: evtColFilters('component'),
+      filteredValue: appliedFiltersLocal.component ?? null,
       ellipsis: { showTitle: true },
       width: 140,
     },

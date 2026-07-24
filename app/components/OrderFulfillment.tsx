@@ -48,7 +48,7 @@ type PendingItem = {
   eventId: string;
   jobNo: string;
   branch: string;
-  product: string;
+  component: string;
   partsCount: number;
   ageDays: number;
   commentCount: number;
@@ -95,7 +95,7 @@ function PendingRow({ item, token }: { item: PendingItem; token: ReturnType<type
         <Badge status={item.techReplied ? 'success' : 'error'} style={{ position: 'absolute', top: -2, left: -2, zIndex: 1 }} />
       </Tooltip>
 
-      {/* Left: ID + parts tag, then branch · product */}
+      {/* Left: ID + parts tag, then branch · component */}
       <div style={{ flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3 }}>
           <Link href={`/orders/${item.id}`} style={{ fontSize: token.fontSizeSM, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap' }}>
@@ -106,7 +106,7 @@ function PendingRow({ item, token }: { item: PendingItem; token: ReturnType<type
           </Tag>
         </div>
         <Text type="secondary" style={{ fontSize: token.fontSizeXS, whiteSpace: 'nowrap' }}>
-          {item.branch} · {item.product}
+          {item.branch} · {item.component}
         </Text>
       </div>
 
@@ -181,7 +181,7 @@ export function OrderFulfillment({
           eventId: o.eventId,
           jobNo: o.jobNo,
           branch: ev?.branch ?? '—',
-          product: ev?.product ?? '—',
+          component: ev?.component ?? '—',
           partsCount: o.parts.length,
           ageDays: TODAY.diff(parseOrderDate(o.lastUpdated), 'day'),
           commentCount: count,
@@ -235,49 +235,9 @@ export function OrderFulfillment({
 
   return (
     <div>
-      <Row gutter={token.marginSM} style={{ alignItems: 'stretch' }}>
-
-        {/* Pending Review — tall card, stretches to match Decision Trend + Declined Orders stacked on the right */}
-        <Col xs={24} lg={8} style={{ display: 'flex', flexDirection: 'column' }}>
-          <Card
-            size="small"
-            title={
-              <span style={{ fontSize: token.fontSizeSM, fontWeight: 500, display: 'flex', alignItems: 'center' }}>
-                Inbox
-                <MetricInfoIcon tooltip="Open orders with additional info requests or replies connected to them." token={token} />
-              </span>
-            }
-            extra={
-              pendingItems.length === 0
-                ? <Tag color="green" style={{ fontSize: token.fontSizeXS, lineHeight: '16px', padding: '0 5px' }}>All clear</Tag>
-                : <Link href={fulfillmentHref} style={{ fontSize: token.fontSizeSM }}>View in Table ({pendingItems.length})</Link>
-            }
-            style={{ marginBottom: 0, flex: 1, display: 'flex', flexDirection: 'column' }}
-            styles={{ body: {
-              flex: 1,
-              padding: '8px 12px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 8,
-              overflow: 'auto',
-            } }}
-          >
-            {pendingItems.length === 0 ? (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: token.colorTextTertiary }}>
-                <ShoppingCartOutlined style={{ fontSize: token.fontSizeHeading3 }} />
-                <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No pending orders with open message threads</Text>
-              </div>
-            ) : (
-              visiblePending.map(item => (
-                <PendingRow key={item.id} item={item} token={token} />
-              ))
-            )}
-          </Card>
-        </Col>
-
-        <Col xs={24} lg={16} style={{ display: 'flex', flexDirection: 'column', gap: token.marginSM }}>
-
-          {/* Decision Trend — unchanged size/position */}
+      {/* Decision Trend — full width */}
+      <Row style={{ marginBottom: token.marginSM }}>
+        <Col span={24}>
           <Card
             size="small"
             title={
@@ -333,8 +293,50 @@ export function OrderFulfillment({
               </div>
             )}
           </Card>
+        </Col>
+      </Row>
 
-          {/* Declined Orders — fills the space below Decision Trend */}
+      {/* Pending Review + Declined Orders — split evenly */}
+      <Row gutter={token.marginSM} style={{ alignItems: 'stretch' }}>
+
+        <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column' }}>
+          <Card
+            size="small"
+            title={
+              <span style={{ fontSize: token.fontSizeSM, fontWeight: 500, display: 'flex', alignItems: 'center' }}>
+                Pending Review
+                <MetricInfoIcon tooltip="Open orders with additional info requests or replies connected to them." token={token} />
+              </span>
+            }
+            extra={
+              pendingItems.length === 0
+                ? <Tag color="green" style={{ fontSize: token.fontSizeXS, lineHeight: '16px', padding: '0 5px' }}>All clear</Tag>
+                : <Link href={fulfillmentHref} style={{ fontSize: token.fontSizeSM }}>View in Table ({pendingItems.length})</Link>
+            }
+            style={{ marginBottom: 0, flex: 1, display: 'flex', flexDirection: 'column' }}
+            styles={{ body: {
+              flex: 1,
+              padding: '8px 12px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+              overflow: 'auto',
+            } }}
+          >
+            {pendingItems.length === 0 ? (
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: token.colorTextTertiary }}>
+                <ShoppingCartOutlined style={{ fontSize: token.fontSizeHeading3 }} />
+                <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No pending orders with open message threads</Text>
+              </div>
+            ) : (
+              visiblePending.map(item => (
+                <PendingRow key={item.id} item={item} token={token} />
+              ))
+            )}
+          </Card>
+        </Col>
+
+        <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column' }}>
           <Card
             size="small"
             title={
@@ -390,7 +392,7 @@ export function PendingCSReviewChart({ orders }: { orders: Order[] }) {
       .map(o => {
         const ev = EVENT_MAP.get(o.eventId);
         const { count, latest, latestRole } = commentsFor(o.eventId);
-        return { id: o.id, eventId: o.eventId, jobNo: o.jobNo, branch: ev?.branch ?? '—', product: ev?.product ?? '—', partsCount: o.parts.length, ageDays: TODAY.diff(parseOrderDate(o.lastUpdated), 'day'), commentCount: count, latestComment: latest, techReplied: latestRole === 'Field Technician' };
+        return { id: o.id, eventId: o.eventId, jobNo: o.jobNo, branch: ev?.branch ?? '—', component: ev?.component ?? '—', partsCount: o.parts.length, ageDays: TODAY.diff(parseOrderDate(o.lastUpdated), 'day'), commentCount: count, latestComment: latest, techReplied: latestRole === 'Field Technician' };
       })
       .filter(item => item.commentCount > 0)
       .sort((a, b) => b.ageDays - a.ageDays),

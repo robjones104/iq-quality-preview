@@ -1,6 +1,6 @@
-import type { QualityEvent, RootCause, EventStatus, AdditionalInfoRequest } from './types';
+import type { QualityEvent, RootCause, EventStatus, AdditionalInfoRequest, EditHistoryEntry } from './types';
 import {
-  DISCREPANCY_OPTIONS, DOOR_OPTIONS, PRODUCT_OPTIONS,
+  ISSUE_OPTIONS, DOOR_OPTIONS, COMPONENT_OPTIONS,
   BRANCH_OPTIONS, PLANT_OPTIONS, REPORTED_BY_OPTIONS, ROOT_CAUSE_OPTIONS,
 } from './filterOptions';
 
@@ -45,7 +45,7 @@ const ASSIGNEES = [
 const QTY_TYPES = ['Piece', 'Length'] as const;
 
 const ADDITIONAL_INFO_NOTES = [
-  'Please provide photos of the installation site and confirm the serial number from the product label.',
+  'Please provide photos of the installation site and confirm the serial number from the component label.',
   'Can you verify whether all hardware components were present at time of installation?',
   'Please confirm the door model number and attach photos showing the reported issue.',
   'Additional photos of the affected area needed. Please include the unit serial number.',
@@ -60,7 +60,7 @@ const ADDITIONAL_INFO_NOTES = [
 const STATUSES: EventStatus[] = ['Reported', 'Under Investigation', 'Validated', 'Invalidated'];
 const SW  = [0.12, 0.18, 0.58, 0.12] as const; // status weights
 
-// Product weights — Motor Gearbox + Controller most common
+// Component weights — Motor Gearbox + Controller most common
 const PW  = [0.07, 0.18, 0.04, 0.12, 0.05, 0.06, 0.22, 0.06, 0.08, 0.06, 0.06] as const;
 
 // Root cause weights — Supplier Issue + Installation Error most common
@@ -78,11 +78,11 @@ function generateBulkEvents(): QualityEvent[] {
     const m          = Math.floor(r() * 60);
     const reportedAt = `${date}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
     const status     = wpick(STATUSES, SW, r());
-    const product    = wpick(PRODUCT_OPTIONS, PW, r());
+    const component  = wpick(COMPONENT_OPTIONS, PW, r());
     const branch     = pick(BRANCH_OPTIONS, r());
     const plant      = wpick(PLANT_OPTIONS, [0.55, 0.45], r());
     const door       = pick(DOOR_OPTIONS, r());
-    const disc       = pick(DISCREPANCY_OPTIONS, r());
+    const issue      = pick(ISSUE_OPTIONS, r());
     const reportedBy = pick(REPORTED_BY_OPTIONS, r());
     const assignee   = pick(ASSIGNEES, r());
     const dfo        = 1 + Math.floor(r() * 4);
@@ -111,17 +111,39 @@ function generateBulkEvents(): QualityEvent[] {
       partNumber:   `${410000 + Math.floor(r() * 35000)}-${1 + Math.floor(r() * 3)}`,
       quantityType: pick(QTY_TYPES, r()),
       quantity:     1 + Math.floor(r() * 5),
-      description:  `${product} replacement component for ${door} installation.`,
+      description:  `${component} replacement component for ${door} installation.`,
     }] : undefined;
+
+    const hasEditHistory =
+      (status === 'Validated' || status === 'Invalidated') && r() < 0.22;
+    let editHistory: EditHistoryEntry[] | undefined;
+    if (hasEditHistory) {
+      const editField    = r() < 0.5 ? 'Issue' : 'Component';
+      const editPool      = editField === 'Issue' ? ISSUE_OPTIONS : COMPONENT_OPTIONS;
+      const editTo        = editField === 'Issue' ? issue : component;
+      let   editFrom       = pick(editPool, r());
+      if (editFrom === editTo) editFrom = editPool[(editPool.indexOf(editTo) + 1) % editPool.length];
+      const offsetMin      = 15 + Math.floor(r() * 90);
+      const totalMin       = h * 60 + m + offsetMin;
+      const editH          = Math.floor(totalMin / 60) % 24;
+      const editM          = totalMin % 60;
+      editHistory = [{
+        id: `eh_${i}_0`,
+        timestamp: `${date} ${String(editH).padStart(2, '0')}:${String(editM).padStart(2, '0')}`,
+        editedBy: assignee, role: 'Field Quality',
+        field: editField, from: editFrom, to: editTo,
+      }];
+    }
 
     out.push({
       id:           `QE_${i < 300 ? (2001 + i) : (2403 + (i - 300))}`,
       date, jobNo, dfo, ...(elLine != null ? { elLine } : {}), status, rootCause,
-      branch, plant, product, discrepancy: disc, door,
-      issueDescription: `${disc} identified on ${product}. ${branch} branch reported issue with ${door} installation.`,
+      branch, plant, component, issue, door,
+      issueDescription: `${issue} identified on ${component}. ${branch} branch reported issue with ${door} installation.`,
       assignee, reportedBy, reportedAt,
       ...(additionalInfoRequested ? { additionalInfoRequested, additionalInfoNote, additionalInfoRequests } : {}),
       ...(partsRequest ? { partsRequest } : {}),
+      ...(editHistory ? { editHistory } : {}),
     });
   }
 
@@ -133,8 +155,8 @@ const SEED_EVENTS: QualityEvent[] = [
   {
     id: 'QE_2392', date: '2026-06-05', jobNo: 'SO109823809', dfo: 1, elLine: 2,
     status: 'Under Investigation', rootCause: null,
-    branch: 'Atlanta', plant: 'FAR (Farmington)', product: 'Motor Gearbox',
-    discrepancy: 'Missing Installed Component', door: 'Dura_Glide Greenstar 3000',
+    branch: 'Atlanta', plant: 'FAR (Farmington)', component: 'Motor Gearbox',
+    issue: 'Missing Installed Component', door: 'Dura_Glide Greenstar 3000',
     issueDescription: 'Motor gearbox assembly delivered without secondary mounting bracket. Configuration requires both primary and secondary brackets per spec.',
     assignee: 'Callum V. Blackswood', reportedBy: 'Lysandra T. Pemberton', reportedAt: '2026-06-05T15:44:00',
     tags: ['Urgent', 'Supplier Follow-up'],
@@ -155,40 +177,40 @@ const SEED_EVENTS: QualityEvent[] = [
   {
     id: 'QE_2391', date: '2026-06-05', jobNo: 'SO109821456', dfo: 2, elLine: 1,
     status: 'Reported', rootCause: null,
-    branch: 'Atlanta', plant: 'FAR (Farmington)', product: 'Motor Gearbox',
-    discrepancy: 'Freight Damage', door: 'Dura_Glide Greenstar 3000',
+    branch: 'Atlanta', plant: 'FAR (Farmington)', component: 'Motor Gearbox',
+    issue: 'Freight Damage', door: 'Dura_Glide Greenstar 3000',
     issueDescription: 'Motor gearbox shaft has visible scoring marks indicating pre-installation damage.',
     assignee: 'Callum V. Blackswood', reportedBy: 'Phineas K. Dunfield', reportedAt: '2026-06-05T14:22:00',
   },
   {
     id: 'QE_2388', date: '2026-06-04', jobNo: 'SO109819034', dfo: 1, elLine: 3,
     status: 'Validated', rootCause: 'Supplier Issue',
-    branch: 'Memphis', plant: 'FAR (Farmington)', product: 'Motor Gearbox',
-    discrepancy: 'Incorrect Build', door: 'Dura_Glide 3000 Series',
+    branch: 'Memphis', plant: 'FAR (Farmington)', component: 'Motor Gearbox',
+    issue: 'Incorrect Build', door: 'Dura_Glide 3000 Series',
     issueDescription: 'Received Motor Gearbox variant B instead of variant A. Supplier packing list matches variant A.',
     assignee: 'Rosamund T. Holloway', reportedBy: 'Peregrine J. Merriweather', reportedAt: '2026-06-04T09:15:00',
     editHistory: [
-      { id: 'eh_2388_1', timestamp: '2026-06-04 10:08', editedBy: 'Rosamund T. Holloway', role: 'Field Quality', field: 'Discrepancy', from: 'Will not Operate', to: 'Incorrect Build' },
+      { id: 'eh_2388_1', timestamp: '2026-06-04 10:08', editedBy: 'Rosamund T. Holloway', role: 'Field Quality', field: 'Issue', from: 'Will not Operate', to: 'Incorrect Build' },
       { id: 'eh_2388_2', timestamp: '2026-06-04 10:31', editedBy: 'Rosamund T. Holloway', role: 'Field Quality', field: 'Root Cause', from: null, to: 'Supplier Issue' },
     ],
   },
   {
     id: 'QE_2385', date: '2026-06-04', jobNo: 'SO109816772', dfo: 1, elLine: 1,
     status: 'Validated', rootCause: 'Supplier Issue',
-    branch: 'Dallas', plant: 'FAR (Farmington)', product: 'Controller',
-    discrepancy: 'Will not Operate', door: 'Dura_Glide 3000 Series',
+    branch: 'Dallas', plant: 'FAR (Farmington)', component: 'Controller',
+    issue: 'Will not Operate', door: 'Dura_Glide 3000 Series',
     issueDescription: 'Three units from batch #ECB-2206 failed power-on self-test. All shipped from same supplier lot.',
     assignee: 'Rosamund T. Holloway', reportedBy: 'Seraphina M. Duncastle', reportedAt: '2026-06-04T08:30:00',
     editHistory: [
-      { id: 'eh_2385_1', timestamp: '2026-06-04 09:14', editedBy: 'Rosamund T. Holloway', role: 'Field Quality', field: 'Discrepancy', from: 'Incorrect Build', to: 'Will not Operate' },
+      { id: 'eh_2385_1', timestamp: '2026-06-04 09:14', editedBy: 'Rosamund T. Holloway', role: 'Field Quality', field: 'Issue', from: 'Incorrect Build', to: 'Will not Operate' },
       { id: 'eh_2385_2', timestamp: '2026-06-04 09:45', editedBy: 'Rosamund T. Holloway', role: 'Field Quality', field: 'Root Cause', from: 'Factory Issue', to: 'Supplier Issue' },
     ],
   },
   {
     id: 'QE_2381', date: '2026-06-03', jobNo: 'SO109814401', dfo: 4, elLine: 2,
     status: 'Under Investigation', rootCause: null,
-    branch: 'Chicago', plant: 'MTC (Mount Comfort)', product: 'Hardware Kit',
-    discrepancy: 'Missing Hardware', door: 'Dura_Glide 2000 Series',
+    branch: 'Chicago', plant: 'MTC (Mount Comfort)', component: 'Hardware Kit',
+    issue: 'Missing Hardware', door: 'Dura_Glide 2000 Series',
     issueDescription: 'Hardware kit missing locking collar. Unable to complete installation without this component.',
     assignee: 'Caspian T. Moorwick', reportedBy: 'Oberon M. Ravensdale', reportedAt: '2026-06-03T11:44:00',
     hardwareKit: { kitInfo: 'Entire Hardware Kit', serialNumber: 'HK-55021-B', quantityType: 'Piece', quantity: 1 },
@@ -196,37 +218,37 @@ const SEED_EVENTS: QualityEvent[] = [
   {
     id: 'QE_2379', date: '2026-06-03', jobNo: 'SO109812088', dfo: 2, elLine: 1,
     status: 'Validated', rootCause: 'Installation Error',
-    branch: 'Indianapolis', plant: 'MTC (Mount Comfort)', product: 'Complete Door Package',
-    discrepancy: 'Loose Component', door: 'Procare 8500',
+    branch: 'Indianapolis', plant: 'MTC (Mount Comfort)', component: 'Complete Door Package',
+    issue: 'Loose Component', door: 'Procare 8500',
     issueDescription: 'Door closer installed at incorrect spring tension setting. Customer reports door slamming.',
     assignee: 'Caspian T. Moorwick', reportedBy: 'Ptolemy J. Foxmere', reportedAt: '2026-06-03T10:05:00',
     editHistory: [
-      { id: 'eh_2379_1', timestamp: '2026-06-03 11:20', editedBy: 'Caspian T. Moorwick', role: 'Field Quality', field: 'Discrepancy', from: 'Machining', to: 'Loose Component' },
+      { id: 'eh_2379_1', timestamp: '2026-06-03 11:20', editedBy: 'Caspian T. Moorwick', role: 'Field Quality', field: 'Issue', from: 'Machining', to: 'Loose Component' },
       { id: 'eh_2379_2', timestamp: '2026-06-03 11:38', editedBy: 'Caspian T. Moorwick', role: 'Field Quality', field: 'Root Cause', from: null, to: 'Installation Error' },
     ],
   },
   {
     id: 'QE_2376', date: '2026-06-02', jobNo: 'SO109809755', dfo: 1, elLine: 2,
     status: 'Validated', rootCause: 'Short Shipping',
-    branch: 'New York', plant: 'MTC (Mount Comfort)', product: 'Sensors',
-    discrepancy: 'Missing Installed Component', door: 'Dura_Glide 5200',
+    branch: 'New York', plant: 'MTC (Mount Comfort)', component: 'Sensors',
+    issue: 'Missing Installed Component', door: 'Dura_Glide 5200',
     issueDescription: 'Sensor shipped without installation screws. Customer ordered full installation kit.',
     assignee: 'Imogen R. Moorstone', reportedBy: 'Chrysanthemum R. Aldgate', reportedAt: '2026-06-02T16:20:00',
     editHistory: [
-      { id: 'eh_2376_1', timestamp: '2026-06-02 17:05', editedBy: 'Imogen R. Moorstone', role: 'Field Quality', field: 'Discrepancy', from: 'Missing Hardware', to: 'Missing Installed Component' },
+      { id: 'eh_2376_1', timestamp: '2026-06-02 17:05', editedBy: 'Imogen R. Moorstone', role: 'Field Quality', field: 'Issue', from: 'Missing Hardware', to: 'Missing Installed Component' },
       { id: 'eh_2376_2', timestamp: '2026-06-02 17:05', editedBy: 'Imogen R. Moorstone', role: 'Field Quality', field: 'Root Cause', from: null, to: 'Short Shipping' },
     ],
   },
   {
     id: 'QE_2373', date: '2026-06-02', jobNo: 'SO109807412', dfo: 3, elLine: 1,
     status: 'Invalidated', rootCause: null,
-    branch: 'New Jersey', plant: 'MTC (Mount Comfort)', product: 'Glass',
-    discrepancy: 'Visual', door: 'All Glass 2000',
+    branch: 'New Jersey', plant: 'MTC (Mount Comfort)', component: 'Glass',
+    issue: 'Visual', door: 'All Glass 2000',
     issueDescription: 'Glass panel delivered with hairline crack along lower edge. Customer spec requires flawless finish.',
     assignee: 'Imogen R. Moorstone', reportedBy: 'Thaddeus V. Foxbury', reportedAt: '2026-06-02T13:45:00',
     editHistory: [
-      { id: 'eh_2373_1', timestamp: '2026-06-02 14:30', editedBy: 'Imogen R. Moorstone', role: 'Field Quality', field: 'Discrepancy', from: 'Freight Damage', to: 'Visual' },
-      { id: 'eh_2373_2', timestamp: '2026-06-02 14:55', editedBy: 'Imogen R. Moorstone', role: 'Field Quality', field: 'Product', from: 'Glass Panel', to: 'Glass' },
+      { id: 'eh_2373_1', timestamp: '2026-06-02 14:30', editedBy: 'Imogen R. Moorstone', role: 'Field Quality', field: 'Issue', from: 'Freight Damage', to: 'Visual' },
+      { id: 'eh_2373_2', timestamp: '2026-06-02 14:55', editedBy: 'Imogen R. Moorstone', role: 'Field Quality', field: 'Component', from: 'Glass Panel', to: 'Glass' },
     ],
   },
   {
@@ -239,16 +261,16 @@ const SEED_EVENTS: QualityEvent[] = [
       { id: 'air_2370_2', text: 'Got it, thanks. Can you also check if a factory reset resolves it on just one unit before we escalate to engineering?', sentAt: '2026-06-01T15:50:00', kind: 'followup', relatesTo: 'air_2370_0', sentBy: 'Field Quality' },
       { id: 'air_2370_3', text: "Tried a factory reset on unit #3 — same failure after reset. Doesn't look like a config issue.", sentAt: '2026-06-01T16:30:00', kind: 'reply', relatesTo: 'air_2370_0', sentBy: 'Tech' },
     ],
-    branch: 'New England', plant: 'MTC (Mount Comfort)', product: 'Controller',
-    discrepancy: 'Will not Operate', door: 'Dura_Glide 2000 Series',
+    branch: 'New England', plant: 'MTC (Mount Comfort)', component: 'Controller',
+    issue: 'Will not Operate', door: 'Dura_Glide 2000 Series',
     issueDescription: 'Controller fails to register credentials after firmware update. Affects 6 units in same shipment.',
     assignee: 'Imogen R. Moorstone', reportedBy: 'Wilhelmina J. Thornmere', reportedAt: '2026-06-01T14:00:00',
   },
   {
     id: 'QE_2367', date: '2026-06-01', jobNo: 'SO109802736', dfo: 1, elLine: 3,
     status: 'Validated', rootCause: 'Engineering Issue',
-    branch: 'Houston', plant: 'FAR (Farmington)', product: 'Threshold',
-    discrepancy: 'Thermal Event', door: 'Dura_Glide Greenstar 3000',
+    branch: 'Houston', plant: 'FAR (Farmington)', component: 'Threshold',
+    issue: 'Thermal Event', door: 'Dura_Glide Greenstar 3000',
     issueDescription: 'Threshold seal deforming under high-heat conditions. Interior temperatures exceeding 95°F cause seal to gap.',
     assignee: 'Warwick T. Blackwold', reportedBy: 'Ignatius C. Ashfield', reportedAt: '2026-06-01T10:30:00',
     editHistory: [
@@ -258,12 +280,12 @@ const SEED_EVENTS: QualityEvent[] = [
   {
     id: 'QE_2364', date: '2026-05-31', jobNo: 'SO109800423', dfo: 4, elLine: 2,
     status: 'Validated', rootCause: 'Short Shipping',
-    branch: 'Los Angeles', plant: 'MTC (Mount Comfort)', product: 'Hardware Kit',
-    discrepancy: 'Missing Hardware', door: 'M-Force Swing Door',
+    branch: 'Los Angeles', plant: 'MTC (Mount Comfort)', component: 'Hardware Kit',
+    issue: 'Missing Hardware', door: 'M-Force Swing Door',
     issueDescription: 'Hardware kit shipped without through-bolt set. Required for hollow metal door frame installation.',
     assignee: 'Warwick T. Blackwold', reportedBy: 'Seraphine K. Foxfield', reportedAt: '2026-05-31T15:10:00',
     editHistory: [
-      { id: 'eh_2364_1', timestamp: '2026-05-31 16:00', editedBy: 'Warwick T. Blackwold', role: 'Field Quality', field: 'Discrepancy', from: 'Incorrect Build', to: 'Missing Hardware' },
+      { id: 'eh_2364_1', timestamp: '2026-05-31 16:00', editedBy: 'Warwick T. Blackwold', role: 'Field Quality', field: 'Issue', from: 'Incorrect Build', to: 'Missing Hardware' },
       { id: 'eh_2364_2', timestamp: '2026-05-31 16:20', editedBy: 'Warwick T. Blackwold', role: 'Field Quality', field: 'Root Cause', from: 'Factory Issue', to: 'Short Shipping' },
     ],
   },
@@ -272,41 +294,41 @@ const SEED_EVENTS: QualityEvent[] = [
     status: 'Reported', rootCause: null, additionalInfoRequested: true,
     additionalInfoNote: 'Please re-verify the machining tolerance at the connector seat and provide caliper measurements if possible.',
     additionalInfoRequests: [{ id: 'air_2361_0', text: 'Please re-verify the machining tolerance at the connector seat and provide caliper measurements if possible.', sentAt: '2026-05-31T11:55:00', kind: 'initial' }],
-    branch: 'San Francisco', plant: 'MTC (Mount Comfort)', product: 'Jamb',
-    discrepancy: 'Machining', door: 'Dura_Glide 3000 Series',
+    branch: 'San Francisco', plant: 'MTC (Mount Comfort)', component: 'Jamb',
+    issue: 'Machining', door: 'Dura_Glide 3000 Series',
     issueDescription: 'Jamb machining tolerance out of spec. Wiring harness connector does not seat correctly.',
     assignee: 'Warwick T. Blackwold', reportedBy: 'Iolanthe B. Ashwell', reportedAt: '2026-05-31T11:55:00',
   },
   {
     id: 'QE_2358', date: '2026-05-30', jobNo: 'SO109795847', dfo: 2, elLine: 1,
     status: 'Validated', rootCause: 'Supplier Issue',
-    branch: 'Detroit', plant: 'MTC (Mount Comfort)', product: 'Controller',
-    discrepancy: 'Incorrect Build', door: 'Procare 8300',
+    branch: 'Detroit', plant: 'MTC (Mount Comfort)', component: 'Controller',
+    issue: 'Incorrect Build', door: 'Procare 8300',
     issueDescription: 'Controllers built to incorrect firmware version. Entire shipment of 24 units affected.',
     assignee: 'Caspian T. Moorwick', reportedBy: 'Marchmont R. Fenwick', reportedAt: '2026-05-30T09:00:00',
     editHistory: [
-      { id: 'eh_2358_1', timestamp: '2026-05-30 10:15', editedBy: 'Caspian T. Moorwick', role: 'Field Quality', field: 'Discrepancy', from: 'Will not Operate', to: 'Incorrect Build' },
+      { id: 'eh_2358_1', timestamp: '2026-05-30 10:15', editedBy: 'Caspian T. Moorwick', role: 'Field Quality', field: 'Issue', from: 'Will not Operate', to: 'Incorrect Build' },
       { id: 'eh_2358_2', timestamp: '2026-05-30 11:02', editedBy: 'Caspian T. Moorwick', role: 'Field Quality', field: 'Root Cause', from: null, to: 'Supplier Issue' },
     ],
   },
   {
     id: 'QE_2355', date: '2026-05-30', jobNo: 'SO109793534', dfo: 3, elLine: 2,
     status: 'Validated', rootCause: 'Factory Issue',
-    branch: 'Dallas', plant: 'FAR (Farmington)', product: 'Motor Gearbox',
-    discrepancy: 'Will not Operate', door: 'Dura_Glide Greenstar 3000',
+    branch: 'Dallas', plant: 'FAR (Farmington)', component: 'Motor Gearbox',
+    issue: 'Will not Operate', door: 'Dura_Glide Greenstar 3000',
     issueDescription: 'Motor gearbox units from batch #MG-4412 drawing excessive current. Risk of controller board damage.',
     assignee: 'Rosamund T. Holloway', reportedBy: 'Aldhelm P. Ravencroft', reportedAt: '2026-05-30T08:15:00',
     editHistory: [
-      { id: 'eh_2355_1', timestamp: '2026-05-30 09:30', editedBy: 'Rosamund T. Holloway', role: 'Field Quality', field: 'Discrepancy', from: 'Freight Damage', to: 'Will not Operate' },
+      { id: 'eh_2355_1', timestamp: '2026-05-30 09:30', editedBy: 'Rosamund T. Holloway', role: 'Field Quality', field: 'Issue', from: 'Freight Damage', to: 'Will not Operate' },
       { id: 'eh_2355_2', timestamp: '2026-05-30 09:55', editedBy: 'Rosamund T. Holloway', role: 'Field Quality', field: 'Root Cause', from: 'Ordering Error', to: 'Factory Issue' },
-      { id: 'eh_2355_3', timestamp: '2026-05-30 10:10', editedBy: 'Rosamund T. Holloway', role: 'Field Quality', field: 'Product', from: 'Controller', to: 'Motor Gearbox' },
+      { id: 'eh_2355_3', timestamp: '2026-05-30 10:10', editedBy: 'Rosamund T. Holloway', role: 'Field Quality', field: 'Component', from: 'Controller', to: 'Motor Gearbox' },
     ],
   },
   {
     id: 'QE_2352', date: '2026-05-29', jobNo: 'SO109791221', dfo: 1, elLine: 1,
     status: 'Validated', rootCause: 'Installation Error',
-    branch: 'Minneapolis', plant: 'MTC (Mount Comfort)', product: 'Complete Door Package',
-    discrepancy: 'Loose Component', door: 'Dura_Glide 2000 Series',
+    branch: 'Minneapolis', plant: 'MTC (Mount Comfort)', component: 'Complete Door Package',
+    issue: 'Loose Component', door: 'Dura_Glide 2000 Series',
     issueDescription: 'Exit device strike plate misaligned by 3mm causing intermittent latch failure under load.',
     assignee: 'Caspian T. Moorwick', reportedBy: 'Allegra C. Moorgate', reportedAt: '2026-05-29T14:30:00',
     editHistory: [
@@ -319,8 +341,8 @@ const SEED_EVENTS: QualityEvent[] = [
   {
     id: 'QE_2393', date: '2026-06-17', jobNo: 'SO110012345', dfo: 2, elLine: 1,
     status: 'Reported', rootCause: null,
-    branch: 'Baltimore', plant: 'FAR (Farmington)', product: 'Controller',
-    discrepancy: 'Will not Operate', door: 'Dura_Glide Greenstar 2000',
+    branch: 'Baltimore', plant: 'FAR (Farmington)', component: 'Controller',
+    issue: 'Will not Operate', door: 'Dura_Glide Greenstar 2000',
     issueDescription: 'Two controllers failed power-on self-test after installation. LED sequence indicates hardware fault at boot. Both units are from the same packing lot #ECB-2309.',
     assignee: 'Callum V. Blackswood', reportedBy: 'Remington J. Dunwall', reportedAt: '2026-06-17T08:15:00',
     tags: ['Controller', 'Power Failure'],
@@ -333,8 +355,8 @@ const SEED_EVENTS: QualityEvent[] = [
   {
     id: 'QE_2394', date: '2026-06-17', jobNo: 'WO110013412', dfo: 1,
     status: 'Under Investigation', rootCause: null,
-    branch: 'Denver', plant: 'MTC (Mount Comfort)', product: 'Motor Gearbox',
-    discrepancy: 'Freight Damage', door: 'Dura_Glide 3000 Series',
+    branch: 'Denver', plant: 'MTC (Mount Comfort)', component: 'Motor Gearbox',
+    issue: 'Freight Damage', door: 'Dura_Glide 3000 Series',
     issueDescription: 'Motor gearbox housing cracked along the casting seam. Damage pattern is consistent with a lateral impact during transit. Unit is non-functional.',
     assignee: 'Rosamund T. Holloway', reportedBy: 'Persephone T. Whitmore', reportedAt: '2026-06-17T09:42:00',
     tags: ['Freight Damage', 'Urgent'],
@@ -349,8 +371,8 @@ const SEED_EVENTS: QualityEvent[] = [
   {
     id: 'QE_2395', date: '2026-06-17', jobNo: 'SO110014789', dfo: 3, elLine: 2,
     status: 'Validated', rootCause: 'Short Shipping',
-    branch: 'St.Louis', plant: 'FAR (Farmington)', product: 'Hardware Kit',
-    discrepancy: 'Missing Hardware', door: 'Procare 8300 A',
+    branch: 'St.Louis', plant: 'FAR (Farmington)', component: 'Hardware Kit',
+    issue: 'Missing Hardware', door: 'Procare 8300 A',
     issueDescription: 'Hardware kit arrived with mounting screws short by 6 units. Packing slip indicates full quantity was packed. Installation stalled pending replacement.',
     assignee: 'Caspian T. Moorwick', reportedBy: 'Balthazar C. Dunmoor', reportedAt: '2026-06-17T10:30:00',
     tags: ['Short Shipping', 'Urgent'],
@@ -363,8 +385,8 @@ const SEED_EVENTS: QualityEvent[] = [
   {
     id: 'QE_2396', date: '2026-06-17', jobNo: 'SO110015901', dfo: 4, elLine: 3,
     status: 'Reported', rootCause: null,
-    branch: 'Cleveland', plant: 'MTC (Mount Comfort)', product: 'Sensors',
-    discrepancy: 'Missing Installed Component', door: 'IS 10000',
+    branch: 'Cleveland', plant: 'MTC (Mount Comfort)', component: 'Sensors',
+    issue: 'Missing Installed Component', door: 'IS 10000',
     issueDescription: 'IS 10000 sensor package missing activation sensor at delivery. Only the presence sensor was included. Activation sensor is listed on the packing slip.',
     assignee: 'Imogen R. Moorstone', reportedBy: 'Alcyone R. Foxbourne', reportedAt: '2026-06-17T13:05:00',
     additionalInfoRequested: true,
@@ -378,8 +400,8 @@ const SEED_EVENTS: QualityEvent[] = [
   {
     id: 'QE_2397', date: '2026-06-18', jobNo: 'WO110016344', dfo: 1,
     status: 'Under Investigation', rootCause: null,
-    branch: 'Orlando', plant: 'FAR (Farmington)', product: 'Complete Door Package',
-    discrepancy: 'Incorrect Build', door: 'Dura_Glide 5200',
+    branch: 'Orlando', plant: 'FAR (Farmington)', component: 'Complete Door Package',
+    issue: 'Incorrect Build', door: 'Dura_Glide 5200',
     issueDescription: 'Door package delivered with a right-hand operator. Job specification clearly calls for left-hand. Unit cannot be installed as delivered; customer has a hard installation deadline.',
     assignee: 'Warwick T. Blackwold', reportedBy: 'Ebenezer C. Moorwick', reportedAt: '2026-06-18T07:55:00',
     tags: ['Build Error', 'Urgent'],
@@ -395,8 +417,8 @@ const SEED_EVENTS: QualityEvent[] = [
   {
     id: 'QE_2398', date: '2026-06-18', jobNo: 'SO110017512', dfo: 2, elLine: 1,
     status: 'Validated', rootCause: 'Factory Issue',
-    branch: 'Detroit', plant: 'MTC (Mount Comfort)', product: 'Glass',
-    discrepancy: 'Visual', door: 'All Glass 2000',
+    branch: 'Detroit', plant: 'MTC (Mount Comfort)', component: 'Glass',
+    issue: 'Visual', door: 'All Glass 2000',
     issueDescription: 'Glass panel has a stress fracture originating at the top drill location. Fracture propagated after thermal cycling during morning sun exposure. Full panel replacement required.',
     assignee: 'Rosamund T. Holloway', reportedBy: 'Archibald R. Graymoor', reportedAt: '2026-06-18T10:20:00',
     tags: ['Glass', 'Factory'],
@@ -409,8 +431,8 @@ const SEED_EVENTS: QualityEvent[] = [
   {
     id: 'QE_2399', date: '2026-06-18', jobNo: 'SO110018765', dfo: 1, elLine: 2,
     status: 'Reported', rootCause: null,
-    branch: 'Salt Lake City', plant: 'FAR (Farmington)', product: 'Threshold',
-    discrepancy: 'Machining', door: 'Dura_Storm',
+    branch: 'Salt Lake City', plant: 'FAR (Farmington)', component: 'Threshold',
+    issue: 'Machining', door: 'Dura_Storm',
     issueDescription: 'Threshold profile is 2.1mm undersized at the center span, creating a visible light gap. Does not meet weather seal performance spec for Dura-Storm installation.',
     assignee: 'Callum V. Blackswood', reportedBy: 'Amaranth C. Dunhill', reportedAt: '2026-06-18T14:35:00',
     partsRequest: [
@@ -421,8 +443,8 @@ const SEED_EVENTS: QualityEvent[] = [
   {
     id: 'QE_2400', date: '2026-06-20', jobNo: 'SO110019023', dfo: 2, elLine: 1,
     status: 'Validated', rootCause: 'Configuration Problem',
-    branch: 'New Orleans', plant: 'FAR (Farmington)', product: 'Controller',
-    discrepancy: 'Incorrect Build', door: 'Magic Access',
+    branch: 'New Orleans', plant: 'FAR (Farmington)', component: 'Controller',
+    issue: 'Incorrect Build', door: 'Magic Access',
     issueDescription: 'Controllers configured for 24V operation but job specification requires 12V. Units cannot be reprogrammed in the field without a factory reset tool. Both units from same FAR build run.',
     assignee: 'Caspian T. Moorwick', reportedBy: 'Oswald M. Fenwick', reportedAt: '2026-06-20T08:10:00',
     tags: ['Controller', 'Build Error'],
@@ -435,8 +457,8 @@ const SEED_EVENTS: QualityEvent[] = [
   {
     id: 'QE_2401', date: '2026-06-20', jobNo: 'WO110020198', dfo: 3,
     status: 'Under Investigation', rootCause: null,
-    branch: 'Indianapolis', plant: 'MTC (Mount Comfort)', product: 'Header',
-    discrepancy: 'Loose Component', door: 'Dura_Glide 2000 Series',
+    branch: 'Indianapolis', plant: 'MTC (Mount Comfort)', component: 'Header',
+    issue: 'Loose Component', door: 'Dura_Glide 2000 Series',
     issueDescription: 'Header end cap is separating from the housing during door operation. Audible rattle present; end cap can be manually displaced without tools. Retainer clip appears undersized.',
     assignee: 'Imogen R. Moorstone', reportedBy: 'Tiberius A. Ravensbrook', reportedAt: '2026-06-20T09:47:00',
     tags: ['Loose Component'],
@@ -452,8 +474,8 @@ const SEED_EVENTS: QualityEvent[] = [
   {
     id: 'QE_2402', date: '2026-06-20', jobNo: 'SO110021334', dfo: 1, elLine: 3,
     status: 'Invalidated', rootCause: null,
-    branch: 'Atlanta', plant: 'FAR (Farmington)', product: 'Panel',
-    discrepancy: 'Visual', door: 'Duraguard 3000',
+    branch: 'Atlanta', plant: 'FAR (Farmington)', component: 'Panel',
+    issue: 'Visual', door: 'Duraguard 3000',
     issueDescription: 'Field report cited surface discoloration on Duraguard 3000 panel in lower quadrant. On-site inspection confirmed discoloration is protective film residue not removed at installation. No manufacturing defect present.',
     assignee: 'Warwick T. Blackwold', reportedBy: 'Calliope T. Ashwick', reportedAt: '2026-06-20T11:25:00',
     partsRequest: [

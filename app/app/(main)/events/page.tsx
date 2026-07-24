@@ -31,8 +31,8 @@ function EventsPageContent() {
   const flagParam        = searchParams.get('flag');
   const statusParam      = searchParams.get('status');
   const branchParam      = searchParams.get('branch');
-  const discrepancyParam = searchParams.get('discrepancy');
-  const productParam     = searchParams.get('product');
+  const issueParam       = searchParams.get('issue');
+  const componentParam   = searchParams.get('component');
   const doorParam        = searchParams.get('door');
   const rootCauseParam   = searchParams.get('rootCause');
   const plantParam       = searchParams.get('plant');
@@ -54,8 +54,8 @@ function EventsPageContent() {
     const fromUrl: Record<string, string[]> = {};
     if (statusParam)      fromUrl.status      = statusParam.split(',');
     if (branchParam)      fromUrl.branch      = branchParam.split(',');
-    if (discrepancyParam) fromUrl.discrepancy = discrepancyParam.split(',');
-    if (productParam)     fromUrl.product     = productParam.split(',');
+    if (issueParam)        fromUrl.issue      = issueParam.split(',');
+    if (componentParam)    fromUrl.component  = componentParam.split(',');
     if (doorParam)        fromUrl.door        = doorParam.split(',');
     if (rootCauseParam)   fromUrl.rootCause   = rootCauseParam.split(',');
     if (plantParam)       fromUrl.plant       = plantParam.split(',');
@@ -88,8 +88,8 @@ function EventsPageContent() {
 
   const handleExportEvents = () => {
     const toExport = selectedEventKeys.length > 0 ? filtered.filter(e => selectedEventKeys.includes(e.id)) : filtered;
-    const headers = ['Event ID', 'Job No.', 'Status', 'Discrepancy', 'Door', 'Product', 'Reported By', 'Branch', 'Plant', 'Date'];
-    const rows = toExport.map(e => [e.id, e.jobNo, e.status, e.discrepancy, e.door, e.product, e.reportedBy, e.branch, e.plant, e.date]);
+    const headers = ['Event ID', 'Job No.', 'Status', 'Issue', 'Door', 'Component', 'Reported By', 'Branch', 'Plant', 'Date'];
+    const rows = toExport.map(e => [e.id, e.jobNo, e.status, e.issue, e.door, e.component, e.reportedBy, e.branch, e.plant, e.date]);
     const lines = [headers, ...rows].map(r => r.map(cell => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','));
     const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -112,7 +112,7 @@ function EventsPageContent() {
         label: (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
             <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{e.id}</span>
-            <span style={{ fontSize: 11, color: token.colorTextTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.jobNo} · {e.discrepancy}</span>
+            <span style={{ fontSize: 11, color: token.colorTextTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.jobNo} · {e.issue}</span>
           </div>
         ),
       }));
@@ -166,14 +166,14 @@ function EventsPageContent() {
     if (tagFilter.length && !tagFilter.some(t => e.tags?.includes(t))) return false;
     if (idsFilter.length && !idsFilter.includes(e.id)) return false;
     const matchStatus      = !appliedFilters.status?.length      || appliedFilters.status.includes(e.status);
-    const matchDiscrepancy = !appliedFilters.discrepancy?.length || appliedFilters.discrepancy.includes(e.discrepancy);
+    const matchIssue       = !appliedFilters.issue?.length       || appliedFilters.issue.includes(e.issue);
     const matchDoor        = !appliedFilters.door?.length        || appliedFilters.door.includes(e.door);
-    const matchProduct     = !appliedFilters.product?.length     || appliedFilters.product.includes(e.product);
+    const matchComponent   = !appliedFilters.component?.length   || appliedFilters.component.includes(e.component);
     const matchRootCause   = !appliedFilters.rootCause?.length   || (e.rootCause !== null && appliedFilters.rootCause.includes(e.rootCause));
     const matchBranch      = !appliedFilters.branch?.length      || appliedFilters.branch.includes(e.branch);
     const matchPlant       = !appliedFilters.plant?.length       || appliedFilters.plant.includes(e.plant);
     const matchReportedBy  = !appliedFilters.reportedBy?.length  || appliedFilters.reportedBy.includes(e.reportedBy);
-    return matchStatus && matchDiscrepancy && matchDoor && matchProduct && matchRootCause && matchBranch && matchPlant && matchReportedBy;
+    return matchStatus && matchIssue && matchDoor && matchComponent && matchRootCause && matchBranch && matchPlant && matchReportedBy;
   });
 
   const colFilters = (key: string) =>
@@ -197,17 +197,17 @@ function EventsPageContent() {
       render: (jobNo: string) => <CopyableValue value={jobNo} />,
     },
     {
-      title: 'Discrepancy',
-      dataIndex: 'discrepancy',
-      key: 'discrepancy',
-      sorter: (a, b) => a.discrepancy.localeCompare(b.discrepancy),
-      filters: colFilters('discrepancy'),
-      filteredValue: appliedFilters.discrepancy ?? null,
+      title: 'Issue',
+      dataIndex: 'issue',
+      key: 'issue',
+      sorter: (a, b) => a.issue.localeCompare(b.issue),
+      filters: colFilters('issue'),
+      filteredValue: appliedFilters.issue ?? null,
       width: 192,
-      render: (discrepancy: string, record) => (
+      render: (issue: string, record) => (
         <div style={{ overflow: 'hidden' }}>
           <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {discrepancy}
+            {issue}
           </div>
           {record.rootCause && (
             <div style={{
@@ -236,12 +236,12 @@ function EventsPageContent() {
       width: 148,
     },
     {
-      title: 'Product',
-      dataIndex: 'product',
-      key: 'product',
-      sorter: (a, b) => a.product.localeCompare(b.product),
-      filters: colFilters('product'),
-      filteredValue: appliedFilters.product ?? null,
+      title: 'Component',
+      dataIndex: 'component',
+      key: 'component',
+      sorter: (a, b) => a.component.localeCompare(b.component),
+      filters: colFilters('component'),
+      filteredValue: appliedFilters.component ?? null,
       ellipsis: { showTitle: true },
       width: 148,
     },

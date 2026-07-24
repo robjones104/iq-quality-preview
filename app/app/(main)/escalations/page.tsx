@@ -9,7 +9,7 @@ export default function EscalationsPage() {
       {
         reportedBy: e.reportedBy,
         branch: e.branch,
-        product: e.product,
+        component: e.component,
       },
     ])
   );

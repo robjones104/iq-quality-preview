@@ -30,13 +30,13 @@ function applyFilters(list: QualityEvent[], dateRange: DateRange | null, applied
       const d = dayjs(e.date);
       if (d.isBefore(dateRange[0], 'day') || d.isAfter(dateRange[1], 'day')) return false;
     }
-    const matchDiscrepancy = !applied.discrepancy?.length || applied.discrepancy.includes(e.discrepancy);
-    const matchProduct     = !applied.product?.length     || applied.product.includes(e.product);
+    const matchIssue        = !applied.issue?.length      || applied.issue.includes(e.issue);
+    const matchComponent    = !applied.component?.length  || applied.component.includes(e.component);
     const matchRootCause   = !applied.rootCause?.length   || (e.rootCause !== null && applied.rootCause.includes(e.rootCause));
     const matchBranch      = !applied.branch?.length      || applied.branch.includes(e.branch);
     const matchPlant       = !applied.plant?.length       || applied.plant.includes(e.plant);
     const matchReportedBy  = !applied.reportedBy?.length  || applied.reportedBy.includes(e.reportedBy);
-    return matchDiscrepancy && matchProduct && matchRootCause && matchBranch && matchPlant && matchReportedBy;
+    return matchIssue && matchComponent && matchRootCause && matchBranch && matchPlant && matchReportedBy;
   });
 }
 
@@ -222,15 +222,15 @@ export default function PrototypePage() {
 
   // Section summary stats
   const intakeStats = useMemo(() => {
-    const topBranch  = topEntry(filteredEvents, 'branch');
-    const topDisc    = topEntry(filteredEvents, 'discrepancy');
-    const shortDisc  = topDisc.length > 18 ? topDisc.slice(0, 17) + '…' : topDisc;
-    const topProduct = topEntry(filteredEvents, 'product');
-    const shortProd  = topProduct.length > 18 ? topProduct.slice(0, 17) + '…' : topProduct;
+    const topBranch    = topEntry(filteredEvents, 'branch');
+    const topIssue     = topEntry(filteredEvents, 'issue');
+    const shortIssue   = topIssue.length > 18 ? topIssue.slice(0, 17) + '…' : topIssue;
+    const topComponent = topEntry(filteredEvents, 'component');
+    const shortComp    = topComponent.length > 18 ? topComponent.slice(0, 17) + '…' : topComponent;
     return [
       { value: topBranch, sub: 'top branch' },
-      { value: shortProd, sub: 'top product' },
-      { value: shortDisc, sub: 'top discrepancy' },
+      { value: shortComp, sub: 'top component' },
+      { value: shortIssue, sub: 'top issue' },
     ];
   }, [filteredEvents]);
 

@@ -15,8 +15,8 @@ interface OrderCardRow {
   jobNo: string;
   branch: string;
   lastUpdated: string;
-  discrepancy: string;
-  product: string;
+  issue: string;
+  component: string;
 }
 
 interface OrderCardProps {
@@ -81,7 +81,7 @@ export function OrderCard({ row, status, eventStatus, menuItems, onAction }: Ord
       </div>
 
       <div style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary, lineHeight: 1.4 }}>
-        {row.discrepancy} · {row.product}
+        {row.issue} · {row.component}
       </div>
     </Card>
   );

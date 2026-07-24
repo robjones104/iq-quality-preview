@@ -20,7 +20,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { logs } from '@/data/logs';
 import { events as allEvents } from '@/data/events';
 import { ESCALATION_TYPE_OPTIONS } from '@/data/manageLists';
-import { DISCREPANCY_OPTIONS, DOOR_OPTIONS, PART_CATALOG, PLANT_OPTIONS, PRODUCT_OPTIONS } from '@/data/filterOptions';
+import { ISSUE_OPTIONS, DOOR_OPTIONS, PART_CATALOG, PLANT_OPTIONS, COMPONENT_OPTIONS } from '@/data/filterOptions';
 import { CreateEscalationModal } from '@/components/CreateEscalationModal';
 import { useInfoRequestThread, InfoRequestThreadPanel } from '@/components/InfoRequestThread';
 import type { QualityEvent, EventStatus, RootCause, ActivityLog } from '@/data/types';
@@ -61,13 +61,13 @@ function generateInsights(event: QualityEvent, rootCause: string | null): string
       : event.status === 'Validated'
       ? 'Ensure parts requests are filed and Customer Service is notified to proceed with fulfillment.'
       : 'Confirm invalidation rationale is documented and close any open parts requests.';
-  return `${event.discrepancy} reported for ${event.product} (${event.door}) at the ${event.branch} branch. ${rc} ${parts} ${urgency} Recommended action: ${action}`;
+  return `${event.issue} reported for ${event.component} (${event.door}) at the ${event.branch} branch. ${rc} ${parts} ${urgency} Recommended action: ${action}`;
 }
 
 function generateHistoricalInsights(event: QualityEvent, pool: QualityEvent[]): string {
   const similar = pool.filter(e =>
     e.id !== event.id &&
-    (e.discrepancy === event.discrepancy || e.product === event.product || e.branch === event.branch)
+    (e.issue === event.issue || e.component === event.component || e.branch === event.branch)
   );
   const count = similar.length;
   if (count === 0) return 'No similar events found in the current dataset to compare against.';
@@ -85,7 +85,7 @@ function generateHistoricalInsights(event: QualityEvent, pool: QualityEvent[]): 
   const rateLine = rate !== null ? `${rate}% of resolved similar events were validated. ` : '';
   const invLine  = invalidated > 0 ? `${invalidated} were invalidated, suggesting this type occasionally has alternate explanations. ` : '';
 
-  return `${count} similar events found matching this discrepancy, product, or branch. ${rcLine}${rateLine}${invLine}Use the similar events table to identify recurring patterns or suppliers.`;
+  return `${count} similar events found matching this issue, component, or branch. ${rcLine}${rateLine}${invLine}Use the similar events table to identify recurring patterns or suppliers.`;
 }
 
 
@@ -97,7 +97,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   const [plant, setPlant]                     = useState<string>(evtStored.plant ?? event.plant);
   const [editingPlant, setEditingPlant]       = useState(false);
   const [plantDraft, setPlantDraft]           = useState(plant);
-  const [editingProduct, setEditingProduct]   = useState(false);
+  const [editingComponent, setEditingComponent] = useState(false);
   const [selectedPartIdx, setSelectedPartIdx] = useState(0);
   const [rootCause, setRootCause]             = useState<string | null>(
     evtStored.rootCause !== undefined ? evtStored.rootCause : event.rootCause
@@ -150,20 +150,20 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   const [partModalOpen, setPartModalOpen]     = useState(false);
   const partModalKitInfo = Form.useWatch('hardwareKitInfo', partForm);
   const partModalQty     = (Form.useWatch('quantity', partForm) as number | undefined) ?? 1;
-  const currentDiscrepancy      = evtStored.discrepancy      ?? event.discrepancy;
-  const currentProduct          = evtStored.product          ?? event.product;
+  const currentIssue             = evtStored.issue             ?? event.issue;
+  const currentComponent         = evtStored.component         ?? event.component;
   const currentDoor             = evtStored.door              ?? event.door;
   const currentJobNo            = evtStored.jobNo             ?? event.jobNo;
   const currentIssueDescription = evtStored.issueDescription  ?? event.issueDescription;
   const currentDfo              = evtStored.dfo               ?? event.dfo;
   const currentElLine           = evtStored.elLine            ?? event.elLine;
-  const isMissingHardware = currentDiscrepancy === 'Missing Hardware';
+  const isMissingHardware = currentIssue === 'Missing Hardware';
   const isSO              = !currentJobNo.startsWith('WO');
   const [partsState, setPartsState] = useState(evtStored.partsRequest ?? event.partsRequest ?? []);
   const lastLoggedRootCause = useRef<string | null>(event.rootCause);
   const lastSavedValues = useRef({
-    discrepancy:      currentDiscrepancy,
-    product:          currentProduct,
+    issue:            currentIssue,
+    component:        currentComponent,
     door:             currentDoor,
     jobNo:            currentJobNo,
     issueDescription: currentIssueDescription,
@@ -217,8 +217,8 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
     const nextDfo    = isSO && values.dfo !== undefined && values.dfo !== '' ? Number(values.dfo) : prev.dfo;
     const nextElLine = isSO && values.elLine !== undefined && values.elLine !== '' ? Number(values.elLine) : prev.elLine;
     const tracked: Array<[string, string, string]> = [
-      ['Discrepancy',       prev.discrepancy,      String(values.discrepancy      ?? prev.discrepancy)],
-      ['Product',           prev.product,           String(values.product           ?? prev.product)],
+      ['Issue',             prev.issue,             String(values.issue             ?? prev.issue)],
+      ['Component',         prev.component,         String(values.component         ?? prev.component)],
       ['Door',              prev.door,              String(values.door              ?? prev.door)],
       ['Job No.',           prev.jobNo,             String(values.jobNo             ?? prev.jobNo)],
       ['Issue Description', prev.issueDescription,  String(values.issueDescription  ?? prev.issueDescription)],
@@ -229,8 +229,8 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
       if (to !== from) logEditEntry(label, from || '—', to || '—');
     }
     const next = {
-      discrepancy:      String(values.discrepancy      ?? prev.discrepancy),
-      product:          String(values.product           ?? prev.product),
+      issue:            String(values.issue             ?? prev.issue),
+      component:        String(values.component         ?? prev.component),
       door:             String(values.door              ?? prev.door),
       jobNo:            String(values.jobNo             ?? prev.jobNo),
       issueDescription: String(values.issueDescription  ?? prev.issueDescription),
@@ -255,7 +255,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
 
     patchEvent(event.id, { ...next, partsRequest: nextPartsState });
     lastSavedValues.current = next;
-    setEditingProduct(false);
+    setEditingComponent(false);
   };
 
   const openAddPartRequest = () => {
@@ -330,7 +330,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   };
 
   const handleViewSimilarEvents = () => {
-    router.push(`/events?discrepancy=${encodeURIComponent(currentDiscrepancy)}&backTo=${event.id}`);
+    router.push(`/events?issue=${encodeURIComponent(currentIssue)}&backTo=${event.id}`);
   };
 
   const sectionLabel = (text: string) => (
@@ -707,15 +707,15 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
               onTabChange={(key) => setActiveTab(key as 'details' | 'log' | 'photos' | 'attachments')}
               tabBarExtraContent={
                 activeTab === 'details' ? (
-                  locked ? null : editingProduct ? (
+                  locked ? null : editingComponent ? (
                     <Space size={isMobile ? 8 : 4}>
-                      <Button type="text" size="small" icon={<CloseOutlined />} onClick={() => setEditingProduct(false)}>Cancel</Button>
+                      <Button type="text" size="small" icon={<CloseOutlined />} onClick={() => setEditingComponent(false)}>Cancel</Button>
                       <Button type="primary" size="small" icon={<SaveFilled />} onClick={handleSaveEdits}>{!isMobile && 'Save'}</Button>
                     </Space>
                   ) : (
                     <Button type="text" size="small" icon={<EditFilled style={{ fontSize: token.fontSizeSM }} />} onClick={() => {
                       resetPartDrafts(partsState[selectedPartIdx]);
-                      setEditingProduct(true);
+                      setEditingComponent(true);
                     }}>
                       {!isMobile && 'Edit'}
                     </Button>
@@ -807,26 +807,26 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                         ))}
                       </div>
 
-                      {sectionLabel('Product Issue')}
-                      {editingProduct && !locked ? (
+                      {sectionLabel('Component Issue')}
+                      {editingComponent && !locked ? (
                         <Form
                           form={editForm}
                           layout="vertical"
                           size="small"
                           initialValues={{
-                            discrepancy:      currentDiscrepancy,
+                            issue:            currentIssue,
                             door:             currentDoor,
                             jobNo:            currentJobNo,
                             dfo:              String(currentDfo),
                             elLine:           currentElLine != null ? String(currentElLine) : '',
-                            product:          currentProduct,
+                            component:        currentComponent,
                             issueDescription: currentIssueDescription,
                           }}
                         >
                           <Row gutter={8}>
                             <Col flex={2}>
-                              <Form.Item name="discrepancy" label="Discrepancy" style={{ marginBottom: 10 }}>
-                                <Select options={DISCREPANCY_OPTIONS.map(v => ({ value: v, label: v }))} style={{ width: '100%' }} />
+                              <Form.Item name="issue" label="Issue" style={{ marginBottom: 10 }}>
+                                <Select options={ISSUE_OPTIONS.map(v => ({ value: v, label: v }))} style={{ width: '100%' }} />
                               </Form.Item>
                             </Col>
                             <Col flex={1}>
@@ -856,8 +856,8 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                               </>
                             )}
                             <Col flex={1}>
-                              <Form.Item name="product" label="Product" style={{ marginBottom: 10 }}>
-                                <Select options={PRODUCT_OPTIONS.map(v => ({ value: v, label: v }))} style={{ width: '100%' }} />
+                              <Form.Item name="component" label="Component" style={{ marginBottom: 10 }}>
+                                <Select options={COMPONENT_OPTIONS.map(v => ({ value: v, label: v }))} style={{ width: '100%' }} />
                               </Form.Item>
                             </Col>
                           </Row>
@@ -867,7 +867,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                         </Form>
                       ) : (
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 24px' }}>
-                          {displayField('Discrepancy', currentDiscrepancy, true)}
+                          {displayField('Issue', currentIssue, true)}
                           <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, alignItems: 'flex-end' }}>
                             {displayField('Job No', currentJobNo, false, true)}
                             {isSO && currentElLine != null && (
@@ -884,7 +884,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                             )}
                           </div>
                           <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-                            {displayField('Product', currentProduct)}
+                            {displayField('Component', currentComponent)}
                             {displayField('Door', currentDoor)}
                           </div>
                           {displayField('Issue Description', currentIssueDescription, true)}
@@ -916,7 +916,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                                   />
                                 </div>
                               )}
-                              {editingProduct && !locked ? (
+                              {editingComponent && !locked ? (
                                 <Form layout="vertical" size="small">
                                   <Row gutter={8}>
                                     <Col flex={1}>
@@ -1008,7 +1008,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                           )}
                         </Col>
 
-                        {currentProduct === 'Hardware Kit' && (
+                        {currentComponent === 'Hardware Kit' && (
                         <Col xs={24} sm={12} style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
                           {sectionLabel('Hardware Kit')}
                           {hkMode === null ? (
@@ -1028,7 +1028,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                                 </Button>
                               )}
                             </div>
-                          ) : editingProduct && !locked ? (
+                          ) : editingComponent && !locked ? (
                             <Form layout="vertical" size="small">
                               <Form.Item label="Hardware Kit Information" style={{ marginBottom: 10 }}>
                                 <Select

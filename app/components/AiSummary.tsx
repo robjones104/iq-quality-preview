@@ -42,13 +42,13 @@ function buildInsights(events: QualityEvent[], dateRange: DateRange | null) {
   const validatedNoRC = events.filter(e => e.status === 'Validated' && !e.rootCause);
   const staleReported = reported.filter(e => dayjs().diff(dayjs(e.date), 'day') >= 7);
 
-  const topDisc     = topEntry(countBy(events, e => e.discrepancy));
+  const topIssue    = topEntry(countBy(events, e => e.issue));
   const topBranch   = topEntry(countBy(events, e => e.branch));
   const branchCount = Object.keys(countBy(events, e => e.branch)).length;
   const resolutionRate = Math.round((resolved.length / n) * 100);
 
   const underInv    = events.filter(e => e.status === 'Under Investigation');
-  const topProduct  = topEntry(countBy(events, e => e.product));
+  const topComponent = topEntry(countBy(events, e => e.component));
   const topRC       = topEntry(countBy(events.filter(e => e.rootCause), e => e.rootCause!));
 
   const period = dateRange
@@ -57,14 +57,14 @@ function buildInsights(events: QualityEvent[], dateRange: DateRange | null) {
 
   let prose = `${period}, ${n} quality event${n !== 1 ? 's were' : ' was'} recorded across ${branchCount} branch${branchCount !== 1 ? 'es' : ''}. `;
   prose += `The overall resolution rate is ${resolutionRate}% — ${resolved.length} event${resolved.length !== 1 ? 's have' : ' has'} been validated or invalidated, while ${underInv.length} remain${underInv.length === 1 ? 's' : ''} under active investigation. `;
-  if (topDisc) {
-    const pct = Math.round((topDisc[1] / n) * 100);
-    prose += `${topDisc[0]} is the leading discrepancy type at ${pct}% of all events`;
+  if (topIssue) {
+    const pct = Math.round((topIssue[1] / n) * 100);
+    prose += `${topIssue[0]} is the leading issue type at ${pct}% of all events`;
     prose += topBranch ? `, with ${topBranch[0]} contributing the highest volume of reports at ${topBranch[1]} event${topBranch[1] !== 1 ? 's' : ''}. ` : '. ';
   }
-  if (topProduct) {
-    const pct = Math.round((topProduct[1] / n) * 100);
-    prose += `${topProduct[0]} is the most frequently affected product, appearing in ${pct}% of events this period. `;
+  if (topComponent) {
+    const pct = Math.round((topComponent[1] / n) * 100);
+    prose += `${topComponent[0]} is the most frequently affected component, appearing in ${pct}% of events this period. `;
   }
   if (waitingOnTech.length > 0) {
     prose += `${waitingOnTech.length} event${waitingOnTech.length !== 1 ? 's are' : ' is'} currently awaiting additional information from field technicians before triage can progress. `;
@@ -117,11 +117,11 @@ function buildInsights(events: QualityEvent[], dateRange: DateRange | null) {
     });
   }
 
-  if (topDisc && Math.round((topDisc[1] / n) * 100) >= 20) {
+  if (topIssue && Math.round((topIssue[1] / n) * 100) >= 20) {
     actions.push({
       priority: 'info',
-      label: `${topDisc[0]} is disproportionately high — review for systemic root cause`,
-      href: `/events?discrepancy=${encodeURIComponent(topDisc[0])}`,
+      label: `${topIssue[0]} is disproportionately high — review for systemic root cause`,
+      href: `/events?issue=${encodeURIComponent(topIssue[0])}`,
     });
   }
 

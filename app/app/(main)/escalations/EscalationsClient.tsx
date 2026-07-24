@@ -14,7 +14,7 @@ const { Text } = Typography;
 type EventMapEntry = {
   reportedBy: string;
   branch: string;
-  product: string;
+  component: string;
 };
 
 type Props = {

@@ -51,7 +51,7 @@ export function FieldIntake({
 }) {
   const router = useRouter();
   const [showAllBranches, setShowAllBranches] = useState(false);
-  const [donutMode, setDonutMode] = useState<'discrepancy' | 'product'>('discrepancy');
+  const [donutMode, setDonutMode] = useState<'issue' | 'component'>('issue');
   const { token } = theme.useToken();
 
   // colorBgBase is '#000000' in dark algorithm, '#ffffff' in light
@@ -93,17 +93,17 @@ export function FieldIntake({
     return { sortedBranches, countMap };
   }, [events]);
 
-  const discData = useMemo(() => {
-    const counts = countBy(events, e => e.discrepancy);
+  const issueData = useMemo(() => {
+    const counts = countBy(events, e => e.issue);
     return Object.entries(counts)
-      .map(([discrepancy, count]) => ({ discrepancy, count }))
+      .map(([issue, count]) => ({ issue, count }))
       .sort((a, b) => b.count - a.count);
   }, [events]);
 
-  const productData = useMemo(() => {
-    const counts = countBy(events, e => e.product);
+  const componentData = useMemo(() => {
+    const counts = countBy(events, e => e.component);
     return Object.entries(counts)
-      .map(([product, count]) => ({ product, count }))
+      .map(([component, count]) => ({ component, count }))
       .sort((a, b) => b.count - a.count);
   }, [events]);
 
@@ -222,23 +222,23 @@ export function FieldIntake({
           </Card>
         </Col>
 
-        {/* By Discrepancy / Door Type */}
+        {/* By Issue / Component */}
         <Col xs={24} lg={8}>
           <Card
             size="small"
             title={
               <span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>
-                {donutMode === 'discrepancy' ? 'Events by Discrepancy' : 'Events by Product'}
+                {donutMode === 'issue' ? 'Events by Issue' : 'Events by Component'}
               </span>
             }
             extra={
               <Segmented
                 size="small"
                 value={donutMode}
-                onChange={(v) => setDonutMode(v as 'discrepancy' | 'product')}
+                onChange={(v) => setDonutMode(v as 'issue' | 'component')}
                 options={[
-                  { label: 'Discrepancy', value: 'discrepancy' },
-                  { label: 'Product', value: 'product' },
+                  { label: 'Issue', value: 'issue' },
+                  { label: 'Component', value: 'component' },
                 ]}
               />
             }
@@ -248,9 +248,9 @@ export function FieldIntake({
             <div style={{ cursor: 'pointer' }}>
               <Pie
                 key={plotTheme}
-                data={donutMode === 'discrepancy' ? discData : productData}
+                data={donutMode === 'issue' ? issueData : componentData}
                 angleField="count"
-                colorField={donutMode === 'discrepancy' ? 'discrepancy' : 'product'}
+                colorField={donutMode === 'issue' ? 'issue' : 'component'}
                 height={276}
                 theme={plotTheme}
                 label={false}
@@ -269,17 +269,17 @@ export function FieldIntake({
                 }}
                 tooltip={{
                   title: (d: Record<string, string>) =>
-                    donutMode === 'discrepancy' ? d.discrepancy : d.product,
+                    donutMode === 'issue' ? d.issue : d.component,
                   items: [{ field: 'count', name: 'Events' }],
                 }}
                 onEvent={(_chart, event) => {
                   if (event.type !== 'element:click') return;
                   const datum = event.data?.data as Record<string, string> | undefined;
                   if (!datum) return;
-                  if (donutMode === 'discrepancy' && datum.discrepancy) {
-                    router.push(`/events?discrepancy=${encodeURIComponent(datum.discrepancy)}`);
-                  } else if (donutMode === 'product' && datum.product) {
-                    router.push(`/events?product=${encodeURIComponent(datum.product)}`);
+                  if (donutMode === 'issue' && datum.issue) {
+                    router.push(`/events?issue=${encodeURIComponent(datum.issue)}`);
+                  } else if (donutMode === 'component' && datum.component) {
+                    router.push(`/events?component=${encodeURIComponent(datum.component)}`);
                   }
                 }}
               />
@@ -370,26 +370,26 @@ export function EventsByBranchChart({
   );
 }
 
-export function EventsByDiscrepancyChart({
+export function EventsByIssueChart({
   events,
   height = 220,
 }: {
   events: QualityEvent[];
   height?: number;
 }) {
-  const [donutMode, setDonutMode] = useState<'discrepancy' | 'product'>('discrepancy');
+  const [donutMode, setDonutMode] = useState<'issue' | 'component'>('issue');
   const { token } = theme.useToken();
   const router = useRouter();
   const isDark = token.colorBgBase === '#000000';
   const plotTheme = isDark ? 'classicDark' : 'classic';
 
-  const discData = useMemo(() => {
-    const counts = events.reduce<Record<string, number>>((a, e) => { a[e.discrepancy] = (a[e.discrepancy] ?? 0) + 1; return a; }, {});
-    return Object.entries(counts).map(([discrepancy, count]) => ({ discrepancy, count })).sort((a, b) => b.count - a.count);
+  const issueData = useMemo(() => {
+    const counts = events.reduce<Record<string, number>>((a, e) => { a[e.issue] = (a[e.issue] ?? 0) + 1; return a; }, {});
+    return Object.entries(counts).map(([issue, count]) => ({ issue, count })).sort((a, b) => b.count - a.count);
   }, [events]);
-  const productData = useMemo(() => {
-    const counts = events.reduce<Record<string, number>>((a, e) => { a[e.product] = (a[e.product] ?? 0) + 1; return a; }, {});
-    return Object.entries(counts).map(([product, count]) => ({ product, count })).sort((a, b) => b.count - a.count);
+  const componentData = useMemo(() => {
+    const counts = events.reduce<Record<string, number>>((a, e) => { a[e.component] = (a[e.component] ?? 0) + 1; return a; }, {});
+    return Object.entries(counts).map(([component, count]) => ({ component, count })).sort((a, b) => b.count - a.count);
   }, [events]);
 
   return (
@@ -398,15 +398,15 @@ export function EventsByDiscrepancyChart({
         <Segmented
           size="small"
           value={donutMode}
-          onChange={(v) => setDonutMode(v as 'discrepancy' | 'product')}
-          options={[{ label: 'Discrepancy', value: 'discrepancy' }, { label: 'Product', value: 'product' }]}
+          onChange={(v) => setDonutMode(v as 'issue' | 'component')}
+          options={[{ label: 'Issue', value: 'issue' }, { label: 'Component', value: 'component' }]}
         />
       </div>
       <Pie
         key={`${plotTheme}-${donutMode}`}
-        data={donutMode === 'discrepancy' ? discData : productData}
+        data={donutMode === 'issue' ? issueData : componentData}
         angleField="count"
-        colorField={donutMode === 'discrepancy' ? 'discrepancy' : 'product'}
+        colorField={donutMode === 'issue' ? 'issue' : 'component'}
         height={height}
         theme={plotTheme}
         label={false}
@@ -414,13 +414,13 @@ export function EventsByDiscrepancyChart({
         interaction={{ elementHighlight: true }}
         state={{ active: { opacity: 1 }, inactive: { opacity: 0.15 } }}
         legend={{ color: { position: 'bottom', itemLabelFill: token.colorText, itemLabelFontSize: token.fontSizeSM, itemLabelFormatter: (v: string) => v.length > 18 ? v.slice(0, 17) + '…' : v, rows: 6 } }}
-        tooltip={{ title: (d: Record<string, string>) => donutMode === 'discrepancy' ? d.discrepancy : d.product, items: [{ field: 'count', name: 'Events' }] }}
+        tooltip={{ title: (d: Record<string, string>) => donutMode === 'issue' ? d.issue : d.component, items: [{ field: 'count', name: 'Events' }] }}
         onEvent={(_chart, event) => {
           if (event.type !== 'element:click') return;
           const datum = event.data?.data as Record<string, string> | undefined;
           if (!datum) return;
-          if (donutMode === 'discrepancy' && datum.discrepancy) router.push(`/events?discrepancy=${encodeURIComponent(datum.discrepancy)}`);
-          else if (donutMode === 'product' && datum.product) router.push(`/events?product=${encodeURIComponent(datum.product)}`);
+          if (donutMode === 'issue' && datum.issue) router.push(`/events?issue=${encodeURIComponent(datum.issue)}`);
+          else if (donutMode === 'component' && datum.component) router.push(`/events?component=${encodeURIComponent(datum.component)}`);
         }}
       />
     </div>

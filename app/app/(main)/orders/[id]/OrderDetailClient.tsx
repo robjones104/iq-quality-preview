@@ -127,7 +127,7 @@ export function OrderDetailClient({ order, event }: Props) {
   const [procurementSuccess, setProcurementSuccess] = useState(false);
   const [returnSuccess,      setReturnSuccess]      = useState(false);
 
-  const isMissingHardware = event.discrepancy === 'Missing Hardware';
+  const isMissingHardware = event.issue === 'Missing Hardware';
   const isSO = !order.jobNo.startsWith('WO');
 
   // Part modal
@@ -613,8 +613,8 @@ export function OrderDetailClient({ order, event }: Props) {
                   </div>
                   {!isMobile && <div style={{ width: 1, background: token.colorBorderSecondary, alignSelf: 'stretch' }} />}
                   {([
-                    { label: 'Discrepancy',  node: <Text style={{ fontSize: token.fontSizeSM }}>{event.discrepancy}</Text> },
-                    { label: 'Product',      node: <Text style={{ fontSize: token.fontSizeSM }}>{event.product}</Text> },
+                    { label: 'Issue',        node: <Text style={{ fontSize: token.fontSizeSM }}>{event.issue}</Text> },
+                    { label: 'Component',    node: <Text style={{ fontSize: token.fontSizeSM }}>{event.component}</Text> },
                     { label: 'Door',         node: <Text style={{ fontSize: token.fontSizeSM }}>{event.door}</Text> },
                     { label: 'Last Updated', node: <Text style={{ fontSize: token.fontSizeSM }}>{order.lastUpdated}</Text> },
                     { label: ' ', node: (

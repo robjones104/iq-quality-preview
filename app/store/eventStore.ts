@@ -13,8 +13,8 @@ type EventMutations = {
   rootCauseOptions?: { value: string; label: string }[];
   editHistory?: EditHistoryEntry[];
   activityLogAdditions?: ActivityLog[];
-  discrepancy?: string;
-  product?: string;
+  issue?: string;
+  component?: string;
   door?: string;
   jobNo?: string;
   issueDescription?: string;

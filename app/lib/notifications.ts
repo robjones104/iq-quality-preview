@@ -42,7 +42,7 @@ export function getNotifications(
       id: `info-request-${event.id}`,
       kind: 'info-request',
       title: `Info requested — ${event.id}`,
-      description: `Waiting on additional info for ${event.product} at ${event.branch}`,
+      description: `Waiting on additional info for ${event.component} at ${event.branch}`,
       timestamp: latest?.sentAt ?? event.reportedAt,
       href: `/events/${event.id}`,
     });
