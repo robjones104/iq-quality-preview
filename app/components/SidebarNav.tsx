@@ -8,7 +8,6 @@ import {
   ShoppingFilled,
   ContainerFilled,
   DatabaseFilled,
-  BellFilled,
   UserOutlined,
   UserSwitchOutlined,
   EditOutlined,
@@ -16,18 +15,13 @@ import {
   SunFilled,
   LogoutOutlined,
 } from '@ant-design/icons';
-import { Badge, Dropdown, Grid, Switch, Tooltip, theme } from 'antd';
+import { Dropdown, Grid, Switch, Tooltip, theme } from 'antd';
 import { useThemeStore } from '@/store/themeStore';
 import { useFilterStore } from '@/store/filterStore';
 import { useRoleStore } from '@/store/roleStore';
 import { useSignOut } from '@/lib/auth';
 import { ROLES, ROLE_BLURB, capabilitiesFor } from '@/lib/roles';
 import { now } from '@/lib/appTime';
-import { getNotifications, countNewNotifications } from '@/lib/notifications';
-import { scopeEvents, scopeOrders } from '@/lib/useScopedData';
-import { events } from '@/data/events';
-import { orders } from '@/data/orders';
-import { escalations } from '@/data/escalations';
 
 // Icon mapping — keyed to label strings.
 const ICON_MAP: Record<string, React.ComponentType<{ style?: React.CSSProperties }>> = {
@@ -54,12 +48,6 @@ export function SidebarNav() {
   const { role, setRole } = useRoleStore();
   const caps = capabilitiesFor(role);
   const signOut = useSignOut();
-
-  const scopeBranch = caps.branchScoped ? caps.assignedBranch ?? null : null;
-  const scopedEvents = scopeEvents(events, scopeBranch);
-  const scopedOrders = scopeOrders(orders, scopeBranch);
-  const canSeeNotifications = caps.dashboard || caps.events || caps.orders;
-  const newNotificationCount = countNewNotifications(getNotifications(scopedEvents, escalations, scopedOrders));
 
   // Nav items visible to the current role, in order.
   const visibleNav: { href: string; label: string }[] = [
@@ -226,39 +214,6 @@ return (
             </div>
           </Tooltip>
         </Dropdown>
-
-        {canSeeNotifications && (() => {
-          const active = isActive('/notifications');
-          const bell = (
-            <Link
-              href="/notifications"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: expanded ? 'flex-start' : 'center',
-                gap: expanded ? 10 : 0,
-                width: expanded ? '100%' : 36,
-                height: 36,
-                borderRadius: token.borderRadius,
-                padding: expanded ? '0 10px' : 0,
-                background: active ? activeNavBg : 'transparent',
-                borderLeft: active ? activeBorder : '3px solid transparent',
-                textDecoration: 'none',
-                transition: 'background 0.15s',
-              }}
-            >
-              <Badge count={newNotificationCount} size="small" offset={[2, -2]}>
-                <BellFilled style={{ fontSize: token.fontSizeXL, flexShrink: 0, color: active ? activeNavColor : token.colorTextSecondary, transition: 'color 0.15s' }} />
-              </Badge>
-              {expanded && (
-                <span style={{ fontSize: token.fontSize, fontWeight: active ? 600 : 400, color: active ? activeNavColor : token.colorTextSecondary, transition: 'color 0.15s', whiteSpace: 'nowrap' }}>
-                  Notifications
-                </span>
-              )}
-            </Link>
-          );
-          return expanded ? bell : <Tooltip title="Notifications" placement="right">{bell}</Tooltip>;
-        })()}
 
         <Dropdown menu={{ items: accountMenuItems }} trigger={['click']} placement="topLeft">
           <Tooltip title={expanded ? null : caps.email} placement="right">

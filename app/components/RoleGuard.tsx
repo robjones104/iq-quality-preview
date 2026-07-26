@@ -6,7 +6,7 @@ import { useRoleStore } from '@/store/roleStore';
 import { capabilitiesFor, type RoleCapabilities } from '@/lib/roles';
 
 // Maps a pathname to the capability required to view it. Screens not listed
-// (e.g. /account, /notifications) are open to every role.
+// (e.g. /account) are open to every role.
 function requiredCapability(pathname: string): keyof RoleCapabilities | null {
   if (pathname.startsWith('/dashboard'))    return 'dashboard';
   if (pathname.startsWith('/events'))       return 'events';
