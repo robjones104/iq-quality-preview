@@ -49,7 +49,7 @@ function WaitingCard({ event }: { event: QualityEvent }) {
           <Link href={`/events/${event.id}`} style={{ fontSize: token.fontSizeSM, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap' }}>
             {event.id}
           </Link>
-          <StatusTag status={event.status} />
+          <StatusTag status={event.status} additionalInfoRequested={!!event.additionalInfoRequested} />
         </div>
         <Text type="secondary" style={{ fontSize: token.fontSizeXS, whiteSpace: 'nowrap' }}>
           {event.reportedBy} · {event.branch}
@@ -147,11 +147,10 @@ export function TriageReview({ events, waitingViewAllHref, dataQualityViewAllHre
       .sort((a, b) => b.count - a.count);
   }, [allEdits]);
 
-  const [showAllWaiting, setShowAllWaiting]     = useState(false);
   const [showAllBranches, setShowAllBranches]   = useState(false);
   const WAITING_PREVIEW = 10;
   const BRANCH_PREVIEW  = 10;
-  const visibleWaiting  = showAllWaiting  ? waitingEvents  : waitingEvents.slice(0, WAITING_PREVIEW);
+  const visibleWaiting  = waitingEvents.slice(0, WAITING_PREVIEW);
   const visibleBranches = showAllBranches ? editsByBranch : editsByBranch.slice(0, BRANCH_PREVIEW);
 
 
@@ -179,17 +178,9 @@ export function TriageReview({ events, waitingViewAllHref, dataQualityViewAllHre
             extra={
               waitingEvents.length === 0
                 ? <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextSecondary }}>All clear</Text>
-                : <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {waitingViewAllHref
-                      ? <Link href={waitingViewAllHref} style={{ fontSize: token.fontSizeSM }}>View in Table ({waitingEvents.length})</Link>
-                      : <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextSecondary }}>View in Table ({waitingEvents.length})</Text>}
-                    {waitingEvents.length > WAITING_PREVIEW && (
-                      <>
-                        <Dot />
-                        <ExpandToggle expanded={showAllWaiting} onToggle={() => setShowAllWaiting(v => !v)} />
-                      </>
-                    )}
-                  </div>
+                : waitingViewAllHref
+                    ? <Link href={waitingViewAllHref} style={{ fontSize: token.fontSizeSM }}>View in Table ({waitingEvents.length})</Link>
+                    : <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextSecondary }}>View in Table ({waitingEvents.length})</Text>
             }
             styles={{ body: { minHeight: 320, padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 8 } }}
           >
