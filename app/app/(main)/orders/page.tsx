@@ -291,6 +291,7 @@ function OrdersPageContent() {
       if (d.isBefore(dateRange[0], 'day') || d.isAfter(dateRange[1], 'day')) return false;
     }
     if (flagParam === 'procurement' && !(isApproved(o) && isWithProcurement(o))) return false;
+    if (flagParam === 'info' && !(effectiveStatus(o) === 'Open' && (eventMap.get(o.eventId)?.additionalInfoRequests?.length ?? 0) > 0)) return false;
     const matchOrderStatus   = !appliedFiltersLocal.orderStatus?.length   || appliedFiltersLocal.orderStatus.includes(effectiveStatus(o));
     const matchDecision      = !appliedFiltersLocal.decision?.length      || appliedFiltersLocal.decision.some(d =>
       (d === 'Approved' && isApproved(o)) || (d === 'Declined' && isDeclined(o)) || (d === 'Pending' && !isApproved(o) && !isDeclined(o))

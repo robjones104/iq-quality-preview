@@ -31,6 +31,14 @@ function buildPresets(): Preset[] {
   ];
 }
 
+// Preset label for a range ("Last 7 Days", "Yesterday"), or null for custom ranges.
+export function rangeLabelFor(range: DateRange | null): string | null {
+  if (!range) return null;
+  return buildPresets().find(p =>
+    p.value[0].isSame(range[0], 'day') && p.value[1].isSame(range[1], 'day')
+  )?.label ?? null;
+}
+
 const MONTH_OPTIONS = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
@@ -59,12 +67,7 @@ export function DateRangeFilter({ value, onChange }: Props) {
   const presets   = buildPresets();
   const presetMap = new Map(presets.map(p => [p.label, p]));
 
-  const activePresetLabel = (): string | null => {
-    if (!value) return null;
-    return presets.find(p =>
-      p.value[0].isSame(value[0], 'day') && p.value[1].isSame(value[1], 'day')
-    )?.label ?? null;
-  };
+  const activePresetLabel = (): string | null => rangeLabelFor(value ?? null);
 
   const inputLabel = (): string => {
     if (!value) return '';

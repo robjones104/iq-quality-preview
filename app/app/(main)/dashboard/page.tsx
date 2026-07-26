@@ -10,7 +10,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import dayjs from 'dayjs';
 import { PageHeader } from '@/components/PageHeader';
 import { FilterPanel } from '@/components/FilterPanel';
-import { DateRangeFilter } from '@/components/DateRangeFilter';
+import { DateRangeFilter, rangeLabelFor } from '@/components/DateRangeFilter';
+import { STATUS_COLORS } from '@/components/StatusTag';
 import { EVENT_FILTER_CATEGORIES, ORDER_FILTER_CATEGORIES } from '@/data/filterOptions';
 import { events as allEvents } from '@/data/events';
 import { orders as allOrders } from '@/data/orders';
@@ -26,6 +27,8 @@ import type { Order } from '@/data/orders';
 import type { DateRange } from '@/components/DateRangeFilter';
 
 const { Text } = Typography;
+
+const EVENT_BY_ID = new Map(allEvents.map(e => [e.id, e]));
 
 type View = 'events' | 'orders';
 type EventsSection = 'intake' | 'triage';
@@ -79,7 +82,7 @@ function MetricInfoIcon({ tooltip }: { tooltip: string }) {
 }
 
 function KpiCard({
-  title, count, prior, href, tooltip, deltaTone = 'inverse',
+  title, count, prior, href, tooltip, deltaTone = 'inverse', swatch, dateRange,
 }: {
   title: string; count: number; prior: number | null; href?: string;
   tooltip?: string;
@@ -87,37 +90,61 @@ function KpiCard({
   // 'neutral' = throughput counts (Validated, Approved) where a swing in either
   // direction isn't inherently good or bad — delta stays gray.
   deltaTone?: 'inverse' | 'neutral';
+  swatch?: string;
+  dateRange?: DateRange | null;
 }) {
   const { token } = theme.useToken();
   const screens = Grid.useBreakpoint();
   const isMobile = screens.md === false;
   const [hovered, setHovered] = useState(false);
   const diff = prior !== null ? count - prior : null;
-  const pct  = (diff !== null && prior !== null && prior > 0)
-    ? Math.round((Math.abs(diff) / prior) * 100) : null;
   const up   = diff !== null && diff > 0;
 
   const deltaColor = diff === null || diff === 0 || deltaTone === 'neutral'
     ? token.colorTextTertiary
     : up ? token.colorError : token.colorSuccess;
 
-  const deltaText = diff === null
-    ? 'Set a date range to compare'
-    : diff === 0
-    ? 'No change vs. prior period'
-    : `${up ? '↑' : '↓'} ${Math.abs(diff).toLocaleString()}${pct !== null ? ` (${pct}%)` : ''} vs. prior period`;
+  const range = dateRange ?? null;
+  const rangeName = range
+    ? rangeLabelFor(range) ?? `${range[0].format('M/D/YY')} – ${range[1].format('M/D/YY')}`
+    : null;
 
-  const mobileDeltaText = diff === null
-    ? 'Set date range'
-    : diff === 0
-    ? 'No change'
-    : `${up ? '↑' : '↓'} ${Math.abs(diff).toLocaleString()}${pct !== null ? ` (${pct}%)` : ''}`;
+  const fmtWindow = (start: dayjs.Dayjs, end: dayjs.Dayjs) =>
+    start.isSame(end, 'day')
+      ? end.format('MMM D, YYYY')
+      : `${start.format('MMM D')} – ${end.format('MMM D, YYYY')}`;
+
+  const deltaTooltip = (() => {
+    if (!range || diff === null) return null;
+    const duration = range[1].diff(range[0], 'day') + 1;
+    const priorStart = range[0].subtract(duration, 'day');
+    const priorEnd = range[0].subtract(1, 'day');
+    return `Compares ${fmtWindow(range[0], range[1])} against ${fmtWindow(priorStart, priorEnd)} (the preceding ${duration === 1 ? 'day' : `${duration} days`}).`;
+  })();
+
+  const deltaLine = diff === null ? (
+    <span style={{ color: token.colorTextTertiary }}>
+      {isMobile ? 'Set date range' : 'Set a date range to compare'}
+    </span>
+  ) : (
+    <>
+      <span style={{ color: deltaColor, fontWeight: 500 }}>
+        {diff === 0 ? 'No change' : `${up ? '↑' : '↓'} ${Math.abs(diff).toLocaleString()}`}
+      </span>
+      {!isMobile && rangeName && (
+        <span style={{ color: token.colorTextTertiary }}>
+          {diff === 0 ? ' · ' : ' '}{rangeName} vs. prior period
+        </span>
+      )}
+    </>
+  );
 
   const card = (
     <Card
       size="small"
       title={
-        <span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: token.fontSizeSM, fontWeight: 500 }}>
+          {swatch && <span aria-hidden style={{ width: 8, height: 8, borderRadius: 2, background: swatch, flexShrink: 0 }} />}
           {title}
           {tooltip && <MetricInfoIcon tooltip={tooltip} />}
         </span>
@@ -144,20 +171,23 @@ function KpiCard({
           fontSize: token.fontSizeSM,
           marginTop: 2,
           minHeight: 16,
-          color: deltaColor,
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
         }}>
-          {isMobile ? mobileDeltaText : deltaText}
+          {deltaTooltip ? (
+            <Tooltip title={deltaTooltip}>
+              <span style={{ cursor: 'help' }}>{deltaLine}</span>
+            </Tooltip>
+          ) : deltaLine}
         </div>
       </div>
     </Card>
   );
 
   return href
-    ? <Link href={href} style={{ textDecoration: 'none', display: 'block' }}>{card}</Link>
-    : <div>{card}</div>;
+    ? <Link href={href} style={{ textDecoration: 'none', display: 'block', minWidth: 0 }}>{card}</Link>
+    : <div style={{ minWidth: 0 }}>{card}</div>;
 }
 
 function SectionStats({
@@ -462,17 +492,17 @@ function DashboardPageContent() {
 
   const kpis = [
     { title: 'Total Event Count',   count: filteredEvents.length,                     prior: priorEvents?.length ?? null, href: buildKpiHref('/events', dateRange, appliedFilters),
-      tooltip: 'All events, in any status.' },
+      tooltip: 'Total count of events in the selected time period.', swatch: token.colorText },
     { title: 'Reported',            count: filteredEvents.filter(isReported).length,   prior: prior(isReported),           href: buildKpiHref('/events?status=Reported', dateRange, appliedFilters),
-      tooltip: "Newly submitted events that haven't been set to Under Investigation." },
+      tooltip: 'Events that have been submitted but have not yet been reviewed or assessed.', swatch: STATUS_COLORS.Reported },
     { title: 'Pending Information', count: filteredEvents.filter(isWaiting).length,    prior: prior(isWaiting),            href: buildKpiHref('/events?flag=additionalInfo', dateRange, appliedFilters),
-      tooltip: "Additional info requests that haven't been responded to yet." },
+      tooltip: 'Events awaiting requested information from the field.', swatch: '#faad14' },
     { title: 'Under Investigation', count: filteredEvents.filter(isUnderInv).length,    prior: prior(isUnderInv),           href: buildKpiHref('/events?status=Under+Investigation', dateRange, appliedFilters),
-      tooltip: 'Events that are currently in review.' },
+      tooltip: 'Events that are actively being reviewed and investigated ahead of a validation decision.', swatch: STATUS_COLORS['Under Investigation'] },
     { title: 'Validated',           count: filteredEvents.filter(isValidated).length,   prior: prior(isValidated),          href: buildKpiHref('/events?status=Validated', dateRange, appliedFilters),
-      tooltip: 'Events confirmed as a valid quality issue.', deltaTone: 'neutral' as const },
+      tooltip: 'Events that have been validated as quality events for further analytics and/or order fulfillment.', deltaTone: 'neutral' as const, swatch: STATUS_COLORS.Validated },
     { title: 'Invalidated',         count: filteredEvents.filter(isInvalidated).length, prior: prior(isInvalidated),        href: buildKpiHref('/events?status=Invalidated', dateRange, appliedFilters),
-      tooltip: 'Events found not to be a valid quality issue.', deltaTone: 'neutral' as const },
+      tooltip: 'Events that have been invalidated. These events may lack sufficient evidence or may not be true quality events.', deltaTone: 'neutral' as const, swatch: STATUS_COLORS.Invalidated },
   ];
 
   const intakeStats = useMemo(() => {
@@ -512,20 +542,27 @@ function DashboardPageContent() {
   const priorOrder = (fn: (o: Order) => boolean) =>
     priorOrders ? priorOrders.filter(fn).length : null;
 
-  const isPendingReview   = (o: Order) => o.orderStatus === 'Open' && !o.approved && !o.declined;
-  const isApprovedOrder   = (o: Order) => o.orderStatus === 'Open' && !!o.approved && !o.assignedToProcurement;
-  const isWithProcurement = (o: Order) => o.orderStatus === 'Open' && !!o.approved && !!o.assignedToProcurement;
-  const isDeclinedOrder   = (o: Order) => !!o.declined;
+  // Approved/Declined are decisions (either can later close); Open/Closed is the
+  // lifecycle. Decision cards count all orders carrying that decision in range.
+  const isNewRequest       = (o: Order) => o.orderStatus === 'Open' && !o.approved && !o.declined;
+  const isPendingInfoOrder = (o: Order) => o.orderStatus === 'Open' && (EVENT_BY_ID.get(o.eventId)?.additionalInfoRequests?.length ?? 0) > 0;
+  const isApprovedOrder    = (o: Order) => !!o.approved;
+  const isDeclinedOrder    = (o: Order) => !!o.declined;
+  const isWithProcurement  = (o: Order) => o.orderStatus === 'Open' && !!o.approved && !!o.assignedToProcurement;
 
   const orderKpis = [
-    { title: 'Pending Review',          count: filteredOrders.filter(isPendingReview).length,   prior: priorOrder(isPendingReview),   href: buildKpiHref('/orders?orderStatus=Open', dateRange, {}),
-      tooltip: 'Open orders awaiting an approve or decline decision.' },
-    { title: 'Assigned to Procurement', count: filteredOrders.filter(isWithProcurement).length,  prior: priorOrder(isWithProcurement), href: buildKpiHref('/orders?orderStatus=Open&flag=procurement', dateRange, {}),
-      tooltip: 'Approved orders handed off to Procurement to source a replacement part.' },
-    { title: 'Approved',                count: filteredOrders.filter(isApprovedOrder).length,    prior: priorOrder(isApprovedOrder),   href: buildKpiHref('/orders?orderStatus=Open&decision=Approved', dateRange, {}),
-      tooltip: 'Orders approved but not yet assigned to Procurement.', deltaTone: 'neutral' as const },
-    { title: 'Declined',                count: filteredOrders.filter(isDeclinedOrder).length,    prior: priorOrder(isDeclinedOrder),   href: buildKpiHref('/orders?decision=Declined', dateRange, {}),
-      tooltip: 'Orders declined for fulfillment.' },
+    { title: 'Total Order Count',   count: filteredOrders.length,                              prior: priorOrders?.length ?? null,   href: buildKpiHref('/orders', dateRange, {}),
+      tooltip: 'Total count of orders in the selected time period.', swatch: token.colorText },
+    { title: 'New Requests',        count: filteredOrders.filter(isNewRequest).length,          prior: priorOrder(isNewRequest),      href: buildKpiHref('/orders?orderStatus=Open&decision=Pending', dateRange, {}),
+      tooltip: 'Orders that have been submitted but have not yet received an approve or decline decision.', swatch: STATUS_COLORS.Reported },
+    { title: 'Pending Information', count: filteredOrders.filter(isPendingInfoOrder).length,    prior: priorOrder(isPendingInfoOrder), href: buildKpiHref('/orders?flag=info', dateRange, {}),
+      tooltip: 'Orders awaiting requested information from the field.', swatch: '#faad14' },
+    { title: 'Approved',            count: filteredOrders.filter(isApprovedOrder).length,       prior: priorOrder(isApprovedOrder),   href: buildKpiHref('/orders?decision=Approved', dateRange, {}),
+      tooltip: 'Orders that have been approved for parts fulfillment, whether still open or closed.', deltaTone: 'neutral' as const, swatch: STATUS_COLORS.Validated },
+    { title: 'Declined',            count: filteredOrders.filter(isDeclinedOrder).length,       prior: priorOrder(isDeclinedOrder),   href: buildKpiHref('/orders?decision=Declined', dateRange, {}),
+      tooltip: 'Orders that have been declined. These orders may be duplicates, incorrectly configured, or otherwise not qualify for fulfillment.', swatch: '#cf1322' },
+    { title: 'With Procurement',    count: filteredOrders.filter(isWithProcurement).length,     prior: priorOrder(isWithProcurement), href: buildKpiHref('/orders?orderStatus=Open&flag=procurement', dateRange, {}),
+      tooltip: 'Approved orders that have been handed off to Procurement to source a replacement part.', swatch: '#722ed1' },
   ];
 
   const carouselRef = useRef<HTMLDivElement>(null);
@@ -590,11 +627,11 @@ function DashboardPageContent() {
 
           <div style={{
             display: 'grid',
-            gridTemplateColumns: screens.md === false ? '1fr 1fr' : `repeat(${view === 'events' ? 6 : 4}, 1fr)`,
+            gridTemplateColumns: screens.md === false ? '1fr 1fr' : 'repeat(6, 1fr)',
             gap: token.marginSM,
           }}>
             {(view === 'events' ? kpis : orderKpis).map((k) => (
-              <KpiCard key={k.title} {...k} />
+              <KpiCard key={k.title} {...k} dateRange={dateRange} />
             ))}
           </div>
 
@@ -701,7 +738,7 @@ function DashboardPageContent() {
                   stats={intakeStats}
                   active={eventsSection === 'intake'}
                   onClick={() => setEventsSection('intake')}
-                  tooltip="All events, by branch, component, and issue type."
+                  tooltip="Intake provides an overview of incoming quality events, including reporting trends, affected components, common issues, and event activity across branches."
                 />
               </Col>
               <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column' }}>
@@ -710,7 +747,7 @@ function DashboardPageContent() {
                   stats={triageStats.stats}
                   active={eventsSection === 'triage'}
                   onClick={() => setEventsSection('triage')}
-                  tooltip="Review workload. What still needs attention, and what's being cleaned."
+                  tooltip="Review provides an overview of resolution progress, events awaiting information from the field, and how often event records are being updated across branches."
                 />
               </Col>
             </Row>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Card, List, Skeleton, Tag, Tooltip, Typography, Button, theme } from 'antd';
 import { RobotFilled, ArrowRightOutlined, CaretDownFilled, CaretUpFilled } from '@ant-design/icons';
 import Link from 'next/link';
@@ -152,13 +152,25 @@ export function AiSummary({
   const [ready, setReady] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
-  useEffect(() => {
-    setReady(false);
-    const t = setTimeout(() => setReady(true), 700);
-    return () => clearTimeout(t);
-  }, [dateRange]);
+  // The summary is only generated while the card is expanded; a generated
+  // result is kept until the date range it was built for changes.
+  const rangeKey = dateRange ? `${dateRange[0].format('YYYY-MM-DD')}_${dateRange[1].format('YYYY-MM-DD')}` : 'all';
+  const generatedFor = useRef<string | null>(null);
 
-  const { prose, actions } = buildInsights(events, dateRange);
+  useEffect(() => {
+    if (!expanded) return;
+    if (generatedFor.current === rangeKey) return;
+    setReady(false);
+    const t = setTimeout(() => {
+      generatedFor.current = rangeKey;
+      setReady(true);
+    }, 700);
+    return () => clearTimeout(t);
+  }, [expanded, rangeKey]);
+
+  const { prose, actions } = expanded && ready
+    ? buildInsights(events, dateRange)
+    : { prose: '', actions: [] as ActionItem[] };
 
   return (
     <Card
