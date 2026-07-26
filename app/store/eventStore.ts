@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { EventStatus, ActivityLog, EditHistoryEntry, AdditionalInfoRequest, QualityEvent } from '@/data/types';
 
-type EventMutations = {
+export type EventMutations = {
   status?: EventStatus;
   plant?: string;
   rootCause?: string | null;

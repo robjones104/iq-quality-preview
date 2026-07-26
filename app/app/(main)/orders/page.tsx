@@ -16,7 +16,7 @@ import { CopyableValue } from '@/components/CopyableValue';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { orders } from '@/data/orders';
-import { events } from '@/data/events';
+import { useEffectiveEventMap } from '@/lib/effectiveEvents';
 import { useCapabilities } from '@/store/roleStore';
 import { FilterPanel } from '@/components/FilterPanel';
 import { PageHeader } from '@/components/PageHeader';
@@ -48,9 +48,7 @@ const PROCUREMENT_CONTACTS = [
   { value: 'procurement@allegion.com',       label: 'Procurement Team — procurement@allegion.com' },
 ];
 
-const eventMap = new Map(events.map(e => [e.id, e]));
-
-const buildOrderRow = (o: Order): OrderRow => {
+const buildOrderRow = (o: Order, eventMap: Map<string, QualityEvent>): OrderRow => {
   const event = eventMap.get(o.eventId)!;
   return {
     ...o,
@@ -64,8 +62,6 @@ const buildOrderRow = (o: Order): OrderRow => {
   };
 };
 
-const allOrderRows: OrderRow[] = orders.map(buildOrderRow);
-
 const CARD_PAGE_SIZE = 12;
 
 function OrdersPageContent() {
@@ -74,17 +70,18 @@ function OrdersPageContent() {
   // linked event's branch, which orderRows already carries).
   const caps = useCapabilities();
   const createdOrders = useOrderStore((s) => s.createdOrders);
+  const eventMap = useEffectiveEventMap();
   const orderRows = useMemo(() => {
     // Runtime-created orders (parts request on an orderless event) merge in
     // ahead of the static set so the newest work appears.
     const created = Object.values(createdOrders)
       .filter(o => eventMap.has(o.eventId))
-      .map(buildOrderRow);
-    const all = [...created, ...allOrderRows];
+      .map(o => buildOrderRow(o, eventMap));
+    const all = [...created, ...orders.map(o => buildOrderRow(o, eventMap))];
     return caps.branchScoped && caps.assignedBranch
       ? all.filter(r => r.branch === caps.assignedBranch)
       : all;
-  }, [createdOrders, caps.branchScoped, caps.assignedBranch]);
+  }, [createdOrders, caps.branchScoped, caps.assignedBranch, eventMap]);
   const orderStatusParam = searchParams.get('orderStatus');
   const decisionParam    = searchParams.get('decision');
   const flagParam        = searchParams.get('flag');

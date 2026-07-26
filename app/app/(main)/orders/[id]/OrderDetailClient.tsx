@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, Fragment } from 'react';
+import { useState, Fragment, useMemo } from 'react';
 import Link from 'next/link';
+import { useEventStore } from '@/store/eventStore';
+import { mergeEvent } from '@/lib/effectiveEvents';
 import { useOrderStore } from '@/store/orderStore';
 import { useCapabilities } from '@/store/roleStore';
 import {
@@ -76,7 +78,9 @@ const STATUS_HEX: Record<Status, string> = {
 
 type Props = { order: Order; event: QualityEvent };
 
-export function OrderDetailClient({ order, event }: Props) {
+export function OrderDetailClient({ order, event: eventProp }: Props) {
+  const evtMutations = useEventStore(s => s.mutations);
+  const event = useMemo(() => mergeEvent(eventProp, evtMutations[eventProp.id]), [eventProp, evtMutations]);
   const { token } = theme.useToken();
   const screens = Grid.useBreakpoint();
   const isMobile = !screens.md;

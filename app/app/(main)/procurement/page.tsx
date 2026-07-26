@@ -9,7 +9,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { CopyableValue } from '@/components/CopyableValue';
 import Link from 'next/link';
 import { orders } from '@/data/orders';
-import { events } from '@/data/events';
+import { useEffectiveEventMap } from '@/lib/effectiveEvents';
 import { PageHeader } from '@/components/PageHeader';
 import { DateRangeFilter, type DateRange } from '@/components/DateRangeFilter';
 import { useOrderStore } from '@/store/orderStore';
@@ -20,9 +20,7 @@ import type { QualityEvent } from '@/data/types';
 type OrderRow = Order & Pick<QualityEvent, 'issue' | 'component' | 'door' | 'branch' | 'plant' | 'reportedBy' | 'status'>;
 type OrderStatus = 'Open' | 'Closed';
 
-const eventMap = new Map(events.map(e => [e.id, e]));
-
-const buildOrderRow = (o: Order): OrderRow => {
+const buildOrderRow = (o: Order, eventMap: Map<string, QualityEvent>): OrderRow => {
   const event = eventMap.get(o.eventId)!;
   return {
     ...o,
@@ -36,8 +34,6 @@ const buildOrderRow = (o: Order): OrderRow => {
   };
 };
 
-const staticOrderRows: OrderRow[] = orders.map(buildOrderRow);
-
 export default function ProcurementPage() {
   const { token } = theme.useToken();
   const isDark = token.colorBgContainer !== '#ffffff';
@@ -48,11 +44,12 @@ export default function ProcurementPage() {
   const [showClosed, setShowClosed] = useState(false);
 
   const { mutations: orderMutations, createdOrders } = useOrderStore();
+  const eventMap = useEffectiveEventMap();
 
   const orderRows = useMemo(() => [
-    ...Object.values(createdOrders).filter(o => eventMap.has(o.eventId)).map(buildOrderRow),
-    ...staticOrderRows,
-  ], [createdOrders]);
+    ...Object.values(createdOrders).filter(o => eventMap.has(o.eventId)).map(o => buildOrderRow(o, eventMap)),
+    ...orders.map(o => buildOrderRow(o, eventMap)),
+  ], [createdOrders, eventMap]);
 
   const effectiveStatus = (row: OrderRow): OrderStatus =>
     orderMutations[row.id]?.status ?? (row.orderStatus as OrderStatus);

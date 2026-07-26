@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Empty, Button } from 'antd';
 import { useOrderStore } from '@/store/orderStore';
-import { events } from '@/data/events';
+import { useEffectiveEventMap } from '@/lib/effectiveEvents';
 import { OrderDetailClient } from './OrderDetailClient';
 
 // Fallback for order ids the server doesn't know: orders created at runtime
@@ -18,7 +18,8 @@ export function CreatedOrderDetail({ id }: { id: string }) {
   useEffect(() => { setHydrated(true); }, []);
 
   const order = createdOrders[id];
-  const event = order ? events.find(e => e.id === order.eventId) : undefined;
+  const eventMap = useEffectiveEventMap();
+  const event = order ? eventMap.get(order.eventId) : undefined;
 
   if (order && event) return <OrderDetailClient order={order} event={event} />;
   if (!hydrated) return null;

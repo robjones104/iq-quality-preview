@@ -1,6 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { useEventStore } from '@/store/eventStore';
+import { mergeEvent } from '@/lib/effectiveEvents';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -101,7 +103,9 @@ function DisplayField({
   );
 }
 
-export function EscalationDetailClient({ escalation, allEvents, isNew = false }: Props) {
+export function EscalationDetailClient({ escalation, allEvents: allEventsProp, isNew = false }: Props) {
+  const evtMutations = useEventStore(s => s.mutations);
+  const allEvents = useMemo(() => allEventsProp.map(e => mergeEvent(e, evtMutations[e.id])), [allEventsProp, evtMutations]);
   const router = useRouter();
   const { token } = theme.useToken();
 

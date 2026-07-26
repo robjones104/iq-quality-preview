@@ -1,5 +1,7 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { useEventStore } from '@/store/eventStore';
+import { mergeEvent } from '@/lib/effectiveEvents';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -28,11 +30,13 @@ type Props = {
 
 export function ManageListsClient({
   defaultTab,
-  events,
+  events: eventsProp,
   escalations,
   initialRootCauses,
   initialTags,
 }: Props) {
+  const evtMutations = useEventStore(s => s.mutations);
+  const events = useMemo(() => eventsProp.map(e => mergeEvent(e, evtMutations[e.id])), [eventsProp, evtMutations]);
   const router = useRouter();
   const { token } = theme.useToken();
   const screens = Grid.useBreakpoint();

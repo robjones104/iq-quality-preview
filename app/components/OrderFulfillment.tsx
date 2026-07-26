@@ -10,7 +10,7 @@ import dayjs from 'dayjs';
 import { now } from '@/lib/appTime';
 import type { QualityEvent } from '@/data/types';
 import type { Order } from '@/data/orders';
-import { events as allEvents } from '@/data/events';
+import { useEffectiveEventMap } from '@/lib/effectiveEvents';
 import { Dot } from './CardControls';
 
 const { Text, Paragraph } = Typography;
@@ -19,8 +19,6 @@ const STALE_DAYS = 3;
 const QUEUE_PREVIEW = 9;
 const DECLINED_PREVIEW = 4;
 
-
-const EVENT_MAP = new Map(allEvents.map(e => [e.id, e]));
 
 function parseOrderDate(lastUpdated: string): dayjs.Dayjs {
   const [mm, dd, yyyy] = lastUpdated.slice(0, 10).split('-');
@@ -140,6 +138,7 @@ export function OrderFulfillment({
   declinedHref?: string;
 }) {
   const router = useRouter();
+  const eventMap = useEffectiveEventMap();
   const { token } = theme.useToken();
 
   const isDark = token.colorBgBase === '#000000';
@@ -162,7 +161,7 @@ export function OrderFulfillment({
     orders
       .filter(o => o.orderStatus === 'Open')
       .map(o => {
-        const ev = EVENT_MAP.get(o.eventId);
+        const ev = eventMap.get(o.eventId);
         const thread = ev?.additionalInfoRequests ?? [];
         const last = thread[thread.length - 1];
         return {
@@ -180,12 +179,12 @@ export function OrderFulfillment({
       })
       .filter(item => item.commentCount > 0)
       .sort((a, b) => b.ageDays - a.ageDays),
-    [orders],
+    [orders, eventMap],
   );
 
   const visiblePending = pendingItems.slice(0, QUEUE_PREVIEW);
 
-  const declinedItems = useMemo(() => buildDeclinedItems(orders), [orders]);
+  const declinedItems = useMemo(() => buildDeclinedItems(orders, eventMap), [orders, eventMap]);
   const visibleDeclined = declinedItems.slice(0, DECLINED_PREVIEW);
 
   const handleExportDeclined = () => {
@@ -375,18 +374,19 @@ export function OrderFulfillment({
 
 export function PendingCSReviewChart({ orders }: { orders: Order[] }) {
   const { token } = theme.useToken();
+  const eventMap = useEffectiveEventMap();
   const pendingItems = useMemo((): PendingItem[] =>
     orders
       .filter(o => o.orderStatus === 'Open')
       .map(o => {
-        const ev = EVENT_MAP.get(o.eventId);
+        const ev = eventMap.get(o.eventId);
         const thread = ev?.additionalInfoRequests ?? [];
         const last = thread[thread.length - 1];
         return { id: o.id, eventId: o.eventId, jobNo: o.jobNo, branch: ev?.branch ?? '—', component: ev?.component ?? '—', partsCount: o.parts.length, ageDays: TODAY.diff(parseOrderDate(o.lastUpdated), 'day'), commentCount: thread.length, latestComment: last?.text ?? null, techReplied: last?.sentBy === 'Tech' };
       })
       .filter(item => item.commentCount > 0)
       .sort((a, b) => b.ageDays - a.ageDays),
-    [orders]
+    [orders, eventMap]
   );
   const preview = pendingItems.slice(0, 5);
 
@@ -555,11 +555,11 @@ function DeclinedRow({ item, token }: { item: DeclinedItem; token: ReturnType<ty
   );
 }
 
-function buildDeclinedItems(orders: Order[]): DeclinedItem[] {
+function buildDeclinedItems(orders: Order[], eventMap: Map<string, import('@/data/types').QualityEvent>): DeclinedItem[] {
   return orders
     .filter(o => o.declined)
     .map(o => {
-      const ev = EVENT_MAP.get(o.eventId);
+      const ev = eventMap.get(o.eventId);
       const d = parseOrderDate(o.lastUpdated);
       return {
         id: o.id,
@@ -577,6 +577,7 @@ function buildDeclinedItems(orders: Order[]): DeclinedItem[] {
 
 export function DeclinedByBranchChart({ orders, height = 220 }: { orders: Order[]; height?: number }) {
   const { token } = theme.useToken();
+  const eventMap = useEffectiveEventMap();
   const router = useRouter();
   const isDark = token.colorBgBase === '#000000';
   const plotTheme = isDark ? 'classicDark' : 'classic';
@@ -595,7 +596,7 @@ export function DeclinedByBranchChart({ orders, height = 220 }: { orders: Order[
     const counts: Record<string, number> = {};
     for (const o of orders) {
       if (!o.declined) continue;
-      const branch = EVENT_MAP.get(o.eventId)?.branch ?? 'Unknown';
+      const branch = eventMap.get(o.eventId)?.branch ?? 'Unknown';
       counts[branch] = (counts[branch] ?? 0) + 1;
     }
     return Object.entries(counts)
@@ -642,7 +643,8 @@ export function DeclinedByBranchChart({ orders, height = 220 }: { orders: Order[
 
 export function DeclinedOrdersPreview({ orders }: { orders: Order[] }) {
   const { token } = theme.useToken();
-  const declinedItems = useMemo(() => buildDeclinedItems(orders), [orders]);
+  const eventMap = useEffectiveEventMap();
+  const declinedItems = useMemo(() => buildDeclinedItems(orders, eventMap), [orders, eventMap]);
   const preview = declinedItems.slice(0, 5);
 
   if (declinedItems.length === 0) {

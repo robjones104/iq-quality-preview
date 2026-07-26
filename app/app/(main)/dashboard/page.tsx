@@ -13,7 +13,7 @@ import { FilterPanel } from '@/components/FilterPanel';
 import { DateRangeFilter, rangeLabelFor } from '@/components/DateRangeFilter';
 import { STATUS_COLORS } from '@/components/StatusTag';
 import { EVENT_FILTER_CATEGORIES, ORDER_FILTER_CATEGORIES } from '@/data/filterOptions';
-import { events as allEvents } from '@/data/events';
+import { useEffectiveEvents, useEffectiveEventMap } from '@/lib/effectiveEvents';
 import { orders as allOrders } from '@/data/orders';
 import { useFilterStore } from '@/store/filterStore';
 import { useOrderStore } from '@/store/orderStore';
@@ -27,8 +27,6 @@ import type { Order } from '@/data/orders';
 import type { DateRange } from '@/components/DateRangeFilter';
 
 const { Text } = Typography;
-
-const EVENT_BY_ID = new Map(allEvents.map(e => [e.id, e]));
 
 type View = 'events' | 'orders';
 type EventsSection = 'intake' | 'triage';
@@ -353,7 +351,8 @@ function DashboardPageContent() {
   } = useFilterStore();
   const { mutations: orderMutations } = useOrderStore();
   // Branch (View-Only) roles see only their branch's data; everyone else sees all.
-  const events = useScopedEvents(allEvents);
+  const events = useScopedEvents(useEffectiveEvents());
+  const eventById = useEffectiveEventMap();
   const orders = useScopedOrders(allOrders);
 
   const router = useRouter();
@@ -545,7 +544,7 @@ function DashboardPageContent() {
   // Approved/Declined are decisions (either can later close); Open/Closed is the
   // lifecycle. Decision cards count all orders carrying that decision in range.
   const isNewRequest       = (o: Order) => o.orderStatus === 'Open' && !o.approved && !o.declined;
-  const isPendingInfoOrder = (o: Order) => o.orderStatus === 'Open' && (EVENT_BY_ID.get(o.eventId)?.additionalInfoRequests?.length ?? 0) > 0;
+  const isPendingInfoOrder = (o: Order) => o.orderStatus === 'Open' && (eventById.get(o.eventId)?.additionalInfoRequests?.length ?? 0) > 0;
   const isApprovedOrder    = (o: Order) => !!o.approved;
   const isDeclinedOrder    = (o: Order) => !!o.declined;
   const isWithProcurement  = (o: Order) => o.orderStatus === 'Open' && !!o.approved && !!o.assignedToProcurement;
