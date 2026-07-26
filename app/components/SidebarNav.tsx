@@ -1,32 +1,41 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   HomeFilled,
   CalendarFilled,
   ShoppingFilled,
   ContainerFilled,
   DatabaseFilled,
+  BellFilled,
   UserOutlined,
+  UserSwitchOutlined,
   EditOutlined,
   MoonFilled,
   SunFilled,
   LogoutOutlined,
 } from '@ant-design/icons';
-import { Dropdown, Grid, Switch, Tooltip, theme } from 'antd';
+import { Badge, Dropdown, Grid, Switch, Tooltip, theme } from 'antd';
 import { useThemeStore } from '@/store/themeStore';
 import { useFilterStore } from '@/store/filterStore';
-import { useSignOut, CURRENT_USER_EMAIL } from '@/lib/auth';
-import { NAV_TOP } from '@/lib/nav';
-import dayjs from 'dayjs';
+import { useRoleStore } from '@/store/roleStore';
+import { useSignOut } from '@/lib/auth';
+import { ROLES, ROLE_BLURB, capabilitiesFor } from '@/lib/roles';
+import { now } from '@/lib/appTime';
+import { getNotifications, countNewNotifications } from '@/lib/notifications';
+import { scopeEvents, scopeOrders } from '@/lib/useScopedData';
+import { events } from '@/data/events';
+import { orders } from '@/data/orders';
+import { escalations } from '@/data/escalations';
 
-// Icon mapping — keyed to label strings from lib/nav.ts
+// Icon mapping — keyed to label strings.
 const ICON_MAP: Record<string, React.ComponentType<{ style?: React.CSSProperties }>> = {
   'Home': HomeFilled,
   'Events': CalendarFilled,
   'Orders': ShoppingFilled,
   'Procurement': ContainerFilled,
+  'Categories': DatabaseFilled,
 };
 
 // Pages that carry the active dashboard date range when navigating from the sidebar
@@ -36,12 +45,43 @@ const DEFAULT_RANGE_DAYS = 30;
 
 export function SidebarNav() {
   const pathname = usePathname();
+  const router = useRouter();
   const { darkMode, toggle } = useThemeStore();
   const { token } = theme.useToken();
   const screens = Grid.useBreakpoint();
   const expanded = !!screens.xxl;
   const { dateRange } = useFilterStore();
+  const { role, setRole } = useRoleStore();
+  const caps = capabilitiesFor(role);
   const signOut = useSignOut();
+
+  const scopeBranch = caps.branchScoped ? caps.assignedBranch ?? null : null;
+  const scopedEvents = scopeEvents(events, scopeBranch);
+  const scopedOrders = scopeOrders(orders, scopeBranch);
+  const canSeeNotifications = caps.dashboard || caps.events || caps.orders;
+  const newNotificationCount = countNewNotifications(getNotifications(scopedEvents, escalations, scopedOrders));
+
+  // Nav items visible to the current role, in order.
+  const visibleNav: { href: string; label: string }[] = [
+    ...(caps.dashboard ? [{ href: '/dashboard', label: 'Home' }] : []),
+    ...(caps.events ? [{ href: '/events', label: 'Events' }] : []),
+    ...(caps.orders ? [{ href: '/orders', label: 'Orders' }] : []),
+    ...(caps.procurementQueue ? [{ href: '/procurement', label: 'Procurement' }] : []),
+    ...(caps.categories ? [{ href: '/manage/root-causes', label: 'Categories' }] : []),
+  ];
+
+  const roleMenuItems = ROLES.map((r) => ({
+    key: r,
+    label: (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '2px 0', maxWidth: 240 }}>
+        <span style={{ fontSize: token.fontSize, fontWeight: r === role ? 600 : 400, color: r === role ? token.colorPrimary : token.colorText }}>{r}</span>
+        <span style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary, whiteSpace: 'normal', lineHeight: 1.3 }}>{ROLE_BLURB[r]}</span>
+      </div>
+    ),
+    // Switching personas jumps to that role's landing page so each role's
+    // starting view is immediately visible.
+    onClick: () => { setRole(r); router.push(capabilitiesFor(r).landing); },
+  }));
 
   const accountMenuItems = [
     { key: 'edit-password', icon: <EditOutlined />, label: <Link href="/account">Edit Password</Link> },
@@ -55,8 +95,8 @@ export function SidebarNav() {
   const navHref = (base: string): string => {
     if (!DATE_CARRY_PAGES.has(base) || !dateRange) return base;
     const isDefault =
-      dateRange[0].isSame(dayjs().subtract(DEFAULT_RANGE_DAYS, 'day'), 'day') &&
-      dateRange[1].isSame(dayjs(), 'day');
+      dateRange[0].isSame(now().subtract(DEFAULT_RANGE_DAYS, 'day'), 'day') &&
+      dateRange[1].isSame(now(), 'day');
     if (isDefault) return base;
     const p = new URLSearchParams({
       from: dateRange[0].format('YYYY-MM-DD'),
@@ -69,14 +109,13 @@ export function SidebarNav() {
     pathname === href || pathname.startsWith(href + '/');
 
   const isDark = darkMode;
-  const isManageActive = pathname.startsWith('/manage');
   const YELLOW = '#FFD20B';
   const activeNavBg    = isDark ? token.colorFillSecondary : 'rgba(255, 210, 11, 0.12)';
   const activeNavColor = isDark ? YELLOW : token.colorText;
   const activeBorder   = `3px solid ${YELLOW}`;
 
   const navButton = (href: string, label: string, linkHref?: string) => {
-    const active = isActive(href);
+    const active = href === '/manage/root-causes' ? pathname.startsWith('/manage') : isActive(href);
     const Icon = ICON_MAP[label];
     if (!Icon) return null;
     const link = (
@@ -153,13 +192,46 @@ return (
           </svg>
         )}
 
-        {NAV_TOP.map(({ href, label }) => navButton(href, label, navHref(href)))}
+        {visibleNav.map(({ href, label }) => navButton(href, label, navHref(href)))}
+      </div>
 
-        {/* Categories — direct link */}
-        {(() => {
-          const link = (
+      {/* Bottom: utility nav + theme toggle */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20, alignItems: expanded ? 'flex-start' : 'center', width: '100%' }}>
+        {/* Role switcher — prototype affordance for demoing RBAC */}
+        <Dropdown menu={{ items: roleMenuItems, selectable: true, selectedKeys: [role] }} trigger={['click']} placement="topLeft">
+          <Tooltip title={expanded ? null : `Viewing as ${role}`} placement="right">
+            <div
+              role="button"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: expanded ? 'flex-start' : 'center',
+                gap: expanded ? 10 : 0,
+                width: expanded ? '100%' : 36,
+                height: expanded ? 'auto' : 36,
+                minHeight: 36,
+                borderRadius: token.borderRadius,
+                padding: expanded ? '6px 10px' : 0,
+                cursor: 'pointer',
+                border: `1px dashed ${token.colorBorderSecondary}`,
+              }}
+            >
+              <UserSwitchOutlined style={{ fontSize: token.fontSizeXL, flexShrink: 0, color: token.colorPrimary }} />
+              {expanded && (
+                <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                  <span style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary, whiteSpace: 'nowrap' }}>Viewing as</span>
+                  <span style={{ fontSize: token.fontSize, fontWeight: 600, color: token.colorText, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{role}</span>
+                </div>
+              )}
+            </div>
+          </Tooltip>
+        </Dropdown>
+
+        {canSeeNotifications && (() => {
+          const active = isActive('/notifications');
+          const bell = (
             <Link
-              href="/manage/root-causes"
+              href="/notifications"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -169,28 +241,27 @@ return (
                 height: 36,
                 borderRadius: token.borderRadius,
                 padding: expanded ? '0 10px' : 0,
-                background: isManageActive ? activeNavBg : 'transparent',
-                borderLeft: isManageActive ? activeBorder : '3px solid transparent',
+                background: active ? activeNavBg : 'transparent',
+                borderLeft: active ? activeBorder : '3px solid transparent',
                 textDecoration: 'none',
                 transition: 'background 0.15s',
               }}
             >
-              <DatabaseFilled style={{ fontSize: token.fontSizeXL, flexShrink: 0, color: isManageActive ? activeNavColor : token.colorTextSecondary, transition: 'color 0.15s' }} />
+              <Badge count={newNotificationCount} size="small" offset={[2, -2]}>
+                <BellFilled style={{ fontSize: token.fontSizeXL, flexShrink: 0, color: active ? activeNavColor : token.colorTextSecondary, transition: 'color 0.15s' }} />
+              </Badge>
               {expanded && (
-                <span style={{ fontSize: token.fontSize, fontWeight: isManageActive ? 600 : 400, color: isManageActive ? activeNavColor : token.colorTextSecondary, transition: 'color 0.15s', whiteSpace: 'nowrap' }}>
-                  Categories
+                <span style={{ fontSize: token.fontSize, fontWeight: active ? 600 : 400, color: active ? activeNavColor : token.colorTextSecondary, transition: 'color 0.15s', whiteSpace: 'nowrap' }}>
+                  Notifications
                 </span>
               )}
             </Link>
           );
-          return expanded ? link : <Tooltip title="Categories" placement="right">{link}</Tooltip>;
+          return expanded ? bell : <Tooltip title="Notifications" placement="right">{bell}</Tooltip>;
         })()}
-      </div>
 
-      {/* Bottom: utility nav + theme toggle */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 20, alignItems: expanded ? 'flex-start' : 'center', width: '100%' }}>
         <Dropdown menu={{ items: accountMenuItems }} trigger={['click']} placement="topLeft">
-          <Tooltip title={expanded ? null : CURRENT_USER_EMAIL} placement="right">
+          <Tooltip title={expanded ? null : caps.email} placement="right">
             <div
               role="button"
               style={{
@@ -208,7 +279,7 @@ return (
               <UserOutlined style={{ fontSize: token.fontSizeXL, flexShrink: 0, color: token.colorTextSecondary }} />
               {expanded && (
                 <span style={{ fontSize: token.fontSize, color: token.colorTextSecondary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {CURRENT_USER_EMAIL}
+                  {caps.email}
                 </span>
               )}
             </div>

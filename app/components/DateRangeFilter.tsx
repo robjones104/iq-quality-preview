@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Button, Calendar, DatePicker, Drawer, Grid, Input, Segmented, Select, theme } from 'antd';
 import { CalendarOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
+import { now as appNow } from '@/lib/appTime';
 
 const { RangePicker } = DatePicker;
 const { useBreakpoint } = Grid;
@@ -13,7 +14,7 @@ export type DateRange = [Dayjs, Dayjs];
 type Preset = { label: string; value: DateRange };
 
 function buildPresets(): Preset[] {
-  const now = dayjs();
+  const now = appNow();
   return [
     { label: 'Today',        value: [now.startOf('day'), now.endOf('day')] },
     { label: 'Yesterday',    value: [now.subtract(1, 'day').startOf('day'), now.subtract(1, 'day').endOf('day')] },
@@ -35,7 +36,7 @@ const MONTH_OPTIONS = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ].map((label, value) => ({ value, label }));
 
-const NOW_YEAR = dayjs().year();
+const NOW_YEAR = appNow().year();
 const YEAR_OPTIONS = Array.from({ length: 11 }, (_, i) => ({
   value: NOW_YEAR - 8 + i,
   label: String(NOW_YEAR - 8 + i),
@@ -51,7 +52,7 @@ export function DateRangeFilter({ value, onChange }: Props) {
   const { token } = theme.useToken();
   const [drawerOpen, setDrawerOpen]       = useState(false);
   const [tab, setTab]                     = useState<'Presets' | 'Custom'>('Presets');
-  const [calDisplayDate, setCalDisplayDate] = useState(() => dayjs());
+  const [calDisplayDate, setCalDisplayDate] = useState(() => appNow());
   const [rangeStart, setRangeStart]       = useState<Dayjs | null>(null);
   const [rangeEnd, setRangeEnd]           = useState<Dayjs | null>(null);
 
@@ -81,7 +82,7 @@ export function DateRangeFilter({ value, onChange }: Props) {
       setRangeEnd(value[1]);
     } else {
       setTab('Presets');
-      setCalDisplayDate(dayjs());
+      setCalDisplayDate(appNow());
       setRangeStart(null);
       setRangeEnd(null);
     }
@@ -249,7 +250,7 @@ export function DateRangeFilter({ value, onChange }: Props) {
                 const isEnd   = !!rangeEnd   && date.isSame(rangeEnd,   'day');
                 const inRange = !!rangeStart && !!rangeEnd
                   && date.isAfter(rangeStart, 'day') && date.isBefore(rangeEnd, 'day');
-                const isToday   = date.isSame(dayjs(), 'day');
+                const isToday   = date.isSame(appNow(), 'day');
                 const selected  = isStart || isEnd;
 
                 return (

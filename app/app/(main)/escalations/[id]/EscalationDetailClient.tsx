@@ -35,6 +35,7 @@ import {
 } from '@ant-design/icons';
 import { PageHeader } from '@/components/PageHeader';
 import { CopyableValue } from '@/components/CopyableValue';
+import { nowStampIso } from '@/lib/appTime';
 import type { Escalation, EscalationType } from '@/data/escalations';
 import type { QualityEvent } from '@/data/types';
 const { Text, Paragraph } = Typography;
@@ -122,7 +123,7 @@ export function EscalationDetailClient({ escalation, allEvents, isNew = false }:
   const [attachments, setAttachments] = useState<Array<{ uid: string; name: string; size: number; date: string; blobUrl: string }>>([]);
   const [previewFile, setPreviewFile] = useState<{ name: string; blobUrl: string } | null>(null);
 
-  const nowTs = () => new Date().toISOString().replace('T', ' ').slice(0, 16);
+  const nowTs = () => nowStampIso();
 
   const id = escalation?.id ?? 'New Escalation';
 

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { App, Avatar, Button, Input, List, Space, Tag, Typography, theme } from 'antd';
 import { MessageFilled, RedoOutlined } from '@ant-design/icons';
 import { useEventStore } from '@/store/eventStore';
+import { nowStampIso } from '@/lib/appTime';
 import type { AdditionalInfoRequest, EventStatus, QualityEvent } from '@/data/types';
 const { Text } = Typography;
 
@@ -35,7 +36,7 @@ export function useInfoRequestThread(
   const infoThreads = infoRequests.filter(r => r.kind === 'initial' || r.kind === 'new');
   const followupsFor = (threadId: string) => infoRequests.filter(r => r.relatesTo === threadId);
 
-  const nowTs = () => new Date().toISOString().replace('T', ' ').slice(0, 16);
+  const nowTs = () => nowStampIso();
 
   const sendInfoRequest = (text: string, kind: 'initial' | 'new', forStatus?: EventStatus) => {
     const entry: AdditionalInfoRequest = { id: `air_${Date.now()}`, text, sentAt: nowTs(), kind, sentBy: senderRole };

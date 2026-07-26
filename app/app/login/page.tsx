@@ -4,12 +4,15 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Card, Input, Button, Form, Typography, theme } from 'antd';
+import { useRoleStore } from '@/store/roleStore';
+import { capabilitiesFor } from '@/lib/roles';
 
 const { Title, Text } = Typography;
 
 export default function LoginPage() {
   const { token } = theme.useToken();
   const router = useRouter();
+  const role = useRoleStore((s) => s.role);
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -24,7 +27,7 @@ export default function LoginPage() {
     });
 
     if (res.ok) {
-      router.replace('/dashboard');
+      router.replace(capabilitiesFor(role).landing);
     } else {
       setError(true);
       setLoading(false);

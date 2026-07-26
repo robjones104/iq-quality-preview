@@ -4,6 +4,10 @@ import { useState, useRef, Fragment, type ChangeEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEventStore } from '@/store/eventStore';
+import { useOrderStore } from '@/store/orderStore';
+import { useCapabilities } from '@/store/roleStore';
+import { orders as allOrders } from '@/data/orders';
+import type { Order } from '@/data/orders';
 import {
   Button, Card, Col, Divider, Drawer, Dropdown, Form, Grid, Input, InputNumber, List, message, Modal, Radio, Row,
   Segmented, Select, Slider, Space, Switch, Table, Tooltip, Typography, Upload, theme,
@@ -24,6 +28,7 @@ import { ISSUE_OPTIONS, DOOR_OPTIONS, PART_CATALOG, PLANT_OPTIONS, COMPONENT_OPT
 import { CreateEscalationModal } from '@/components/CreateEscalationModal';
 import { useInfoRequestThread, InfoRequestThreadPanel } from '@/components/InfoRequestThread';
 import type { QualityEvent, EventStatus, RootCause, ActivityLog } from '@/data/types';
+import { nowDate, nowStampIso, nowStampUs } from '@/lib/appTime';
 const { Text, Paragraph } = Typography;
 
 const ROOT_CAUSE_OPTIONS = [
@@ -42,7 +47,7 @@ const STATUS_STEP: Record<EventStatus, number> = {
 };
 
 function generateInsights(event: QualityEvent, rootCause: string | null): string {
-  const age = Math.max(0, Math.round((Date.now() - new Date(event.date).getTime()) / 86400000));
+  const age = Math.max(0, Math.round((nowDate().getTime() - new Date(event.date).getTime()) / 86400000));
   const urgency = age >= 7
     ? 'This event is stale and should be prioritized for resolution.'
     : age >= 3 ? 'This event is aging and should be reviewed soon.'
@@ -91,7 +96,15 @@ function generateHistoricalInsights(event: QualityEvent, pool: QualityEvent[]): 
 
 export default function EventDetailClient({ event, orderId }: { event: QualityEvent; orderId: string | null }) {
   const { mutations: evtMutations, patchEvent, pushActivityLog } = useEventStore();
+  const { mutations: orderMutations, createdOrders, createOrder } = useOrderStore();
   const evtStored = evtMutations[event.id] ?? {};
+  // Orders created at runtime for this event (parts request on an orderless
+  // event). Server only knows static orders, so resolve the link client-side.
+  const [runtimeOrderId, setRuntimeOrderId] = useState<string | null>(null);
+  const effectiveOrderId = orderId
+    ?? runtimeOrderId
+    ?? Object.values(createdOrders).find(o => o.eventId === event.id)?.id
+    ?? null;
 
   const [status, setStatus]                   = useState<EventStatus>(evtStored.status ?? event.status);
   const [plant, setPlant]                     = useState<string>(evtStored.plant ?? event.plant);
@@ -187,7 +200,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   const screens = Grid.useBreakpoint();
   const isMobile = !screens.md;
 
-  const nowTs = () => new Date().toISOString().replace('T', ' ').slice(0, 16);
+  const nowTs = () => nowStampIso();
 
   const addToActivityLog = (comment: string, forStatus?: EventStatus, editFrom?: string | null, editTo?: string | null) => {
     const entry: ActivityLog = {
@@ -264,14 +277,65 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
     setPartModalOpen(true);
   };
 
+  // An event's parts request drives order creation (pipeline rule): if the
+  // event has no open order when a parts request is added, one is created for
+  // Customer Service review. Existing open orders are left to CS to amend.
+  const findOpenOrderId = (): string | null => {
+    const all = [...allOrders, ...Object.values(createdOrders)].filter(o => o.eventId === event.id);
+    const open = all.find(o => (orderMutations[o.id]?.status ?? o.orderStatus) === 'Open');
+    return open ? open.id : null;
+  };
+
+  const nextOrderId = (): string => {
+    const taken = new Set([...allOrders, ...Object.values(createdOrders)].map(o => o.id));
+    const base = `${event.id}_Order`;
+    if (!taken.has(base)) return base;
+    let n = 2;
+    while (taken.has(`${base}_${n}`)) n++;
+    return `${base}_${n}`;
+  };
+
   const handleSavePartRequest = () => {
     partForm.validateFields().then(values => {
-      setPartsState(prev => [...prev, {
+      const newPart = {
         partNumber:   values.partNumber,
         description:  values.partDescription,
         quantityType: values.quantityType,
         quantity:     Number(values.quantity),
-      }]);
+      };
+      const nextParts = [...partsState, newPart];
+      setPartsState(nextParts);
+      patchEvent(event.id, { partsRequest: nextParts });
+
+      if (!findOpenOrderId()) {
+        const newId = nextOrderId();
+        const order: Order = {
+          id: newId,
+          eventId: event.id,
+          orderStatus: 'Open',
+          jobNo: currentJobNo,
+          lastUpdated: nowStampUs(),
+          parts: [{
+            seqNo: 1,
+            configId: `${currentJobNo}.1`,
+            dfoLineItem: currentDfo,
+            ...(isSO && currentElLine != null ? { elLineItem: currentElLine } : {}),
+            door: currentDoor,
+            partNumber: values.partNumber,
+            quantityType: values.quantityType,
+            quantity: Number(values.quantity),
+            partDescription: values.partDescription,
+          }],
+        };
+        createOrder(order);
+        setRuntimeOrderId(newId);
+        addToActivityLog(`Parts request submitted. Order created for Customer Service review.`);
+        message.success('Parts request added. An order was created for Customer Service review.');
+      } else {
+        addToActivityLog('Parts request added.');
+        message.success('Parts request added.');
+      }
+
       setPartModalOpen(false);
       partForm.resetFields();
     });
@@ -295,7 +359,14 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
     setEditPartQuantity(part?.quantity != null ? String(part.quantity) : '');
   };
 
+  const caps = useCapabilities();
+  const roleCanEdit = caps.editEvents;
+  // Read-only for roles without event-edit rights (CS, Procurement, view-only),
+  // and for terminal statuses. `locked` keeps the existing status-lock messaging;
+  // `editable` additionally respects the current role and gates every edit
+  // affordance below.
   const locked        = status === 'Validated' || status === 'Invalidated';
+  const editable      = roleCanEdit && status !== 'Validated' && status !== 'Invalidated';
   const reopenTarget: EventStatus = 'Under Investigation';
 
   const stepIdx      = STATUS_STEP[status];
@@ -453,7 +524,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
             <Form.Item label="Root Cause" style={{ marginBottom: 10 }}>
               <Select
                 showSearch
-                disabled={locked}
+                disabled={!editable}
                 value={rootCause ?? undefined}
                 placeholder="Select or add root cause..."
                 filterOption={false}
@@ -481,7 +552,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
               <Tooltip title={status !== 'Validated' ? 'An event can only be linked to an escalation once it has been validated.' : ''}>
                 <Select
                   showSearch
-                  disabled={status !== 'Validated'}
+                  disabled={status !== 'Validated' || !roleCanEdit}
                   value={escalation ?? undefined}
                   placeholder="Link to escalation"
                   filterOption={false}
@@ -510,7 +581,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
             <Form.Item label="Tags" style={{ marginBottom: 0 }}>
               <Select
                 mode="tags"
-                disabled={locked}
+                disabled={!editable}
                 value={tags}
                 onChange={(t: string[]) => { setTags(t); patchEvent(event.id, { tags: t }); }}
                 placeholder="Add tags"
@@ -532,14 +603,14 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   );
 
   const messagesContent = (
-    <InfoRequestThreadPanel {...thread} reportedBy={event.reportedBy} canSend={!locked} />
+    <InfoRequestThreadPanel {...thread} reportedBy={event.reportedBy} canSend={editable} />
   );
 
-  const mobileActionItems = [
+  const mobileActionItems = !roleCanEdit ? [] : [
     ...(status === 'Reported' ? [{ key: 'start-inv', icon: <SearchOutlined />, label: 'Start Investigation', onClick: () => setStartInvOpen(true) }] : []),
     ...(status === 'Validated' || status === 'Invalidated' ? [{ key: 'reopen', icon: <RollbackOutlined />, label: 'Reopen', onClick: () => setReopenEvtOpen(true) }] : []),
     ...(status === 'Validated' && !escalation ? [{ key: 'escalate', icon: <ExclamationCircleFilled />, label: 'Escalate', onClick: () => router.push('/escalations/new') }] : []),
-    ...(!locked ? [
+    ...(editable ? [
       { type: 'divider' as const },
       { key: 'invalidate', icon: <StopFilled />, label: 'Invalidate', onClick: () => setInvalidateOpen(true) },
       { key: 'validate', icon: <CheckOutlined />, label: 'Validate', onClick: () => setValidateOpen(true) },
@@ -575,7 +646,12 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
           </div>
         }
         right={
-          isMobile ? (
+          !roleCanEdit ? (
+            <Space size={6} style={{ color: token.colorTextTertiary }}>
+              <LockFilled style={{ fontSize: token.fontSizeSM }} />
+              <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary }}>View only</Text>
+            </Space>
+          ) : isMobile ? (
             <Dropdown menu={{ items: mobileActionItems }} trigger={['click']}>
               <Button icon={<MoreOutlined />} />
             </Dropdown>
@@ -596,7 +672,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                   Escalate
                 </Button>
               )}
-              {!locked && (
+              {editable && (
                 <>
                   {status === 'Reported' && <Divider type="vertical" style={{ margin: '0 4px' }} />}
                   <Button
@@ -707,7 +783,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
               onTabChange={(key) => setActiveTab(key as 'details' | 'log' | 'photos' | 'attachments')}
               tabBarExtraContent={
                 activeTab === 'details' ? (
-                  locked ? null : editingComponent ? (
+                  !editable ? null : editingComponent ? (
                     <Space size={isMobile ? 8 : 4}>
                       <Button type="text" size="small" icon={<CloseOutlined />} onClick={() => setEditingComponent(false)}>Cancel</Button>
                       <Button type="primary" size="small" icon={<SaveFilled />} onClick={handleSaveEdits}>{!isMobile && 'Save'}</Button>
@@ -721,7 +797,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                     </Button>
                   )
                 ) : activeTab === 'photos' ? (
-                  locked ? null : (
+                  !editable ? null : (
                     <Button type="text" size="small" icon={<PlusOutlined />} onClick={() => photoInputRef.current?.click()} />
                   )
                 ) : activeTab === 'attachments' ? null : null
@@ -777,7 +853,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                             ) : (
                               <Space size={6}>
                                 <Text style={{ fontSize: token.fontSizeSM }}>{plant.split(' ')[0]}</Text>
-                                {!locked && (
+                                {editable && (
                                   <Button
                                     type="text" size="small"
                                     icon={<EditFilled style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary }} />}
@@ -787,8 +863,8 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                               </Space>
                             ) },
                           { label: 'Date',        node: <Text style={{ fontSize: token.fontSizeSM }}>{reportedDate}</Text> },
-                          ...(orderId ? [{ label: ' ', node: (
-                            <Link href={`/orders/${orderId}`} style={{ fontSize: token.fontSizeSM, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          ...(effectiveOrderId ? [{ label: ' ', node: (
+                            <Link href={`/orders/${effectiveOrderId}`} style={{ fontSize: token.fontSizeSM, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                               View Order <ArrowRightOutlined style={{ fontSize: token.fontSizeXS }} />
                             </Link>
                           ) }] : []),
@@ -808,7 +884,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                       </div>
 
                       {sectionLabel('Component Issue')}
-                      {editingComponent && !locked ? (
+                      {editingComponent && editable ? (
                         <Form
                           form={editForm}
                           layout="vertical"
@@ -916,7 +992,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                                   />
                                 </div>
                               )}
-                              {editingComponent && !locked ? (
+                              {editingComponent && editable ? (
                                 <Form layout="vertical" size="small">
                                   <Row gutter={8}>
                                     <Col flex={1}>
@@ -980,7 +1056,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                                   </div>
                                 </div>
                               )}
-                              {!locked && (
+                              {editable && (
                                 <div style={{ marginTop: 12 }}>
                                   <Button size="small" type="dashed" icon={<PlusOutlined />} onClick={openAddPartRequest}>
                                     Add Parts Request
@@ -999,7 +1075,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                               <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary, lineHeight: 1.5 }}>
                                 No parts request filed for this event.
                               </Text>
-                              {!locked && (
+                              {editable && (
                                 <Button size="small" type="dashed" icon={<PlusOutlined />} onClick={openAddPartRequest}>
                                   Add Parts Request
                                 </Button>
@@ -1022,13 +1098,13 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                               <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary, lineHeight: 1.5 }}>
                                 No hardware kit on file for this event.
                               </Text>
-                              {!locked && (
+                              {editable && (
                                 <Button size="small" type="dashed" icon={<PlusOutlined />} onClick={openAddPartRequest}>
                                   Add Hardware Kit
                                 </Button>
                               )}
                             </div>
-                          ) : editingComponent && !locked ? (
+                          ) : editingComponent && editable ? (
                             <Form layout="vertical" size="small">
                               <Form.Item label="Hardware Kit Information" style={{ marginBottom: 10 }}>
                                 <Select
@@ -1143,7 +1219,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                           </div>
                         ))}
                       </div>
-                      {!locked && (
+                      {editable && (
                         <Button
                           size="small"
                           type="text"
@@ -1210,7 +1286,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                     })()}
                   </Modal>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    {!locked && (
+                    {editable && (
                       <Upload.Dragger
                         multiple
                         accept=".pdf,.png,.jpg,.jpeg,.csv,.txt,.xlsx,.xls,.doc,.docx,.ppt,.pptx,.eml,.msg"
@@ -1252,7 +1328,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                               <Text style={{ fontSize: token.fontSizeSM, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: token.colorPrimary }}>{att.name}</Text>
                               <Text style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary }}>{fmtSize(att.size)} · {att.date}</Text>
                             </div>
-                            {!locked && (
+                            {editable && (
                               <Button
                                 type="text" size="small" icon={<DeleteOutlined />}
                                 style={{ color: token.colorTextTertiary, flexShrink: 0 }}

@@ -1,7 +1,10 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import dayjs from 'dayjs';
+import { now } from '@/lib/appTime';
 import type { DateRange } from '@/components/DateRangeFilter';
+
+const defaultRange = (): DateRange => [now().subtract(30, 'day'), now()];
 
 type FilterStore = {
   // Dashboard state — persists for KPI card navigation carry-over
@@ -9,6 +12,10 @@ type FilterStore = {
   setDateRange: (range: DateRange | null) => void;
   dashboardFilters: Record<string, string[]>;
   setDashboardFilters: (f: Record<string, string[]>) => void;
+  // Orders-view category filters — separate record so event and order filter
+  // keys never mix when toggling dashboard views.
+  dashboardOrderFilters: Record<string, string[]>;
+  setDashboardOrderFilters: (f: Record<string, string[]>) => void;
   // Events page state — persists through event-detail navigation
   eventsDateRange: DateRange | null;
   setEventsDateRange: (range: DateRange | null) => void;
@@ -31,21 +38,26 @@ const toDateRange = (v: unknown): DateRange | null => {
 export const useFilterStore = create<FilterStore>()(
   persist(
     (set) => ({
-      dateRange: [dayjs().subtract(30, 'day'), dayjs()],
+      dateRange: defaultRange(),
       setDateRange: (dateRange) => set({ dateRange }),
       dashboardFilters: {},
       setDashboardFilters: (dashboardFilters) => set({ dashboardFilters }),
-      eventsDateRange: [dayjs().subtract(30, 'day'), dayjs()],
+      dashboardOrderFilters: {},
+      setDashboardOrderFilters: (dashboardOrderFilters) => set({ dashboardOrderFilters }),
+      eventsDateRange: defaultRange(),
       setEventsDateRange: (eventsDateRange) => set({ eventsDateRange }),
       eventsFilters: {},
       setEventsFilters: (eventsFilters) => set({ eventsFilters }),
-      ordersDateRange: [dayjs().subtract(30, 'day'), dayjs()],
+      ordersDateRange: defaultRange(),
       setOrdersDateRange: (ordersDateRange) => set({ ordersDateRange }),
       ordersFilters: {},
       setOrdersFilters: (ordersFilters) => set({ ordersFilters }),
     }),
     {
-      name: 'iq-quality-filters',
+      // Bumped from 'iq-quality-filters' when "now" was frozen to APP_NOW — the
+      // old key holds real-today ranges that would rehydrate over the new default
+      // and leave the dashboard empty.
+      name: 'iq-quality-filters-v2',
       onRehydrateStorage: () => (state) => {
         if (!state) return;
         state.dateRange      = toDateRange(state.dateRange);

@@ -2,17 +2,19 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { theme, Grid, Button, Drawer, Menu } from 'antd';
 import {
   MenuOutlined, MoonFilled, SunFilled,
   HomeFilled, CalendarFilled, ShoppingFilled, ContainerFilled,
-  DatabaseFilled, UserOutlined, EditOutlined, LogoutOutlined,
+  DatabaseFilled, BellFilled, UserOutlined, UserSwitchOutlined, EditOutlined, LogoutOutlined,
 } from '@ant-design/icons';
 import { useThemeStore } from '@/store/themeStore';
 import { useFilterStore } from '@/store/filterStore';
-import { useSignOut, CURRENT_USER_EMAIL } from '@/lib/auth';
-import dayjs from 'dayjs';
+import { useRoleStore } from '@/store/roleStore';
+import { useSignOut } from '@/lib/auth';
+import { ROLES, capabilitiesFor } from '@/lib/roles';
+import { now } from '@/lib/appTime';
 
 const { useBreakpoint } = Grid;
 
@@ -28,17 +30,20 @@ export function PageHeader({ left, middle, center, right }: Props) {
   const screens = useBreakpoint();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
   const { darkMode, toggle } = useThemeStore();
 
   const close = () => setMobileNavOpen(false);
   const { dateRange } = useFilterStore();
+  const { role, setRole } = useRoleStore();
+  const caps = capabilitiesFor(role);
   const signOut = useSignOut();
 
   const navHref = (base: string): string => {
     if ((base !== '/events' && base !== '/orders') || !dateRange) return base;
     const isDefault =
-      dateRange[0].isSame(dayjs().subtract(30, 'day'), 'day') &&
-      dateRange[1].isSame(dayjs(), 'day');
+      dateRange[0].isSame(now().subtract(30, 'day'), 'day') &&
+      dateRange[1].isSame(now(), 'day');
     if (isDefault) return base;
     const p = new URLSearchParams({
       from: dateRange[0].format('YYYY-MM-DD'),
@@ -53,21 +58,35 @@ export function PageHeader({ left, middle, center, right }: Props) {
     if (pathname.startsWith('/events'))       return '/events';
     if (pathname.startsWith('/orders'))       return '/orders';
     if (pathname.startsWith('/procurement'))  return '/procurement';
+    if (pathname.startsWith('/notifications')) return '/notifications';
     if (pathname.startsWith('/account'))      return 'edit-password';
     return '';
   })();
 
+  const canSeeNotifications = caps.dashboard || caps.events || caps.orders;
+
   const menuItems = [
-    { key: '/dashboard',          icon: <HomeFilled />,     label: <Link href="/dashboard"              onClick={close}>Home</Link> },
-    { key: '/events',             icon: <CalendarFilled />, label: <Link href={navHref('/events')}  onClick={close}>Events</Link> },
-    { key: '/orders',             icon: <ShoppingFilled />, label: <Link href={navHref('/orders')}  onClick={close}>Orders</Link> },
-    { key: '/procurement',        icon: <ContainerFilled />, label: <Link href="/procurement"        onClick={close}>Procurement</Link> },
-    { key: '/manage/root-causes', icon: <DatabaseFilled />, label: <Link href="/manage/root-causes" onClick={close}>Categories</Link> },
+    ...(caps.dashboard        ? [{ key: '/dashboard',          icon: <HomeFilled />,      label: <Link href="/dashboard"          onClick={close}>Home</Link> }] : []),
+    ...(caps.events           ? [{ key: '/events',             icon: <CalendarFilled />,  label: <Link href={navHref('/events')}  onClick={close}>Events</Link> }] : []),
+    ...(caps.orders           ? [{ key: '/orders',             icon: <ShoppingFilled />,  label: <Link href={navHref('/orders')}  onClick={close}>Orders</Link> }] : []),
+    ...(caps.procurementQueue ? [{ key: '/procurement',        icon: <ContainerFilled />, label: <Link href="/procurement"        onClick={close}>Procurement</Link> }] : []),
+    ...(caps.categories       ? [{ key: '/manage/root-causes', icon: <DatabaseFilled />,  label: <Link href="/manage/root-causes" onClick={close}>Categories</Link> }] : []),
+    ...(canSeeNotifications    ? [{ key: '/notifications',      icon: <BellFilled />,      label: <Link href="/notifications"      onClick={close}>Notifications</Link> }] : []),
     { type: 'divider' as const },
+    {
+      key: 'role-switcher',
+      icon: <UserSwitchOutlined />,
+      label: `Viewing as ${role}`,
+      children: ROLES.map((r) => ({
+        key: `role-${r}`,
+        label: r,
+        onClick: () => { setRole(r); close(); router.push(capabilitiesFor(r).landing); },
+      })),
+    },
     {
       key: 'account',
       icon: <UserOutlined />,
-      label: CURRENT_USER_EMAIL,
+      label: caps.email,
       children: [
         { key: 'edit-password', icon: <EditOutlined />, label: <Link href="/account" onClick={close}>Edit Password</Link> },
         { key: 'sign-out', icon: <LogoutOutlined />, label: 'Sign Out', danger: true, onClick: () => { close(); signOut(); } },

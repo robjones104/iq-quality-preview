@@ -14,6 +14,7 @@ import { events } from '@/data/events';
 import { orders } from '@/data/orders';
 import { escalations } from '@/data/escalations';
 import { getNotifications, isNewNotification, type NotificationKind } from '@/lib/notifications';
+import { APP_NOW } from '@/lib/appTime';
 
 dayjs.extend(relativeTime);
 
@@ -72,7 +73,7 @@ export default function NotificationsPage() {
                     </Text>
                   </div>
                   <Text type="secondary" style={{ fontSize: token.fontSizeSM, whiteSpace: 'nowrap', marginTop: 2 }}>
-                    {dayjs(n.timestamp).fromNow()}
+                    {dayjs(n.timestamp).from(APP_NOW)}
                   </Text>
                 </Link>
               );

@@ -7,10 +7,10 @@ import { Column } from '@ant-design/plots';
 import { ExportOutlined, InfoCircleOutlined, ShoppingCartOutlined } from '@ant-design/icons';
 import Link from 'next/link';
 import dayjs from 'dayjs';
+import { now } from '@/lib/appTime';
 import type { QualityEvent } from '@/data/types';
 import type { Order } from '@/data/orders';
 import { events as allEvents } from '@/data/events';
-import { logs as allLogs } from '@/data/logs';
 import { Dot } from './CardControls';
 
 const { Text, Paragraph } = Typography;
@@ -22,26 +22,12 @@ const DECLINED_PREVIEW = 4;
 
 const EVENT_MAP = new Map(allEvents.map(e => [e.id, e]));
 
-const LOGS_BY_EVENT = new Map<string, typeof allLogs>();
-for (const log of allLogs) {
-  const arr = LOGS_BY_EVENT.get(log.eventId) ?? [];
-  arr.push(log);
-  LOGS_BY_EVENT.set(log.eventId, arr);
-}
-
-function commentsFor(eventId: string): { count: number; latest: string | null; latestRole: string | null } {
-  const eventLogs = LOGS_BY_EVENT.get(eventId) ?? [];
-  if (eventLogs.length === 0) return { count: 0, latest: null, latestRole: null };
-  const sorted = [...eventLogs].sort((a, b) => dayjs(b.date).valueOf() - dayjs(a.date).valueOf());
-  return { count: sorted.length, latest: sorted[0].comment, latestRole: sorted[0].role };
-}
-
 function parseOrderDate(lastUpdated: string): dayjs.Dayjs {
   const [mm, dd, yyyy] = lastUpdated.slice(0, 10).split('-');
   return dayjs(`${yyyy}-${mm}-${dd}`);
 }
 
-const TODAY = dayjs();
+const TODAY = now();
 
 type PendingItem = {
   id: string;
@@ -145,7 +131,7 @@ function PendingRow({ item, token }: { item: PendingItem; token: ReturnType<type
 export function OrderFulfillment({
   events,
   orders,
-  fulfillmentHref = '/orders?orderStatus=Open&decision=Pending',
+  fulfillmentHref = '/orders?orderStatus=Open',
   declinedHref = '/orders?decision=Declined',
 }: {
   events: QualityEvent[];
@@ -169,13 +155,16 @@ export function OrderFulfillment({
     tickLineWidth:  1,
   };
 
-  // Pending Review — open orders with an active message thread, awaiting a decision
+  // Pending Information — ALL open orders with info requests attached to them
+  // (the event's message thread), regardless of decision state. Mirrors the
+  // Events view's Pending Information card on the order side.
   const pendingItems = useMemo((): PendingItem[] =>
     orders
-      .filter(o => o.orderStatus === 'Open' && !o.approved && !o.declined)
+      .filter(o => o.orderStatus === 'Open')
       .map(o => {
         const ev = EVENT_MAP.get(o.eventId);
-        const { count, latest, latestRole } = commentsFor(o.eventId);
+        const thread = ev?.additionalInfoRequests ?? [];
+        const last = thread[thread.length - 1];
         return {
           id: o.id,
           eventId: o.eventId,
@@ -184,9 +173,9 @@ export function OrderFulfillment({
           component: ev?.component ?? '—',
           partsCount: o.parts.length,
           ageDays: TODAY.diff(parseOrderDate(o.lastUpdated), 'day'),
-          commentCount: count,
-          latestComment: latest,
-          techReplied: latestRole === 'Field Technician',
+          commentCount: thread.length,
+          latestComment: last?.text ?? null,
+          techReplied: last?.sentBy === 'Tech',
         };
       })
       .filter(item => item.commentCount > 0)
@@ -304,8 +293,8 @@ export function OrderFulfillment({
             size="small"
             title={
               <span style={{ fontSize: token.fontSizeSM, fontWeight: 500, display: 'flex', alignItems: 'center' }}>
-                Pending Review
-                <MetricInfoIcon tooltip="Open orders with additional info requests or replies connected to them." token={token} />
+                Pending Information
+                <MetricInfoIcon tooltip="Open orders with info requests attached — the conversation between the office and the field tech." token={token} />
               </span>
             }
             extra={
@@ -388,11 +377,12 @@ export function PendingCSReviewChart({ orders }: { orders: Order[] }) {
   const { token } = theme.useToken();
   const pendingItems = useMemo((): PendingItem[] =>
     orders
-      .filter(o => o.orderStatus === 'Open' && !o.approved && !o.declined)
+      .filter(o => o.orderStatus === 'Open')
       .map(o => {
         const ev = EVENT_MAP.get(o.eventId);
-        const { count, latest, latestRole } = commentsFor(o.eventId);
-        return { id: o.id, eventId: o.eventId, jobNo: o.jobNo, branch: ev?.branch ?? '—', component: ev?.component ?? '—', partsCount: o.parts.length, ageDays: TODAY.diff(parseOrderDate(o.lastUpdated), 'day'), commentCount: count, latestComment: latest, techReplied: latestRole === 'Field Technician' };
+        const thread = ev?.additionalInfoRequests ?? [];
+        const last = thread[thread.length - 1];
+        return { id: o.id, eventId: o.eventId, jobNo: o.jobNo, branch: ev?.branch ?? '—', component: ev?.component ?? '—', partsCount: o.parts.length, ageDays: TODAY.diff(parseOrderDate(o.lastUpdated), 'day'), commentCount: thread.length, latestComment: last?.text ?? null, techReplied: last?.sentBy === 'Tech' };
       })
       .filter(item => item.commentCount > 0)
       .sort((a, b) => b.ageDays - a.ageDays),

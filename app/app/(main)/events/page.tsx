@@ -8,7 +8,8 @@ import type { ColumnsType } from 'antd/es/table';
 import { CloseOutlined, SearchOutlined, ArrowLeftOutlined, ExportOutlined } from '@ant-design/icons';
 import { CopyableValue } from '@/components/CopyableValue';
 import Link from 'next/link';
-import { events } from '@/data/events';
+import { events as allEvents } from '@/data/events';
+import { useScopedEvents } from '@/lib/useScopedData';
 import { orders } from '@/data/orders';
 import { StatusTag } from '@/components/StatusTag';
 import { EventCard } from '@/components/EventCard';
@@ -100,6 +101,8 @@ function EventsPageContent() {
 
   const router = useRouter();
   const [searchText, setSearchText] = useState('');
+  // Branch (View-Only) roles see only their branch's events.
+  const events = useScopedEvents(allEvents);
 
   const searchOptions = useMemo(() => {
     const q = searchText.trim().toLowerCase();
@@ -125,7 +128,7 @@ function EventsPageContent() {
       ...(matchingEvents.length > 0 ? [{ label: 'Go to Event', options: matchingEvents }] : []),
       ...(filterOpts.length > 0 ? [{ label: 'Filter by', options: filterOpts }] : []),
     ];
-  }, [searchText]);
+  }, [searchText, events]);
 
   const handleSearchSelect = (value: string) => {
     setSearchText('');

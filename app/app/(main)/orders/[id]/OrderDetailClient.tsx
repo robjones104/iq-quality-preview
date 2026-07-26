@@ -3,6 +3,7 @@
 import { useState, Fragment } from 'react';
 import Link from 'next/link';
 import { useOrderStore } from '@/store/orderStore';
+import { useCapabilities } from '@/store/roleStore';
 import {
   Button, Card, Col, Divider, Dropdown, Form, Grid, Input, InputNumber, List, Modal,
   Radio, Row, Segmented, Select, Slider, Space, Switch, Table, Tag, Typography, theme,
@@ -18,6 +19,7 @@ import { useInfoRequestThread, InfoRequestThreadPanel } from '@/components/InfoR
 import type { Order, OrderPart } from '@/data/orders';
 import type { QualityEvent } from '@/data/types';
 import { DOOR_OPTIONS, PART_CATALOG } from '@/data/filterOptions';
+import { nowStampUs } from '@/lib/appTime';
 const { Text } = Typography;
 
 type Status = 'Open' | 'Closed';
@@ -41,11 +43,7 @@ const PROCUREMENT_CONTACTS = [
   { value: 'procurement@allegion.com',       label: 'Procurement Team — procurement@allegion.com' },
 ];
 
-const nowTs = (): string => {
-  const d = new Date();
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${p(d.getMonth() + 1)}-${p(d.getDate())}-${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
-};
+const nowTs = (): string => nowStampUs();
 
 const SEED_LOGS: Record<string, LogEntry[]> = {
   QE_2392_Order: [
@@ -84,6 +82,13 @@ export function OrderDetailClient({ order, event }: Props) {
   const isMobile = !screens.md;
   const { mutations: orderMutations, patchOrder, pushOrderLog } = useOrderStore();
   const ordStored = orderMutations[order.id] ?? {};
+
+  // Role capabilities. Customer Service decides (approve/decline); CS + Procurement
+  // close/assign/enter replacement #. Other roles get a read-only order view.
+  const caps = useCapabilities();
+  const canDecide = caps.decideOrders;
+  const canClose = caps.closeOrders;
+  const canActOnOrder = canDecide || canClose;
 
   const [status, setStatus]             = useState<Status>(ordStored.status ?? (order.orderStatus as Status));
   const [approved, setApproved]         = useState(ordStored.approved ?? order.approved ?? (order.orderStatus === 'Closed'));
@@ -293,7 +298,7 @@ export function OrderDetailClient({ order, event }: Props) {
     });
   };
 
-  const canEdit = status !== 'Closed';
+  const canEdit = canActOnOrder && status !== 'Closed';
 
   const logColumns: ColumnsType<LogEntry> = [
     { title: 'Date & Time',      dataIndex: 'timestamp',      key: 'timestamp',      width: 148, render: (t: string) => <Text style={{ fontSize: token.fontSizeSM }}>{t}</Text> },
@@ -341,9 +346,13 @@ export function OrderDetailClient({ order, event }: Props) {
     isCurrent: stepIdx === i,
   }));
 
-  const actionButtons = (
+  const actionButtons = !canActOnOrder ? (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: token.colorTextTertiary }}>
+      <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary }}>View only</Text>
+    </div>
+  ) : (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      {status === 'Open' && !approved && (
+      {status === 'Open' && !approved && canDecide && (
         <>
           <Button icon={<CloseOutlined />} onClick={() => setDeclineOpen(true)}>
             Decline
@@ -353,7 +362,7 @@ export function OrderDetailClient({ order, event }: Props) {
           </Button>
         </>
       )}
-      {status === 'Open' && approved && (
+      {status === 'Open' && approved && canClose && (
         <>
           {!assignedToProcurement && (
             <Button icon={<SendOutlined />} onClick={() => setProcurementOpen(true)}>
@@ -370,7 +379,7 @@ export function OrderDetailClient({ order, event }: Props) {
           </Button>
         </>
       )}
-      {status === 'Closed' && (
+      {status === 'Closed' && canDecide && (
         <Button icon={<RollbackOutlined />} onClick={() => setReopenOpen(true)}>
           Reopen
         </Button>
@@ -378,21 +387,21 @@ export function OrderDetailClient({ order, event }: Props) {
     </div>
   );
 
-  const mobileActionItems = [
-    ...(status === 'Open' && !approved ? [
+  const mobileActionItems = !canActOnOrder ? [] : [
+    ...(status === 'Open' && !approved && canDecide ? [
       { key: 'approve',  icon: <CheckOutlined />,  label: 'Approve',  onClick: handleApprove },
       { key: 'decline',  icon: <CloseOutlined />,  label: 'Decline',  onClick: () => setDeclineOpen(true) },
     ] : []),
-    ...(status === 'Open' && approved && !assignedToProcurement ? [
+    ...(status === 'Open' && approved && !assignedToProcurement && canClose ? [
       { key: 'procurement', icon: <SendOutlined />, label: 'Assign to Procurement', onClick: () => setProcurementOpen(true) },
     ] : []),
-    ...(status === 'Open' && approved && assignedToProcurement ? [
+    ...(status === 'Open' && approved && assignedToProcurement && canClose ? [
       { key: 'return', icon: <RollbackOutlined />, label: 'Return to Customer Service', onClick: () => setReturnOpen(true) },
     ] : []),
-    ...(status === 'Open' && approved ? [
+    ...(status === 'Open' && approved && canClose ? [
       { key: 'close', icon: <CheckOutlined />, label: 'Close Order', onClick: () => { setCloseReplacementOrderNo(replacementOrderNo); setCloseOpen(true); } },
     ] : []),
-    ...(status === 'Closed' ? [
+    ...(status === 'Closed' && canDecide ? [
       { key: 'reopen', icon: <RollbackOutlined />, label: 'Reopen', onClick: () => setReopenOpen(true) },
     ] : []),
   ];
@@ -500,9 +509,11 @@ export function OrderDetailClient({ order, event }: Props) {
         }
         right={
           isMobile ? (
-            <Dropdown menu={{ items: mobileActionItems }} trigger={['click']}>
-              <Button icon={<MoreOutlined />} />
-            </Dropdown>
+            canActOnOrder ? (
+              <Dropdown menu={{ items: mobileActionItems }} trigger={['click']}>
+                <Button icon={<MoreOutlined />} />
+              </Dropdown>
+            ) : actionButtons
           ) : actionButtons
         }
       />
@@ -617,11 +628,13 @@ export function OrderDetailClient({ order, event }: Props) {
                     { label: 'Component',    node: <Text style={{ fontSize: token.fontSizeSM }}>{event.component}</Text> },
                     { label: 'Door',         node: <Text style={{ fontSize: token.fontSizeSM }}>{event.door}</Text> },
                     { label: 'Last Updated', node: <Text style={{ fontSize: token.fontSizeSM }}>{order.lastUpdated}</Text> },
-                    { label: ' ', node: (
+                    // Roles without Events access (Procurement) get event context
+                    // from the Event Details tab instead of a cross-screen link.
+                    ...(caps.events ? [{ label: ' ', node: (
                       <Link href={`/events/${event.id}`} style={{ fontSize: token.fontSizeSM, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                         View Event <ArrowRightOutlined style={{ fontSize: token.fontSizeXS }} />
                       </Link>
-                    ) },
+                    ) }] : []),
                     ...(approved ? [{
                       label: 'Replacement Order #',
                       node: status === 'Open' && editingReplacement ? (

@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { orders } from '@/data/orders';
 import { events } from '@/data/events';
 import { OrderDetailClient } from './OrderDetailClient';
+import { CreatedOrderDetail } from './CreatedOrderDetail';
 
 export function generateStaticParams() {
   return orders.map((o) => ({ id: o.id }));
@@ -10,7 +11,9 @@ export function generateStaticParams() {
 export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const order = orders.find(o => o.id === id);
-  if (!order) notFound();
+  // Unknown to the static data: may be a runtime-created order living in the
+  // client store (parts request on an orderless event). Resolve client-side.
+  if (!order) return <CreatedOrderDetail id={id} />;
   const event = events.find(e => e.id === order.eventId);
   if (!event) notFound();
   return <OrderDetailClient order={order} event={event} />;

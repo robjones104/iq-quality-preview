@@ -1,4 +1,5 @@
 import dayjs from 'dayjs';
+import { now } from '@/lib/appTime';
 import type { QualityEvent, Escalation } from '@/data/types';
 import type { Order } from '@/data/orders';
 
@@ -65,7 +66,7 @@ export function getNotifications(
 }
 
 export function isNewNotification(notification: AppNotification): boolean {
-  return dayjs().diff(dayjs(notification.timestamp), 'hour') < NEW_WINDOW_HOURS;
+  return now().diff(dayjs(notification.timestamp), 'hour') < NEW_WINDOW_HOURS;
 }
 
 export function countNewNotifications(notifications: AppNotification[]): number {

@@ -17,6 +17,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { orders } from '@/data/orders';
 import { events } from '@/data/events';
+import { useCapabilities } from '@/store/roleStore';
 import { FilterPanel } from '@/components/FilterPanel';
 import { PageHeader } from '@/components/PageHeader';
 import { DateRangeFilter, type DateRange } from '@/components/DateRangeFilter';
@@ -49,7 +50,7 @@ const PROCUREMENT_CONTACTS = [
 
 const eventMap = new Map(events.map(e => [e.id, e]));
 
-const orderRows: OrderRow[] = orders.map(o => {
+const buildOrderRow = (o: Order): OrderRow => {
   const event = eventMap.get(o.eventId)!;
   return {
     ...o,
@@ -61,12 +62,29 @@ const orderRows: OrderRow[] = orders.map(o => {
     reportedBy:  event.reportedBy,
     status:      event.status,
   };
-});
+};
+
+const allOrderRows: OrderRow[] = orders.map(buildOrderRow);
 
 const CARD_PAGE_SIZE = 12;
 
 function OrdersPageContent() {
   const searchParams = useSearchParams();
+  // Branch (View-Only) roles see only their branch's orders (scoped via the
+  // linked event's branch, which orderRows already carries).
+  const caps = useCapabilities();
+  const createdOrders = useOrderStore((s) => s.createdOrders);
+  const orderRows = useMemo(() => {
+    // Runtime-created orders (parts request on an orderless event) merge in
+    // ahead of the static set so the newest work appears.
+    const created = Object.values(createdOrders)
+      .filter(o => eventMap.has(o.eventId))
+      .map(buildOrderRow);
+    const all = [...created, ...allOrderRows];
+    return caps.branchScoped && caps.assignedBranch
+      ? all.filter(r => r.branch === caps.assignedBranch)
+      : all;
+  }, [createdOrders, caps.branchScoped, caps.assignedBranch]);
   const orderStatusParam = searchParams.get('orderStatus');
   const decisionParam    = searchParams.get('decision');
   const flagParam        = searchParams.get('flag');
@@ -127,7 +145,7 @@ function OrdersPageContent() {
       ...(matchingOrders.length > 0 ? [{ label: 'Go to Order', options: matchingOrders }] : []),
       ...(filterOpts.length > 0 ? [{ label: 'Filter by', options: filterOpts }] : []),
     ];
-  }, [searchText]);
+  }, [searchText, orderRows]);
 
   const handleSearchSelect = (value: string) => {
     setSearchText('');

@@ -5,6 +5,7 @@ import { Card, List, Skeleton, Tag, Tooltip, Typography, Button, theme } from 'a
 import { RobotFilled, ArrowRightOutlined, CaretDownFilled, CaretUpFilled } from '@ant-design/icons';
 import Link from 'next/link';
 import dayjs from 'dayjs';
+import { now } from '@/lib/appTime';
 import type { QualityEvent } from '@/data/types';
 import type { DateRange } from '@/components/DateRangeFilter';
 
@@ -40,7 +41,7 @@ function buildInsights(events: QualityEvent[], dateRange: DateRange | null) {
   const resolved      = events.filter(e => e.status === 'Validated' || e.status === 'Invalidated');
   const waitingOnTech = events.filter(e => e.additionalInfoRequested);
   const validatedNoRC = events.filter(e => e.status === 'Validated' && !e.rootCause);
-  const staleReported = reported.filter(e => dayjs().diff(dayjs(e.date), 'day') >= 7);
+  const staleReported = reported.filter(e => now().diff(dayjs(e.date), 'day') >= 7);
 
   const topIssue    = topEntry(countBy(events, e => e.issue));
   const topBranch   = topEntry(countBy(events, e => e.branch));

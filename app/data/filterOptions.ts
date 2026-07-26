@@ -210,6 +210,13 @@ export const STATUS_OPTIONS = [
   'Invalidated',
 ];
 
+// Dashboard Orders view — order-domain filters. Mirrors the URL param
+// vocabulary the /orders list page reads (orderStatus, decision).
+export const ORDER_FILTER_CATEGORIES: FilterCategory[] = [
+  { key: 'orderStatus', label: 'Order Status', options: ['Open', 'Closed'] },
+  { key: 'decision',    label: 'Decision',     options: ['Pending', 'Approved', 'Declined'] },
+];
+
 export const EVENT_FILTER_CATEGORIES: FilterCategory[] = [
   { key: 'status',      label: 'Status',       options: STATUS_OPTIONS },
   { key: 'issue',       label: 'Issue',         options: ISSUE_OPTIONS },

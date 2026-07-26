@@ -22,7 +22,7 @@ type OrderStatus = 'Open' | 'Closed';
 
 const eventMap = new Map(events.map(e => [e.id, e]));
 
-const orderRows: OrderRow[] = orders.map(o => {
+const buildOrderRow = (o: Order): OrderRow => {
   const event = eventMap.get(o.eventId)!;
   return {
     ...o,
@@ -34,7 +34,9 @@ const orderRows: OrderRow[] = orders.map(o => {
     reportedBy:  event.reportedBy,
     status:      event.status,
   };
-});
+};
+
+const staticOrderRows: OrderRow[] = orders.map(buildOrderRow);
 
 export default function ProcurementPage() {
   const { token } = theme.useToken();
@@ -45,7 +47,12 @@ export default function ProcurementPage() {
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
   const [showClosed, setShowClosed] = useState(false);
 
-  const { mutations: orderMutations } = useOrderStore();
+  const { mutations: orderMutations, createdOrders } = useOrderStore();
+
+  const orderRows = useMemo(() => [
+    ...Object.values(createdOrders).filter(o => eventMap.has(o.eventId)).map(buildOrderRow),
+    ...staticOrderRows,
+  ], [createdOrders]);
 
   const effectiveStatus = (row: OrderRow): OrderStatus =>
     orderMutations[row.id]?.status ?? (row.orderStatus as OrderStatus);
@@ -60,7 +67,7 @@ export default function ProcurementPage() {
       if (d.isBefore(dateRange[0], 'day') || d.isAfter(dateRange[1], 'day')) return false;
     }
     return true;
-  }), [orderMutations, showClosed, dateRange]);
+  }), [orderRows, orderMutations, showClosed, dateRange]);
 
   const columns: ColumnsType<OrderRow> = [
     {

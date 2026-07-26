@@ -14,6 +14,7 @@ import { PageHeader } from '@/components/PageHeader';
 import type { QualityEvent } from '@/data/types';
 import type { Escalation } from '@/data/escalations';
 import type { ListItem } from '@/data/manageLists';
+import { nowDateStr } from '@/lib/appTime';
 
 const { Text } = Typography;
 
@@ -39,6 +40,7 @@ export function ManageListsClient({
   const [activeTab, setActiveTab]   = useState(defaultTab);
   const [rootCauses, setRootCauses] = useState<ListItem[]>(initialRootCauses);
   const [tags, setTags]             = useState<ListItem[]>(initialTags);
+  const [escList, setEscList]       = useState<Escalation[]>(escalations);
   const [editingId, setEditingId]   = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
   const [addingTo, setAddingTo]     = useState<'root-causes' | 'tags' | null>(null);
@@ -84,7 +86,7 @@ export function ManageListsClient({
       id: nextId(type === 'root-causes' ? 'rc' : 'tag', type === 'root-causes' ? rootCauses : tags),
       name: newItemName.trim(),
       createdBy: 'Theron K. Aldwick',
-      createdAt: new Date().toISOString().slice(0, 10),
+      createdAt: nowDateStr(),
       isSystem: false,
     };
     if (type === 'root-causes') setRootCauses(prev => [...prev, newItem]);
@@ -450,7 +452,7 @@ export function ManageListsClient({
           gridTemplateColumns: screens.md !== false ? 'repeat(2, 1fr)' : '1fr',
           gap: 12,
         }}>
-          {escalations.map(esc => (
+          {escList.map(esc => (
             <Card
               key={esc.id}
               size="small"
@@ -505,7 +507,7 @@ export function ManageListsClient({
       ) : (
         <Card size="small" styles={{ body: { padding: 0 } }}>
           <Table
-            dataSource={escalations}
+            dataSource={escList}
             rowKey="id"
             size="small"
             tableLayout="fixed"
@@ -578,7 +580,7 @@ export function ManageListsClient({
               },
               {
                 key: 'escalations',
-                label: `Escalations (${escalations.length})`,
+                label: `Escalations (${escList.length})`,
                 children: escalationsTabContent,
               },
             ]}
@@ -647,7 +649,10 @@ export function ManageListsClient({
         footer={
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
             <Button onClick={() => setDeleteEscTarget(null)}>Cancel</Button>
-            <Button danger type="primary" onClick={() => setDeleteEscTarget(null)}>
+            <Button danger type="primary" onClick={() => {
+              if (deleteEscTarget) setEscList(prev => prev.filter(e => e.id !== deleteEscTarget.id));
+              setDeleteEscTarget(null);
+            }}>
               Remove
             </Button>
           </div>

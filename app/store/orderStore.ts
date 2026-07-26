@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { Order } from '@/data/orders';
 
 export type OrderLogEntry = {
   id: string;
@@ -24,14 +25,23 @@ type OrderMutations = {
 
 type OrderMutationStore = {
   mutations: Record<string, OrderMutations>;
+  // Orders created at runtime — e.g. adding a parts request to an event that
+  // has no open order auto-creates one (pipeline rule, 2026-07-24).
+  createdOrders: Record<string, Order>;
   patchOrder: (orderId: string, patch: Partial<OrderMutations>) => void;
   pushOrderLog: (orderId: string, entry: OrderLogEntry) => void;
+  createOrder: (order: Order) => void;
 };
 
 export const useOrderStore = create<OrderMutationStore>()(
   persist(
     (set) => ({
       mutations: {},
+      createdOrders: {},
+      createOrder: (order) =>
+        set(state => ({
+          createdOrders: { ...state.createdOrders, [order.id]: order },
+        })),
       patchOrder: (orderId, patch) =>
         set(state => ({
           mutations: {

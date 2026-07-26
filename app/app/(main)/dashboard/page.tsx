@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Fragment, Suspense, useRef, useMemo, useState } from 'react';
+import React, { Fragment, Suspense, useEffect, useRef, useMemo, useState } from 'react';
 import { AutoComplete, Button, Card, Col, Flex, Grid, Input, Progress, Row, Segmented, Select, Statistic, Tag, Space, Tooltip, Typography, theme } from 'antd';
 import {
   CloseOutlined, SearchOutlined, InfoCircleOutlined,
@@ -11,14 +11,15 @@ import dayjs from 'dayjs';
 import { PageHeader } from '@/components/PageHeader';
 import { FilterPanel } from '@/components/FilterPanel';
 import { DateRangeFilter } from '@/components/DateRangeFilter';
-import { EVENT_FILTER_CATEGORIES } from '@/data/filterOptions';
-import { events } from '@/data/events';
-import { orders } from '@/data/orders';
+import { EVENT_FILTER_CATEGORIES, ORDER_FILTER_CATEGORIES } from '@/data/filterOptions';
+import { events as allEvents } from '@/data/events';
+import { orders as allOrders } from '@/data/orders';
 import { useFilterStore } from '@/store/filterStore';
 import { useOrderStore } from '@/store/orderStore';
+import { useScopedEvents, useScopedOrders } from '@/lib/useScopedData';
 import { AiSummary } from '@/components/AiSummary';
 import { FieldIntake, EventsOverTimeChart, EventsByBranchChart, EventsByIssueChart } from '@/components/FieldIntake';
-import { TriageReview, QueueHealthChart, WaitingOnTechChart, DataQualityChart } from '@/components/TriageReview';
+import { TriageReview, WaitingOnTechChart, DataQualityChart } from '@/components/TriageReview';
 import { OrderFulfillment, PendingCSReviewChart, DecisionTrendChart, DeclinedOrdersPreview, DeclinedByBranchChart } from '@/components/OrderFulfillment';
 import type { QualityEvent } from '@/data/types';
 import type { Order } from '@/data/orders';
@@ -47,6 +48,14 @@ function applyFilters(list: QualityEvent[], dateRange: DateRange | null, applied
   });
 }
 
+// Orders-view category filter predicate (orderStatus + decision).
+function matchesOrderFilters(o: Order, applied: Record<string, string[]>): boolean {
+  const decision = o.declined ? 'Declined' : o.approved ? 'Approved' : 'Pending';
+  const matchStatus   = !applied.orderStatus?.length || applied.orderStatus.includes(o.orderStatus);
+  const matchDecision = !applied.decision?.length    || applied.decision.includes(decision);
+  return matchStatus && matchDecision;
+}
+
 function topEntry(events: QualityEvent[], key: keyof QualityEvent): string {
   const counts: Record<string, number> = {};
   for (const e of events) {
@@ -70,10 +79,14 @@ function MetricInfoIcon({ tooltip }: { tooltip: string }) {
 }
 
 function KpiCard({
-  title, count, prior, href, tooltip,
+  title, count, prior, href, tooltip, deltaTone = 'inverse',
 }: {
   title: string; count: number; prior: number | null; href?: string;
   tooltip?: string;
+  // 'inverse' = more is bad (defect intake: up red, down green).
+  // 'neutral' = throughput counts (Validated, Approved) where a swing in either
+  // direction isn't inherently good or bad — delta stays gray.
+  deltaTone?: 'inverse' | 'neutral';
 }) {
   const { token } = theme.useToken();
   const screens = Grid.useBreakpoint();
@@ -84,7 +97,7 @@ function KpiCard({
     ? Math.round((Math.abs(diff) / prior) * 100) : null;
   const up   = diff !== null && diff > 0;
 
-  const deltaColor = diff === null || diff === 0
+  const deltaColor = diff === null || diff === 0 || deltaTone === 'neutral'
     ? token.colorTextTertiary
     : up ? token.colorError : token.colorSuccess;
 
@@ -303,8 +316,15 @@ function DashboardPageContent() {
   const { token } = theme.useToken();
   const screens = Grid.useBreakpoint();
   const sidePadding = screens.xxl ? '5%' : screens.xl ? '3.5%' : screens.md === false ? '20px' : `${token.paddingMD + 20}px`;
-  const { dateRange, setDateRange, dashboardFilters: appliedFilters, setDashboardFilters: setAppliedFilters } = useFilterStore();
+  const {
+    dateRange, setDateRange,
+    dashboardFilters: appliedFilters, setDashboardFilters: setAppliedFilters,
+    dashboardOrderFilters: orderFilters, setDashboardOrderFilters: setOrderFilters,
+  } = useFilterStore();
   const { mutations: orderMutations } = useOrderStore();
+  // Branch (View-Only) roles see only their branch's data; everyone else sees all.
+  const events = useScopedEvents(allEvents);
+  const orders = useScopedOrders(allOrders);
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -313,6 +333,11 @@ function DashboardPageContent() {
     setViewState(v);
     router.replace(v === 'orders' ? '/dashboard?view=orders' : '/dashboard', { scroll: false });
   };
+  // Keep the view in sync when the URL changes while mounted (e.g. the role
+  // switcher navigating to /dashboard?view=orders for Customer Service).
+  useEffect(() => {
+    setViewState(searchParams.get('view') === 'orders' ? 'orders' : 'events');
+  }, [searchParams]);
   const [eventsSection, setEventsSection] = useState<EventsSection>('triage');
   const [ordersSection, setOrdersSection] = useState<OrdersSection>('fulfillment');
   const [searchText, setSearchText] = useState('');
@@ -354,7 +379,7 @@ function DashboardPageContent() {
       ...(matchingOrders.length > 0 ? [{ label: 'Go to Order', options: matchingOrders }] : []),
       ...(filterOpts.length > 0 ? [{ label: 'Filter by', options: filterOpts }] : []),
     ];
-  }, [searchText]);
+  }, [searchText, events, orders]);
 
   const handleSearchSelect = (value: string) => {
     setSearchText('');
@@ -371,25 +396,30 @@ function DashboardPageContent() {
     }
   };
 
-  const chips = EVENT_FILTER_CATEGORIES.flatMap((cat) =>
-    (appliedFilters[cat.key] ?? []).map((val) => `${cat.label}: ${val}`)
+  // The active view decides which filter domain the header + chips operate on.
+  const activeCategories    = view === 'events' ? EVENT_FILTER_CATEGORIES : ORDER_FILTER_CATEGORIES;
+  const activeApplied       = view === 'events' ? appliedFilters : orderFilters;
+  const setActiveApplied    = view === 'events' ? setAppliedFilters : setOrderFilters;
+
+  const chips = activeCategories.flatMap((cat) =>
+    (activeApplied[cat.key] ?? []).map((val) => `${cat.label}: ${val}`)
   );
 
   const removeChip = (chip: string) => {
     const [catLabel, val] = chip.split(': ');
-    const cat = EVENT_FILTER_CATEGORIES.find((c) => c.label === catLabel);
+    const cat = activeCategories.find((c) => c.label === catLabel);
     if (!cat) return;
-    const next = { ...appliedFilters };
+    const next = { ...activeApplied };
     next[cat.key] = (next[cat.key] ?? []).filter((v) => v !== val);
-    setAppliedFilters(next);
+    setActiveApplied(next);
   };
 
   const filteredEvents = useMemo(
     () => applyFilters(events, dateRange, appliedFilters),
-    [dateRange, appliedFilters]
+    [events, dateRange, appliedFilters]
   );
 
-  const effectiveOrders = useMemo(() => orders.map(o => {
+  const effectiveOrders = useMemo(() => orders.map((o: Order) => {
     const m = orderMutations[o.id];
     if (!m) return o;
     return {
@@ -401,15 +431,17 @@ function DashboardPageContent() {
       assignedToProcurement: m.assignedToProcurement ?? o.assignedToProcurement,
       replacementOrderNo:    m.replacementOrderNo ?? o.replacementOrderNo,
     };
-  }), [orderMutations]);
+  }), [orders, orderMutations]);
 
   const filteredOrders = useMemo(() => {
-    if (!dateRange) return effectiveOrders;
     return effectiveOrders.filter(o => {
-      const d = dayjs(o.lastUpdated, 'MM-DD-YYYY HH:mm');
-      return !d.isBefore(dateRange[0], 'day') && !d.isAfter(dateRange[1], 'day');
+      if (dateRange) {
+        const d = dayjs(o.lastUpdated, 'MM-DD-YYYY HH:mm');
+        if (d.isBefore(dateRange[0], 'day') || d.isAfter(dateRange[1], 'day')) return false;
+      }
+      return matchesOrderFilters(o, orderFilters);
     });
-  }, [effectiveOrders, dateRange]);
+  }, [effectiveOrders, dateRange, orderFilters]);
 
   const priorEvents = useMemo(() => {
     if (!dateRange) return null;
@@ -417,7 +449,7 @@ function DashboardPageContent() {
     const priorStart = dateRange[0].subtract(duration, 'day');
     const priorEnd = dateRange[0].subtract(1, 'day');
     return applyFilters(events, [priorStart, priorEnd], appliedFilters);
-  }, [dateRange, appliedFilters]);
+  }, [events, dateRange, appliedFilters]);
 
   const prior = (fn: (e: QualityEvent) => boolean) =>
     priorEvents ? priorEvents.filter(fn).length : null;
@@ -438,9 +470,9 @@ function DashboardPageContent() {
     { title: 'Under Investigation', count: filteredEvents.filter(isUnderInv).length,    prior: prior(isUnderInv),           href: buildKpiHref('/events?status=Under+Investigation', dateRange, appliedFilters),
       tooltip: 'Events that are currently in review.' },
     { title: 'Validated',           count: filteredEvents.filter(isValidated).length,   prior: prior(isValidated),          href: buildKpiHref('/events?status=Validated', dateRange, appliedFilters),
-      tooltip: 'Events confirmed as a valid quality issue.' },
+      tooltip: 'Events confirmed as a valid quality issue.', deltaTone: 'neutral' as const },
     { title: 'Invalidated',         count: filteredEvents.filter(isInvalidated).length, prior: prior(isInvalidated),        href: buildKpiHref('/events?status=Invalidated', dateRange, appliedFilters),
-      tooltip: 'Events found not to be a valid quality issue.' },
+      tooltip: 'Events found not to be a valid quality issue.', deltaTone: 'neutral' as const },
   ];
 
   const intakeStats = useMemo(() => {
@@ -472,9 +504,10 @@ function DashboardPageContent() {
     const priorEnd = dateRange[0].subtract(1, 'day');
     return effectiveOrders.filter(o => {
       const d = dayjs(o.lastUpdated, 'MM-DD-YYYY HH:mm');
-      return !d.isBefore(priorStart, 'day') && !d.isAfter(priorEnd, 'day');
+      if (d.isBefore(priorStart, 'day') || d.isAfter(priorEnd, 'day')) return false;
+      return matchesOrderFilters(o, orderFilters);
     });
-  }, [effectiveOrders, dateRange]);
+  }, [effectiveOrders, dateRange, orderFilters]);
 
   const priorOrder = (fn: (o: Order) => boolean) =>
     priorOrders ? priorOrders.filter(fn).length : null;
@@ -490,7 +523,7 @@ function DashboardPageContent() {
     { title: 'Assigned to Procurement', count: filteredOrders.filter(isWithProcurement).length,  prior: priorOrder(isWithProcurement), href: buildKpiHref('/orders?orderStatus=Open&flag=procurement', dateRange, {}),
       tooltip: 'Approved orders handed off to Procurement to source a replacement part.' },
     { title: 'Approved',                count: filteredOrders.filter(isApprovedOrder).length,    prior: priorOrder(isApprovedOrder),   href: buildKpiHref('/orders?orderStatus=Open&decision=Approved', dateRange, {}),
-      tooltip: 'Orders approved but not yet assigned to Procurement.' },
+      tooltip: 'Orders approved but not yet assigned to Procurement.', deltaTone: 'neutral' as const },
     { title: 'Declined',                count: filteredOrders.filter(isDeclinedOrder).length,    prior: priorOrder(isDeclinedOrder),   href: buildKpiHref('/orders?decision=Declined', dateRange, {}),
       tooltip: 'Orders declined for fulfillment.' },
   ];
@@ -501,16 +534,20 @@ function DashboardPageContent() {
   return (
     <>
       <PageHeader
-        left={<DateRangeFilter value={dateRange} onChange={setDateRange} />}
-        middle={
-          <Segmented
-            options={[
-              { label: 'Events', value: 'events' },
-              { label: 'Orders', value: 'orders' },
-            ]}
-            value={view}
-            onChange={(v) => setView(v as View)}
-          />
+        left={
+          <Space size={12}>
+            {screens.md && (
+              <Segmented
+                options={[
+                  { label: 'Events', value: 'events' },
+                  { label: 'Orders', value: 'orders' },
+                ]}
+                value={view}
+                onChange={(v) => setView(v as View)}
+              />
+            )}
+            <DateRangeFilter value={dateRange} onChange={setDateRange} />
+          </Space>
         }
         center={
           <AutoComplete
@@ -527,9 +564,9 @@ function DashboardPageContent() {
         }
         right={
           <FilterPanel
-            categories={EVENT_FILTER_CATEGORIES}
-            applied={appliedFilters}
-            onApply={setAppliedFilters}
+            categories={activeCategories}
+            applied={activeApplied}
+            onApply={setActiveApplied}
           />
         }
       />
@@ -542,7 +579,7 @@ function DashboardPageContent() {
                 {chip}
               </Tag>
             ))}
-            <Button type="link" size="small" onClick={() => setAppliedFilters({})} style={{ padding: '0 4px' }}>
+            <Button type="link" size="small" onClick={() => setActiveApplied({})} style={{ padding: '0 4px' }}>
               Clear all
             </Button>
           </div>
@@ -603,13 +640,12 @@ function DashboardPageContent() {
                       { title: 'Events by Branch',  content: <EventsByBranchChart events={filteredEvents} height={200} /> },
                       { title: 'By Issue',          content: <EventsByIssueChart events={filteredEvents} height={200} /> },
                     ] : [
-                      { title: 'Queue Health',      content: <QueueHealthChart events={filteredEvents} /> },
                       { title: 'Pending Information',   content: <WaitingOnTechChart events={filteredEvents} /> },
                       { title: 'Poor Submissions by Branch', content: <DataQualityChart events={filteredEvents} /> },
                     ]
                   ) : (
                     ordersSection === 'fulfillment' ? [
-                      { title: 'Pending Review',     content: <PendingCSReviewChart orders={filteredOrders} /> },
+                      { title: 'Pending Information', content: <PendingCSReviewChart orders={filteredOrders} /> },
                       { title: 'Decision Trend',     content: <DecisionTrendChart orders={filteredOrders} height={200} /> },
                     ] : [
                       { title: 'Declined Orders',    content: <DeclinedOrdersPreview orders={filteredOrders} /> },
@@ -688,7 +724,7 @@ function DashboardPageContent() {
                 <OrderFulfillment
                   events={filteredEvents}
                   orders={filteredOrders}
-                  fulfillmentHref={buildKpiHref('/orders?orderStatus=Open&decision=Pending', dateRange, {})}
+                  fulfillmentHref={buildKpiHref('/orders?orderStatus=Open', dateRange, {})}
                   declinedHref={buildKpiHref('/orders?decision=Declined', dateRange, {})}
                 />
               )}
