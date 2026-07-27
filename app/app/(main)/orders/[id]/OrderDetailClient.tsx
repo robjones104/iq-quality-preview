@@ -7,19 +7,23 @@ import { mergeEvent } from '@/lib/effectiveEvents';
 import { useOrderStore } from '@/store/orderStore';
 import { useCapabilities } from '@/store/roleStore';
 import {
-  Button, Card, Col, Divider, Dropdown, Form, Grid, Input, InputNumber, Modal,
-  Radio, Row, Segmented, Select, Slider, Switch, Table, Tag, Typography, theme,
+  Alert, Button, Card, Checkbox, Col, Divider, Dropdown, Form, Grid, Input, InputNumber, Modal,
+  Popover, Radio, Row, Segmented, Select, Slider, Switch, Table, Tag, Tooltip, Typography, theme,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
   ArrowLeftOutlined, ArrowRightOutlined, BarcodeOutlined, CheckCircleFilled, CheckOutlined, CloseCircleFilled, CloseOutlined,
-  EditFilled, MoreOutlined, PictureFilled, PlusOutlined, RollbackOutlined, SendOutlined,
+  EditFilled, MergeCellsOutlined, MoreOutlined, PictureFilled, PlusOutlined, RollbackOutlined, SendOutlined,
 } from '@ant-design/icons';
 import { CopyableValue } from '@/components/CopyableValue';
 import { JobNoValue } from '@/components/JobNoValue';
+import { TechReplyWarning } from '@/components/TechReplyWarning';
+import { ShipToLine } from '@/components/ShipToLine';
 import { PageHeader } from '@/components/PageHeader';
 import { useInfoRequestThread, InfoRequestThreadPanel } from '@/components/InfoRequestThread';
 import type { Order, OrderPart, OrderStatus } from '@/data/orders';
+import { orders as allOrders } from '@/data/orders';
+import { useEffectiveEventMap } from '@/lib/effectiveEvents';
 import type { QualityEvent } from '@/data/types';
 import { DOOR_OPTIONS, PART_CATALOG } from '@/data/filterOptions';
 import { nowStampUs } from '@/lib/appTime';
@@ -86,7 +90,10 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
   const { token } = theme.useToken();
   const screens = Grid.useBreakpoint();
   const isMobile = !screens.md;
-  const { mutations: orderMutations, patchOrder, pushOrderLog } = useOrderStore();
+  const { mutations: orderMutations, createdOrders, patchOrder, pushOrderLog } = useOrderStore();
+  const pushActivityLog = useEventStore(s => s.pushActivityLog);
+  const patchEvent = useEventStore(s => s.patchEvent);
+  const effEventMap = useEffectiveEventMap();
   const ordStored = orderMutations[order.id] ?? {};
 
   // Role capabilities. Customer Service decides (approve/decline); CS + Procurement
@@ -98,12 +105,19 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
 
   const [status, setStatus]             = useState<Status>(ordStored.status ?? (order.orderStatus as Status));
   const [approved, setApproved]         = useState(ordStored.approved ?? order.approved ?? (order.orderStatus === 'Closed'));
-  const [parts, setParts]               = useState<OrderPart[]>([...order.parts]);
+  const [parts, setParts]               = useState<OrderPart[]>([...(ordStored.partsOverride ?? order.parts)]);
   const [activeTab, setActiveTab]       = useState('details');
   const [assignedToProcurement, setAssignedToProcurement] = useState(ordStored.assignedToProcurement ?? order.assignedToProcurement ?? false);
   const [replacementOrderNo, setReplacementOrderNo]       = useState(ordStored.replacementOrderNo ?? '');
   const [editingReplacement, setEditingReplacement]       = useState(false);
   const [replacementDraft, setReplacementDraft]           = useState('');
+  const [trackingNumber, setTrackingNumber]               = useState(ordStored.trackingNumber ?? '');
+  const [editingTracking, setEditingTracking]             = useState(false);
+  const [trackingDraft, setTrackingDraft]                 = useState('');
+  const [shipToEditOpen, setShipToEditOpen]               = useState(false);
+  const [shipToDraft, setShipToDraft]                     = useState<'branch' | 'address'>('branch');
+  const [shipToStreetDraft, setShipToStreetDraft]         = useState('');
+  const [shipToCityDraft, setShipToCityDraft]             = useState('');
 
   // Log
   const seedLogs = SEED_LOGS[order.id] ?? [
@@ -119,6 +133,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
   const [approveProcurementEmail, setApproveProcurementEmail]     = useState('');
   const [closeOpen, setCloseOpen]                       = useState(false);
   const [closeReplacementOrderNo, setCloseReplacementOrderNo] = useState('');
+  const [closeTracking, setCloseTracking]               = useState('');
   const [declineOpen, setDeclineOpen]                   = useState(false);
   const [declineReason, setDeclineReason]               = useState('');
   const [reopenOpen, setReopenOpen]                     = useState(false);
@@ -208,13 +223,168 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
     setProcurementSuccess(true);
   };
 
+  // The tech who reported the event gets the replacement + tracking update;
+  // it lands in the event's activity log as the simulated notification.
+  const notifyTechOfShipment = (replacement: string, tracking: string) => {
+    pushActivityLog(event.id, {
+      id: `trk_${Date.now()}`,
+      eventId: event.id,
+      date: nowStampUs(),
+      role: 'System',
+      employee: 'System',
+      status: event.status,
+      comment: `Technician ${event.reportedBy} notified: replacement order ${replacement || 'pending'}, tracking # ${tracking}.`,
+    });
+  };
+
   const handleClose = () => {
     if (!closeReplacementOrderNo.trim()) return;
+    const tracking = closeTracking.trim();
     setStatus('Closed');
     setReplacementOrderNo(closeReplacementOrderNo.trim());
-    patchOrder(order.id, { status: 'Closed', replacementOrderNo: closeReplacementOrderNo.trim() });
-    addLog(`Order closed. Replacement Order #: ${closeReplacementOrderNo.trim()}`, false, 'Closed');
+    if (tracking) setTrackingNumber(tracking);
+    patchOrder(order.id, {
+      status: 'Closed',
+      replacementOrderNo: closeReplacementOrderNo.trim(),
+      ...(tracking ? { trackingNumber: tracking } : {}),
+    });
+    addLog(`Order closed. Replacement Order #: ${closeReplacementOrderNo.trim()}${tracking ? `. Tracking #: ${tracking}` : ''}`, false, 'Closed');
+    if (tracking) {
+      addLog(`Technician ${event.reportedBy} notified with replacement order and tracking number.`, true, 'Closed');
+      notifyTechOfShipment(closeReplacementOrderNo.trim(), tracking);
+    }
     setCloseSuccess(true);
+  };
+
+  const handleSaveTracking = () => {
+    const val = trackingDraft.trim();
+    if (!val) return;
+    setTrackingNumber(val);
+    patchOrder(order.id, { trackingNumber: val });
+    addLog(`Tracking #: ${val}`, false, undefined, assignedToProcurement ? 'Procurement' : undefined);
+    addLog(`Technician ${event.reportedBy} notified with tracking number.`, true);
+    notifyTechOfShipment(replacementOrderNo, val);
+    setEditingTracking(false);
+  };
+
+  const openShipToEdit = () => {
+    setShipToDraft(event.shipTo === 'address' ? 'address' : 'branch');
+    setShipToStreetDraft(event.shipToAddress?.street ?? '');
+    setShipToCityDraft(event.shipToAddress?.cityStateZip ?? '');
+    setShipToEditOpen(true);
+  };
+
+  // Ship-to lives on the event (single source of truth), so a correction here
+  // updates every surface. Logged on both sides; the tech is not re-notified
+  // for a destination correction.
+  const handleSaveShipTo = () => {
+    if (shipToDraft === 'address' && (!shipToStreetDraft.trim() || !shipToCityDraft.trim())) return;
+    const summary = shipToDraft === 'address'
+      ? `${shipToStreetDraft.trim()}, ${shipToCityDraft.trim()}`
+      : `${event.branch} branch`;
+    patchEvent(event.id, {
+      shipTo: shipToDraft,
+      ...(shipToDraft === 'address'
+        ? { shipToAddress: { street: shipToStreetDraft.trim(), cityStateZip: shipToCityDraft.trim() } }
+        : {}),
+    });
+    addLog(`Ship-to updated: ${summary}`, false, undefined, assignedToProcurement ? 'Procurement' : undefined);
+    pushActivityLog(event.id, {
+      id: `shipto_${Date.now()}`,
+      eventId: event.id,
+      date: nowStampUs(),
+      role: 'System',
+      employee: 'System',
+      status: event.status,
+      comment: `Ship-to updated from order ${order.id}: ${summary}.`,
+    });
+    setShipToEditOpen(false);
+  };
+
+  // ── Same-SO consolidation ─────────────────────────────────────────────────
+  // Several events on one install (one SO) each auto-create an order; when CS
+  // recognizes they are really one larger replacement, the sibling orders fold
+  // into this one. Sources close as Consolidated (not Declined) and this
+  // order's parts become the single real fix.
+  const isConsolidatedSource = ordStored.consolidated ?? order.consolidated ?? false;
+  const consolidatedIntoId   = ordStored.consolidatedInto ?? order.consolidatedInto;
+  const consolidatedEventIds = ordStored.eventIds ?? order.eventIds;
+  const sameSoOpenSiblings = useMemo(() =>
+    [...allOrders, ...Object.values(createdOrders)]
+      .filter(o => o.id !== order.id && o.jobNo === order.jobNo)
+      .filter(o => (orderMutations[o.id]?.status ?? o.orderStatus) === 'Open'),
+    [createdOrders, orderMutations, order.id, order.jobNo]);
+  const canConsolidate = canDecide && status === 'Open' && isSO && !isConsolidatedSource && sameSoOpenSiblings.length > 0;
+
+  const [consolidateOpen, setConsolidateOpen]       = useState(false);
+  const [consolidateSuccess, setConsolidateSuccess] = useState(false);
+  const [consSelectedIds, setConsSelectedIds]       = useState<string[]>([]);
+  const [consPartNumber, setConsPartNumber]         = useState('');
+  const [consPartDescription, setConsPartDescription] = useState('');
+  const [consQuantity, setConsQuantity]             = useState(1);
+
+  const resetConsolidate = () => {
+    setConsSelectedIds([]); setConsPartNumber(''); setConsPartDescription(''); setConsQuantity(1);
+  };
+
+  const handleConsolidate = () => {
+    const sources = sameSoOpenSiblings.filter(o => consSelectedIds.includes(o.id));
+    if (!sources.length || !consPartNumber.trim() || !consPartDescription.trim()) return;
+    const csName = capabilitiesFor('Customer Service').displayName;
+    const mergedEventIds = [...new Set([order.eventId, ...sources.map(s => s.eventId)])];
+    const newPart: OrderPart = {
+      seqNo: 1,
+      configId: `${order.jobNo}.1`,
+      dfoLineItem: event.dfo ?? 1,
+      ...(isSO && event.elLine != null ? { elLineItem: event.elLine } : {}),
+      door: event.door,
+      partNumber: consPartNumber.trim(),
+      quantityType: 'Piece',
+      quantity: consQuantity,
+      partDescription: consPartDescription.trim(),
+    };
+
+    patchOrder(order.id, { eventIds: mergedEventIds, partsOverride: [newPart] });
+    setParts([newPart]);
+    addLog(
+      `Consolidated ${sources.length} order${sources.length === 1 ? '' : 's'} on ${order.jobNo} into this order (${sources.map(s => s.id).join(', ')}). Parts replaced with: ${consPartDescription.trim()} (${consPartNumber.trim()}), qty ${consQuantity}.`,
+      false,
+    );
+    pushActivityLog(event.id, {
+      id: `cons_${event.id}_${Date.now()}`,
+      eventId: event.id,
+      date: nowStampUs(),
+      role: 'Customer Service',
+      employee: csName,
+      status: event.status,
+      comment: `Order ${order.id} now covers ${mergedEventIds.length} events on ${order.jobNo} after consolidation.`,
+    });
+
+    sources.forEach(src => {
+      const srcEvent = effEventMap.get(src.eventId);
+      patchOrder(src.id, { status: 'Closed', consolidated: true, consolidatedInto: order.id });
+      pushOrderLog(src.id, {
+        id: `cons_${src.id}_${Date.now()}`,
+        timestamp: nowStampUs(),
+        role: 'Customer Service',
+        employee: csName,
+        orderStatus: 'Closed',
+        submittedStatus: srcEvent?.status ?? event.status,
+        content: `Order consolidated into ${order.id} on ${order.jobNo}. Fulfillment continues there.`,
+        auto: false,
+      });
+      pushActivityLog(src.eventId, {
+        id: `cons_${src.eventId}_${Date.now()}`,
+        eventId: src.eventId,
+        date: nowStampUs(),
+        role: 'System',
+        employee: 'System',
+        status: srcEvent?.status ?? event.status,
+        comment: `Parts order consolidated into ${order.id} (${order.jobNo}).`,
+      });
+    });
+
+    setConsolidateSuccess(true);
   };
 
   const handleReturnToCS = () => {
@@ -436,6 +606,23 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
   const eventDetailsContent = (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto', gap: 16 }}>
 
+      {/* The defect facts live with the defect prose and photos; the job and
+          logistics facts (branch, plant, tech) live in the left strip. */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+        {[
+          { label: 'Issue',     value: event.issue },
+          { label: 'Component', value: event.component },
+          { label: 'Door',      value: event.door },
+        ].map(({ label, value }) => (
+          <div key={label}>
+            <Text style={{ fontSize: token.fontSizeXS, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: token.colorTextTertiary, display: 'block', marginBottom: 2 }}>
+              {label}
+            </Text>
+            <Text style={{ fontSize: token.fontSizeSM }}>{value}</Text>
+          </div>
+        ))}
+      </div>
+
       <div style={{
         padding: '8px 12px',
         background: token.colorFillTertiary,
@@ -526,8 +713,9 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: isMobile ? '0 12px 16px' : '0 20px 16px', minHeight: 0 }}>
 
-        {/* Status strip */}
-        <div style={{ display: 'flex', alignItems: 'center', padding: '16px 0 12px', maxWidth: 480, flexShrink: 0 }}>
+        {/* Status strip + same-SO consolidation CTA */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '16px 0 12px', flexShrink: 0, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', flex: '1 1 320px', maxWidth: 480 }}>
           {stages.map((stage, i) => (
             <Fragment key={stage.label}>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flexShrink: 0 }}>
@@ -568,6 +756,43 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
           ))}
         </div>
 
+        {/* Quiet fact, no diagnosis: sibling open orders on this SO may or may
+            not be one larger issue. The list is a click away; consolidation is
+            an explicit choice. */}
+        {sameSoOpenSiblings.length > 0 && !isConsolidatedSource && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Popover
+              trigger="click"
+              placement="bottomRight"
+              content={
+                <div style={{ maxWidth: 320 }}>
+                  {sameSoOpenSiblings.map(o => {
+                    const ev = effEventMap.get(o.eventId);
+                    return (
+                      <div key={o.id} style={{ padding: '4px 0', display: 'flex', gap: 8, alignItems: 'baseline' }}>
+                        <Link href={`/orders/${o.id}`} style={{ fontSize: token.fontSizeSM, fontWeight: 600, whiteSpace: 'nowrap' }}>{o.id}</Link>
+                        <Text type="secondary" style={{ fontSize: token.fontSizeSM }} ellipsis>
+                          {ev?.issue ?? '—'} · {o.parts.length} part{o.parts.length === 1 ? '' : 's'}
+                        </Text>
+                      </div>
+                    );
+                  })}
+                </div>
+              }
+            >
+              <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary, cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted', whiteSpace: 'nowrap' }}>
+                {sameSoOpenSiblings.length} more open order{sameSoOpenSiblings.length === 1 ? '' : 's'} on this SO
+              </Text>
+            </Popover>
+            {canConsolidate && (
+              <Button size="small" icon={<MergeCellsOutlined />} onClick={() => setConsolidateOpen(true)}>
+                Consolidate
+              </Button>
+            )}
+          </div>
+        )}
+        </div>
+
         {/* Main content row: tabbed card + scan card */}
         <div style={{ flex: 1, display: 'flex', gap: 16, minHeight: 0 }}>
 
@@ -595,6 +820,40 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
             {activeTab === 'details' && (
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
 
+                {/* Consolidation banners */}
+                {isConsolidatedSource && consolidatedIntoId && (
+                  <Alert
+                    type="info"
+                    showIcon
+                    icon={<MergeCellsOutlined />}
+                    style={{ marginBottom: 14 }}
+                    message={
+                      <Text style={{ fontSize: token.fontSizeSM }}>
+                        This order was consolidated into{' '}
+                        <Link href={`/orders/${consolidatedIntoId}`} style={{ fontWeight: 600 }}>{consolidatedIntoId}</Link>
+                        {' '}on {order.jobNo}. Fulfillment continues there.
+                      </Text>
+                    }
+                  />
+                )}
+                {consolidatedEventIds && consolidatedEventIds.length > 1 && (
+                  <Alert
+                    type="info"
+                    showIcon
+                    icon={<MergeCellsOutlined />}
+                    style={{ marginBottom: 14 }}
+                    message={
+                      <Text style={{ fontSize: token.fontSizeSM }}>
+                        Consolidated order covering {consolidatedEventIds.length} events on {order.jobNo}
+                        {caps.events
+                          ? <>: {consolidatedEventIds.map((id, i) => (
+                              <Fragment key={id}>{i > 0 && ', '}<Link href={`/events/${id}`}>{id}</Link></Fragment>
+                            ))}</>
+                          : `: ${consolidatedEventIds.join(', ')}`}.
+                      </Text>
+                    }
+                  />
+                )}
                 {/* Metadata strip */}
                 <div style={{
                   display: 'flex', gap: 24, marginBottom: 14,
@@ -630,9 +889,9 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
                   </div>
                   {!isMobile && <div style={{ width: 1, background: token.colorBorderSecondary, alignSelf: 'stretch' }} />}
                   {([
-                    { label: 'Issue',        node: <Text style={{ fontSize: token.fontSizeSM }}>{event.issue}</Text> },
-                    { label: 'Component',    node: <Text style={{ fontSize: token.fontSizeSM }}>{event.component}</Text> },
-                    { label: 'Door',         node: <Text style={{ fontSize: token.fontSizeSM }}>{event.door}</Text> },
+                    { label: 'Branch',       node: <Text style={{ fontSize: token.fontSizeSM }}>{event.branch}</Text> },
+                    { label: 'Plant',        node: <Text style={{ fontSize: token.fontSizeSM }}>{event.plant.split(' ')[0]}</Text> },
+                    { label: 'Reported By',  node: <Text style={{ fontSize: token.fontSizeSM }}>{event.reportedBy}</Text> },
                     { label: 'Last Updated', node: <Text style={{ fontSize: token.fontSizeSM }}>{order.lastUpdated}</Text> },
                     // Roles without Events access (Procurement) get event context
                     // from the Event Details tab instead of a cross-screen link.
@@ -672,6 +931,38 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
                         </div>
                       ),
                     }] : []),
+                    // Tracking is addable by CS and Procurement at any point,
+                    // before or after close; saving it notifies the reporting
+                    // tech.
+                    ...(canClose ? [{
+                      label: 'Tracking #',
+                      node: editingTracking ? (
+                        <Input
+                          size="small"
+                          placeholder="e.g. 1Z999AA10123456784"
+                          value={trackingDraft}
+                          onChange={e => setTrackingDraft(e.target.value)}
+                          onPressEnter={handleSaveTracking}
+                          onKeyDown={e => { if (e.key === 'Escape') setEditingTracking(false); }}
+                          onBlur={() => { if (trackingDraft.trim()) handleSaveTracking(); else setEditingTracking(false); }}
+                          autoFocus
+                          style={{ width: 180 }}
+                        />
+                      ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                          <Text style={{ fontSize: token.fontSizeSM, color: trackingNumber ? token.colorText : token.colorTextQuaternary }}>
+                            {trackingNumber || 'Not yet entered'}
+                          </Text>
+                          <Button
+                            type="text"
+                            size="small"
+                            icon={<EditFilled />}
+                            onClick={() => { setTrackingDraft(trackingNumber); setEditingTracking(true); }}
+                            style={{ color: token.colorTextTertiary }}
+                          />
+                        </div>
+                      ),
+                    }] : []),
                   ] as { label: string; node: React.ReactNode }[]).map(({ label, node }, i, arr) => (
                     <Fragment key={label}>
                       <div>
@@ -692,8 +983,20 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
                 <div style={{ flex: 1, minWidth: 0 }}>
 
                 {/* Parts header */}
-                <div style={{ marginBottom: 10 }}>
-                  {sectionLabel('Parts / Ship to Branch')}
+                <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                  {sectionLabel(event.shipTo === 'address' ? 'Parts / Ship to Address' : 'Parts / Ship to Branch')}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <ShipToLine shipTo={event.shipTo} address={event.shipToAddress} branch={event.branch} />
+                    {canActOnOrder && (
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={<EditFilled />}
+                        onClick={openShipToEdit}
+                        style={{ color: token.colorTextTertiary }}
+                      />
+                    )}
+                  </div>
                 </div>
 
                 {/* Parts list */}
@@ -922,6 +1225,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
           </div>
         ) : (
           <>
+            <TechReplyWarning thread={event.additionalInfoRequests} style={{ marginBottom: 12 }} />
             <Text style={{ display: 'block', marginBottom: 16, fontSize: token.fontSize, color: token.colorTextSecondary }}>
               This marks the order as approved. You can assign it to procurement now or as a separate step after.
             </Text>
@@ -1094,10 +1398,12 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
               <Text style={{ fontSize: token.fontSize, fontWeight: 600 }}>Order Closed</Text>
             </div>
             <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
-              {order.eventId} has been closed. It can be reopened if needed.
+              {order.eventId} has been closed.
+              {trackingNumber && ` Technician ${event.reportedBy} has been notified with the replacement order and tracking number.`}
+              {' '}It can be reopened if needed.
             </Text>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Button type="primary" onClick={() => { setCloseOpen(false); setCloseSuccess(false); setCloseReplacementOrderNo(''); }}>Done</Button>
+              <Button type="primary" onClick={() => { setCloseOpen(false); setCloseSuccess(false); setCloseReplacementOrderNo(''); setCloseTracking(''); }}>Done</Button>
             </div>
           </div>
         ) : (
@@ -1106,12 +1412,188 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
               This will mark the order as Closed. It can be reopened if needed.
             </Text>
             <Form layout="vertical" size="small">
-              <Form.Item label="Replacement Order #" required style={{ marginBottom: 0 }}>
+              <Form.Item label="Replacement Order #" required style={{ marginBottom: 10 }}>
                 <Input
                   placeholder="e.g. SO110029876"
                   value={closeReplacementOrderNo}
                   onChange={e => setCloseReplacementOrderNo(e.target.value)}
                   autoFocus
+                />
+              </Form.Item>
+              <Form.Item
+                label="Tracking # (optional)"
+                extra={`Adding tracking notifies technician ${event.reportedBy} with the shipment details.`}
+                style={{ marginBottom: 0 }}
+              >
+                <Input
+                  placeholder="e.g. 1Z999AA10123456784"
+                  value={closeTracking}
+                  onChange={e => setCloseTracking(e.target.value)}
+                />
+              </Form.Item>
+            </Form>
+          </>
+        )}
+      </Modal>
+
+      {/* SHIP-TO EDIT MODAL */}
+      <Modal
+        title="Edit Ship To"
+        open={shipToEditOpen}
+        onCancel={() => setShipToEditOpen(false)}
+        width={440}
+        footer={
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <Button onClick={() => setShipToEditOpen(false)}>Cancel</Button>
+            <Button
+              type="primary"
+              disabled={shipToDraft === 'address' && (!shipToStreetDraft.trim() || !shipToCityDraft.trim())}
+              onClick={handleSaveShipTo}
+            >
+              Save
+            </Button>
+          </div>
+        }
+      >
+        <Form layout="vertical" size="small" style={{ marginTop: 8 }}>
+          <Form.Item label="Ship To" style={{ marginBottom: 10 }}>
+            <Radio.Group
+              buttonStyle="solid"
+              size="small"
+              value={shipToDraft}
+              onChange={e => setShipToDraft(e.target.value)}
+            >
+              <Radio.Button value="branch">Branch ({event.branch})</Radio.Button>
+              <Radio.Button value="address">Direct Address</Radio.Button>
+            </Radio.Group>
+          </Form.Item>
+          {shipToDraft === 'address' && (
+            <>
+              <Form.Item label="Street Address" required style={{ marginBottom: 10 }}>
+                <Input
+                  placeholder="e.g. 4821 Commerce Park Dr"
+                  value={shipToStreetDraft}
+                  onChange={e => setShipToStreetDraft(e.target.value)}
+                  autoFocus
+                />
+              </Form.Item>
+              <Form.Item label="City, State ZIP" required style={{ marginBottom: 0 }}>
+                <Input
+                  placeholder="e.g. Marietta, GA 30060"
+                  value={shipToCityDraft}
+                  onChange={e => setShipToCityDraft(e.target.value)}
+                  onPressEnter={handleSaveShipTo}
+                />
+              </Form.Item>
+            </>
+          )}
+        </Form>
+      </Modal>
+
+      {/* CONSOLIDATE MODAL */}
+      <Modal
+        title={consolidateSuccess ? null : `Consolidate Orders on ${order.jobNo}`}
+        open={consolidateOpen}
+        onCancel={() => { setConsolidateOpen(false); setConsolidateSuccess(false); resetConsolidate(); }}
+        width={620}
+        footer={consolidateSuccess ? null : (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <Button onClick={() => { setConsolidateOpen(false); resetConsolidate(); }}>Cancel</Button>
+            <Button
+              type="primary"
+              icon={<MergeCellsOutlined />}
+              disabled={!consSelectedIds.length || !consPartNumber.trim() || !consPartDescription.trim()}
+              onClick={handleConsolidate}
+            >
+              Consolidate {consSelectedIds.length || ''} Order{consSelectedIds.length === 1 ? '' : 's'}
+            </Button>
+          </div>
+        )}
+      >
+        {consolidateSuccess ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: token.fontSize }} />
+              <Text style={{ fontSize: token.fontSize, fontWeight: 600 }}>Orders Consolidated</Text>
+            </div>
+            <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
+              This order now covers all selected events on {order.jobNo}. The merged orders were closed as Consolidated,
+              and this order&apos;s parts were replaced with {consPartDescription.trim()} ({consPartNumber.trim()}).
+            </Text>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button type="primary" onClick={() => { setConsolidateOpen(false); setConsolidateSuccess(false); resetConsolidate(); }}>Done</Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <Text style={{ display: 'block', marginBottom: 12, fontSize: token.fontSize, color: token.colorTextSecondary }}>
+              Select the sibling orders to fold into this one. They close as <strong>Consolidated</strong> (not declined),
+              their events link to this order, and this order&apos;s parts are replaced with the single replacement entered below.
+            </Text>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 4 }}>
+              {sameSoOpenSiblings.map(o => {
+                const ev = effEventMap.get(o.eventId);
+                const isApprovedSibling = orderMutations[o.id]?.approved ?? o.approved ?? false;
+                return (
+                  <label
+                    key={o.id}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '8px 12px',
+                      background: token.colorFillTertiary,
+                      borderRadius: token.borderRadiusSM,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <Checkbox
+                      checked={consSelectedIds.includes(o.id)}
+                      onChange={e => setConsSelectedIds(prev =>
+                        e.target.checked ? [...prev, o.id] : prev.filter(id => id !== o.id))}
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600, display: 'block' }}>
+                        {o.id} · {ev?.issue ?? '—'}
+                      </Text>
+                      <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+                        {ev?.component ?? '—'} · {o.parts.length} part{o.parts.length === 1 ? '' : 's'} requested
+                      </Text>
+                    </div>
+                    {isApprovedSibling && (
+                      <Tooltip title="Already approved. Consolidating will supersede that approval.">
+                        <Tag color="orange" style={{ margin: 0, fontSize: token.fontSizeXS }}>Approved</Tag>
+                      </Tooltip>
+                    )}
+                  </label>
+                );
+              })}
+            </div>
+            <Divider style={{ margin: '12px 0' }} />
+            <Form layout="vertical" size="small">
+              <Row gutter={8}>
+                <Col flex={1}>
+                  <Form.Item label="Replacement Part #" required style={{ marginBottom: 10 }}>
+                    <Input
+                      placeholder="e.g. 913087-3"
+                      value={consPartNumber}
+                      onChange={e => setConsPartNumber(e.target.value)}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col style={{ width: 90 }}>
+                  <Form.Item label="Qty" required style={{ marginBottom: 10 }}>
+                    <InputNumber min={1} max={100} value={consQuantity} onChange={v => setConsQuantity(v ?? 1)} style={{ width: '100%' }} />
+                  </Form.Item>
+                </Col>
+              </Row>
+              <Form.Item
+                label="Part Description" required
+                extra="The single replacement that supersedes the merged requests, e.g. a complete door package."
+                style={{ marginBottom: 0 }}
+              >
+                <Input
+                  placeholder={`e.g. Complete Door Package - ${event.door}`}
+                  value={consPartDescription}
+                  onChange={e => setConsPartDescription(e.target.value)}
                 />
               </Form.Item>
             </Form>

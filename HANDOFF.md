@@ -120,6 +120,13 @@ Landings: CS starts at `/dashboard?view=orders`, Procurement at `/procurement`, 
 
 Business rules encoded in the UI worth knowing before schema design: order type derives from `jobNo` prefix (`WO` = Work Order, else Sales Order); an order's `jobNo` always equals its linked event's `jobNo`; DFO LIN / EL LIN are Sales-Order-only fields; `QualityEvent.jobNoManualEntry` records that the tech keyed the SO number by hand instead of scanning it (SO-only, captured at submission by the tech's mobile app; the UI flags manual entries ahead of the Job No. as a verify-before-fulfillment cue); Validated events stay enrichable (root cause, tags, photos, attachments) while Invalidated events are fully locked; orders auto-create from parts requests; escalation<->event links are many-to-many; escalation "titles" for reference-number types (CAR, PR, Assist IT) are external system ids, mapped in `escalationTitleMeta` in `data/manageLists.ts`.
 
+Fulfillment-loop rules (2026-07-27, demo walkthroughs in `STORIES.md`):
+
+- **Ship-to** is a property of the parts request, chosen by the tech at submission: `QualityEvent.shipTo` (`'branch'` default | `'address'`) plus `shipToAddress` (structured lite: street, city/state/zip). Surfaced on every orders screen; Procurement pastes it into shipping.
+- **Tracking** (`trackingNumber` order mutation) is entered at close time or added later to a closed order; either write must notify the reporting tech (the prototype simulates this with System entries on the order log and the event activity log). Server-side this is a real notification to the tech's mobile app.
+- **Invalidation cascades**: invalidating an event declines and closes its open orders (decline reason "Event invalidated"). Approval is never blocked by an unanswered info request, but the UI warns first (`components/TechReplyWarning.tsx`).
+- **Consolidation**: several events on one SO can fold into one order. Source orders close with `consolidated: true` + `consolidatedInto` (a disposition distinct from Declined everywhere: filters, KPIs, tech messaging); the survivor carries the merged `eventIds` and a replaced parts list (`partsOverride` mutation). Event-to-order resolution must check `eventIds`, not just the primary `eventId`. Suggested endpoint: `POST /orders/:id/consolidate` taking source order ids plus the replacement part, performing all of the above transactionally.
+
 ## 5. Demo state and reset
 
 All runtime state lives in seven localStorage keys: `iq-event-mutations`, `iq-order-mutations`, `iq-escalations`, `iq-escalation-types`, `iq-quality-filters-v2`, `iq-quality-role`, `iq-theme`. To reset a demo machine to pristine, clear those keys (DevTools > Application > Local Storage) and reload. There is no in-app reset control.

@@ -24,6 +24,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { logs } from '@/data/logs';
 import { ISSUE_OPTIONS, DOOR_OPTIONS, PART_CATALOG, PLANT_OPTIONS, COMPONENT_OPTIONS } from '@/data/filterOptions';
 import { EscalateModal } from '@/components/EscalateModal';
+import { ShipToLine } from '@/components/ShipToLine';
 import { useEffectiveEvents } from '@/lib/effectiveEvents';
 import { useEffectiveEscalations } from '@/lib/effectiveEscalations';
 import { useEscalationStore } from '@/store/escalationStore';
@@ -96,7 +97,7 @@ function generateHistoricalInsights(event: QualityEvent, pool: QualityEvent[]): 
 
 export default function EventDetailClient({ event, orderId }: { event: QualityEvent; orderId: string | null }) {
   const { mutations: evtMutations, patchEvent, pushActivityLog } = useEventStore();
-  const { mutations: orderMutations, createdOrders, createOrder } = useOrderStore();
+  const { mutations: orderMutations, createdOrders, createOrder, patchOrder, pushOrderLog } = useOrderStore();
   const evtStored = evtMutations[event.id] ?? {};
   const effectiveEvents = useEffectiveEvents();
   const effectiveEscalations = useEffectiveEscalations();
@@ -105,7 +106,10 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   // Orders created at runtime for this event (parts request on an orderless
   // event). Server only knows static orders, so resolve the link client-side.
   const [runtimeOrderId, setRuntimeOrderId] = useState<string | null>(null);
-  const effectiveOrderId = orderId
+  // A consolidated source order redirects to its surviving order: the event's
+  // fulfillment now lives there.
+  const effectiveOrderId = (orderId ? orderMutations[orderId]?.consolidatedInto : undefined)
+    ?? orderId
     ?? runtimeOrderId
     ?? Object.values(createdOrders).find(o => o.eventId === event.id)?.id
     ?? null;
@@ -150,6 +154,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   const [validateSuccess,   setValidateSuccess]   = useState(false);
   const [invalidateNote,    setInvalidateNote]    = useState('');
   const [invalidateSuccess, setInvalidateSuccess] = useState(false);
+  const [invalidatedOrdersCount, setInvalidatedOrdersCount] = useState(0);
   const [startInvSuccess,   setStartInvSuccess]   = useState(false);
   const [reopenEvtSuccess,  setReopenEvtSuccess]  = useState(false);
   const [pendingEscalation, setPendingEscalation] = useState<string | null>(null);
@@ -166,6 +171,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   const [partForm]                            = Form.useForm();
   const [partModalOpen, setPartModalOpen]     = useState(false);
   const partModalKitInfo = Form.useWatch('hardwareKitInfo', partForm);
+  const partModalShipTo  = Form.useWatch('shipTo', partForm);
   const partModalQty     = (Form.useWatch('quantity', partForm) as number | undefined) ?? 1;
   const currentIssue             = evtStored.issue             ?? event.issue;
   const currentComponent         = evtStored.component         ?? event.component;
@@ -174,6 +180,8 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   const currentIssueDescription = evtStored.issueDescription  ?? event.issueDescription;
   const currentDfo              = evtStored.dfo               ?? event.dfo;
   const currentElLine           = evtStored.elLine            ?? event.elLine;
+  const currentShipTo           = evtStored.shipTo            ?? event.shipTo ?? 'branch';
+  const currentShipToAddress    = evtStored.shipToAddress     ?? event.shipToAddress;
   const isMissingHardware = currentIssue === 'Missing Hardware';
   const isSO              = !currentJobNo.startsWith('WO');
   const [partsState, setPartsState] = useState(evtStored.partsRequest ?? event.partsRequest ?? []);
@@ -283,10 +291,34 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   // An event's parts request drives order creation (pipeline rule): if the
   // event has no open order when a parts request is added, one is created for
   // Customer Service review. Existing open orders are left to CS to amend.
-  const findOpenOrderId = (): string | null => {
-    const all = [...allOrders, ...Object.values(createdOrders)].filter(o => o.eventId === event.id);
-    const open = all.find(o => (orderMutations[o.id]?.status ?? o.orderStatus) === 'Open');
-    return open ? open.id : null;
+  // A consolidated survivor serves several events (eventIds); match those too.
+  const findOpenOrderIds = (): string[] =>
+    [...allOrders, ...Object.values(createdOrders)]
+      .filter(o => o.eventId === event.id || (orderMutations[o.id]?.eventIds ?? o.eventIds ?? []).includes(event.id))
+      .filter(o => (orderMutations[o.id]?.status ?? o.orderStatus) === 'Open')
+      .map(o => o.id);
+
+  const findOpenOrderId = (): string | null => findOpenOrderIds()[0] ?? null;
+
+  // Pipeline rule (2026-07-24, P2): invalidating an event declines and closes
+  // its open orders. No valid quality event, no parts fulfillment.
+  const declineOpenOrdersForInvalidation = (note: string): number => {
+    const openIds = findOpenOrderIds();
+    const reason = note ? `Event invalidated: ${note}` : 'Event invalidated';
+    openIds.forEach(orderId => {
+      patchOrder(orderId, { status: 'Closed', declined: true, approved: false, declineReason: reason });
+      pushOrderLog(orderId, {
+        id: `inv_${orderId}_${Date.now()}`,
+        timestamp: nowStampUs(),
+        role: 'System',
+        employee: 'System',
+        orderStatus: 'Closed',
+        submittedStatus: 'Invalidated',
+        content: `Order declined and closed automatically: linked event was invalidated.`,
+        auto: true,
+      });
+    });
+    return openIds.length;
   };
 
   const nextOrderId = (): string => {
@@ -308,7 +340,14 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
       };
       const nextParts = [...partsState, newPart];
       setPartsState(nextParts);
-      patchEvent(event.id, { partsRequest: nextParts });
+      const shipTo = (values.shipTo as 'branch' | 'address' | undefined) ?? 'branch';
+      patchEvent(event.id, {
+        partsRequest: nextParts,
+        shipTo,
+        ...(shipTo === 'address'
+          ? { shipToAddress: { street: values.shipToStreet, cityStateZip: values.shipToCityStateZip } }
+          : {}),
+      });
 
       if (!findOpenOrderId()) {
         const newId = nextOrderId();
@@ -1016,6 +1055,12 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                           </Text>
                           {partsState.length > 0 ? (
                             <>
+                              <ShipToLine
+                                shipTo={currentShipTo}
+                                address={currentShipToAddress}
+                                branch={event.branch}
+                                style={{ marginBottom: 10 }}
+                              />
                               {partsState.length > 1 && (
                                 <div style={{ marginBottom: 10 }}>
                                   <Select
@@ -1594,9 +1639,14 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
         onCancel={() => { setInvalidateOpen(false); setInvalidateNote(''); setInvalidateSuccess(false); }}
         footer={invalidateSuccess ? null : undefined}
         onOk={() => {
+          const closedCount = declineOpenOrdersForInvalidation(invalidateNote.trim());
+          setInvalidatedOrdersCount(closedCount);
           setStatus('Invalidated');
           patchEvent(event.id, { status: 'Invalidated' });
           addToActivityLog(invalidateNote.trim() ? `Event invalidated. Reason: ${invalidateNote}` : 'Event invalidated.', 'Invalidated');
+          if (closedCount > 0) {
+            addToActivityLog(`${closedCount} open order${closedCount === 1 ? '' : 's'} declined and closed.`, 'Invalidated');
+          }
           setInvalidateSuccess(true);
         }}
         okText="Invalidate & Notify"
@@ -1609,7 +1659,9 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
               <Text style={{ fontSize: token.fontSize, fontWeight: 600 }}>Event Invalidated</Text>
             </div>
             <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
-              {event.id} has been marked as invalid. Customer Service and field tech {event.reportedBy} have been notified that no further action is required.
+              {event.id} has been marked as invalid.
+              {invalidatedOrdersCount > 0 && ` ${invalidatedOrdersCount} open order${invalidatedOrdersCount === 1 ? ' was' : 's were'} declined and closed.`}
+              {' '}Customer Service and field tech {event.reportedBy} have been notified that no further action is required.
             </Text>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <Button type="primary" onClick={() => { setInvalidateOpen(false); setInvalidateNote(''); setInvalidateSuccess(false); }}>Done</Button>
@@ -1619,6 +1671,9 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
           <>
             <Text style={{ display: 'block', marginBottom: 12, fontSize: token.fontSize, color: token.colorTextSecondary }}>
               Invalidating this event will close the investigation and send notifications to Customer Service and field tech <strong>{event.reportedBy}</strong> that no further action is required.
+              {findOpenOrderIds().length > 0 && (
+                <> This event has <strong>{findOpenOrderIds().length} open order{findOpenOrderIds().length === 1 ? '' : 's'}</strong>, which will be declined and closed.</>
+              )}
             </Text>
             <Input.TextArea
               value={invalidateNote}
@@ -1856,6 +1911,36 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
               <Input type="hidden" />
             </Form.Item>
           </Form.Item>
+          <Form.Item label="Ship To" name="shipTo" initialValue={currentShipTo} style={{ marginTop: 10, marginBottom: 10 }}>
+            <Radio.Group buttonStyle="solid" size="small">
+              <Radio.Button value="branch">Branch ({event.branch})</Radio.Button>
+              <Radio.Button value="address">Direct Address</Radio.Button>
+            </Radio.Group>
+          </Form.Item>
+          {partModalShipTo === 'address' && (
+            <Row gutter={8}>
+              <Col flex={1}>
+                <Form.Item
+                  label="Street Address" name="shipToStreet"
+                  initialValue={currentShipToAddress?.street}
+                  rules={[{ required: true, message: 'Street address is required' }]}
+                  style={{ marginBottom: 0 }}
+                >
+                  <Input placeholder="e.g. 4821 Commerce Park Dr" />
+                </Form.Item>
+              </Col>
+              <Col flex={1}>
+                <Form.Item
+                  label="City, State ZIP" name="shipToCityStateZip"
+                  initialValue={currentShipToAddress?.cityStateZip}
+                  rules={[{ required: true, message: 'City, state, and ZIP are required' }]}
+                  style={{ marginBottom: 0 }}
+                >
+                  <Input placeholder="e.g. Marietta, GA 30060" />
+                </Form.Item>
+              </Col>
+            </Row>
+          )}
         </Form>
       </Modal>
 

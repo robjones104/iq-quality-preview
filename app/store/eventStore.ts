@@ -22,6 +22,8 @@ export type EventMutations = {
   dfo?: number;
   elLine?: number;
   partsRequest?: QualityEvent['partsRequest'];
+  shipTo?: QualityEvent['shipTo'];
+  shipToAddress?: QualityEvent['shipToAddress'];
 };
 
 type EventMutationStore = {

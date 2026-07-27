@@ -32,6 +32,8 @@ export function mergeEvent(e: QualityEvent, m?: EventMutations): QualityEvent {
     dfo:                     m.dfo ?? e.dfo,
     elLine:                  m.elLine ?? e.elLine,
     partsRequest:            m.partsRequest ?? e.partsRequest,
+    shipTo:                  m.shipTo ?? e.shipTo,
+    shipToAddress:           m.shipToAddress ?? e.shipToAddress,
     tags:                    m.tags ?? e.tags,
     additionalInfoRequested: m.additionalInfoRequested ?? e.additionalInfoRequested,
     additionalInfoRequests:  m.additionalInfoRequests ?? e.additionalInfoRequests,

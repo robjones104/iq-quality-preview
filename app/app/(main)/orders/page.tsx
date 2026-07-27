@@ -13,10 +13,13 @@ import {
   SearchOutlined,
 } from '@ant-design/icons';
 import { JobNoValue } from '@/components/JobNoValue';
+import { TechReplyWarning } from '@/components/TechReplyWarning';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { orders } from '@/data/orders';
 import { useEffectiveEventMap } from '@/lib/effectiveEvents';
+import { useEventStore } from '@/store/eventStore';
+import { nowStampUs } from '@/lib/appTime';
 import { useCapabilities } from '@/store/roleStore';
 import { FilterPanel } from '@/components/FilterPanel';
 import { PageHeader } from '@/components/PageHeader';
@@ -70,6 +73,7 @@ function OrdersPageContent() {
   const caps = useCapabilities();
   const createdOrders = useOrderStore((s) => s.createdOrders);
   const eventMap = useEffectiveEventMap();
+  const pushActivityLog = useEventStore(s => s.pushActivityLog);
   const orderRows = useMemo(() => {
     // Runtime-created orders (parts request on an orderless event) merge in
     // ahead of the static set so the newest work appears.
@@ -179,6 +183,8 @@ function OrdersPageContent() {
     orderMutations[row.id]?.declined ?? row.declined ?? false;
   const isWithProcurement = (row: OrderRow): boolean =>
     orderMutations[row.id]?.assignedToProcurement ?? row.assignedToProcurement ?? false;
+  const isConsolidated = (row: OrderRow): boolean =>
+    orderMutations[row.id]?.consolidated ?? false;
   const effectiveReplacementOrderNo = (row: OrderRow): string =>
     orderMutations[row.id]?.replacementOrderNo ?? row.replacementOrderNo ?? '';
 
@@ -200,6 +206,7 @@ function OrdersPageContent() {
   // Close single modal
   const [closeOpen, setCloseOpen] = useState(false);
   const [closeReplacementOrderNo, setCloseReplacementOrderNo] = useState('');
+  const [closeTracking, setCloseTracking] = useState('');
 
   // Reopen modal
   const [reopenOpen, setReopenOpen]     = useState(false);
@@ -248,7 +255,28 @@ function OrdersPageContent() {
 
   const handleClose = () => {
     if (!activeOrderId || !closeReplacementOrderNo.trim()) return;
-    patchOrder(activeOrderId, { status: 'Closed', replacementOrderNo: closeReplacementOrderNo.trim() });
+    const tracking = closeTracking.trim();
+    patchOrder(activeOrderId, {
+      status: 'Closed',
+      replacementOrderNo: closeReplacementOrderNo.trim(),
+      ...(tracking ? { trackingNumber: tracking } : {}),
+    });
+    if (tracking) {
+      // Simulated tech notification, mirrored on the linked event's activity log.
+      const row = orderRows.find(r => r.id === activeOrderId);
+      const ev = row ? eventMap.get(row.eventId) : undefined;
+      if (ev) {
+        pushActivityLog(ev.id, {
+          id: `trk_${Date.now()}`,
+          eventId: ev.id,
+          date: nowStampUs(),
+          role: 'System',
+          employee: 'System',
+          status: ev.status,
+          comment: `Technician ${ev.reportedBy} notified: replacement order ${closeReplacementOrderNo.trim()}, tracking # ${tracking}.`,
+        });
+      }
+    }
     setCloseSuccess(true);
   };
 
@@ -292,7 +320,7 @@ function OrdersPageContent() {
     if (flagParam === 'info' && !(effectiveStatus(o) === 'Open' && (eventMap.get(o.eventId)?.additionalInfoRequests?.length ?? 0) > 0)) return false;
     const matchOrderStatus   = !appliedFiltersLocal.orderStatus?.length   || appliedFiltersLocal.orderStatus.includes(effectiveStatus(o));
     const matchDecision      = !appliedFiltersLocal.decision?.length      || appliedFiltersLocal.decision.some(d =>
-      (d === 'Approved' && isApproved(o)) || (d === 'Declined' && isDeclined(o)) || (d === 'Pending' && !isApproved(o) && !isDeclined(o))
+      (d === 'Approved' && isApproved(o)) || (d === 'Declined' && isDeclined(o)) || (d === 'Consolidated' && isConsolidated(o)) || (d === 'Pending' && !isApproved(o) && !isDeclined(o) && !isConsolidated(o))
     );
     const matchEventStatus   = !appliedFiltersLocal.status?.length        || appliedFiltersLocal.status.includes(o.status);
     const matchIssue         = !appliedFiltersLocal.issue?.length         || appliedFiltersLocal.issue.includes(o.issue);
@@ -447,6 +475,10 @@ function OrdersPageContent() {
           </div>
         ) : (
           <>
+            <TechReplyWarning
+              thread={eventMap.get(orderRows.find(r => r.id === activeOrderId)?.eventId ?? '')?.additionalInfoRequests}
+              style={{ marginBottom: 12 }}
+            />
             <Typography.Text style={{ display: 'block', marginBottom: 16, fontSize: token.fontSize, color: token.colorTextSecondary }}>
               This marks the order as approved. You can assign it to procurement now or as a separate step after.
             </Typography.Text>
@@ -521,7 +553,7 @@ function OrdersPageContent() {
       <Modal
         title={closeSuccess ? null : 'Close Order'}
         open={closeOpen}
-        onCancel={() => { setCloseOpen(false); setCloseSuccess(false); setCloseReplacementOrderNo(''); }}
+        onCancel={() => { setCloseOpen(false); setCloseSuccess(false); setCloseReplacementOrderNo(''); setCloseTracking(''); }}
         onOk={handleClose}
         okText="Close Order"
         okButtonProps={{ type: 'primary', disabled: !closeReplacementOrderNo.trim() }}
@@ -537,7 +569,7 @@ function OrdersPageContent() {
               {activeOrderId} has been closed. It can be reopened if needed.
             </Typography.Text>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Button type="primary" onClick={() => { setCloseOpen(false); setCloseSuccess(false); setCloseReplacementOrderNo(''); }}>Done</Button>
+              <Button type="primary" onClick={() => { setCloseOpen(false); setCloseSuccess(false); setCloseReplacementOrderNo(''); setCloseTracking(''); }}>Done</Button>
             </div>
           </div>
         ) : (
@@ -546,12 +578,23 @@ function OrdersPageContent() {
               This will mark the order as Closed. It can be reopened if needed.
             </Typography.Text>
             <Form layout="vertical" size="small">
-              <Form.Item label="Replacement Order #" required style={{ marginBottom: 0 }}>
+              <Form.Item label="Replacement Order #" required style={{ marginBottom: 10 }}>
                 <Input
                   placeholder="e.g. RO-2026-00123"
                   value={closeReplacementOrderNo}
                   onChange={e => setCloseReplacementOrderNo(e.target.value)}
                   autoFocus
+                />
+              </Form.Item>
+              <Form.Item
+                label="Tracking # (optional)"
+                extra="Adding tracking notifies the reporting technician with the shipment details."
+                style={{ marginBottom: 0 }}
+              >
+                <Input
+                  placeholder="e.g. 1Z999AA10123456784"
+                  value={closeTracking}
+                  onChange={e => setCloseTracking(e.target.value)}
                 />
               </Form.Item>
             </Form>

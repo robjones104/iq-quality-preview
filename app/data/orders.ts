@@ -20,6 +20,9 @@ export interface OrderPart {
 export interface Order {
   id: string;
   eventId: string;
+  // All events this order serves. Absent means just `eventId`; a consolidated
+  // survivor carries every merged event (runtime copies live in orderStore).
+  eventIds?: string[];
   orderStatus: OrderStatus;
   jobNo: string;
   parts: OrderPart[];
@@ -27,6 +30,9 @@ export interface Order {
   approved?: boolean;
   declined?: boolean;
   declineReason?: string;
+  // Closed by same-SO consolidation into another order (distinct from declined).
+  consolidated?: boolean;
+  consolidatedInto?: string;
   assignedToProcurement?: boolean;
   replacementOrderNo?: string;
 }
@@ -418,6 +424,27 @@ const HAND_CRAFTED_ORDERS: Order[] = [
     id: 'QE_2391_Order_2', eventId: 'QE_2391', orderStatus: 'Open', jobNo: 'SO109821456', lastUpdated: '06-24-2026 13:28',
     parts: [
       { seqNo: 1, configId: 'SO109821456.1', dfoLineItem: 2, door: 'Dura_Glide Greenstar 3000', partNumber: '413857-2', quantityType: 'Piece', quantity: 1, partDescription: 'Motor Gearbox Assembly - (STANDARD, 24V, NAR)' },
+    ],
+  },
+
+  // ── Same-SO cluster (consolidation demo): three open orders on SO110030001,
+  //    one per event, all really one damaged door ─────────────────────────────
+  {
+    id: 'QE_2690_Order', eventId: 'QE_2690', orderStatus: 'Open', jobNo: 'SO110030001', lastUpdated: '06-07-2026 08:22',
+    parts: [
+      { seqNo: 1, configId: 'SO110030001.1', dfoLineItem: 1, elLineItem: 1, door: 'Dura_Glide 3000 Series', partNumber: '412201-1', quantityType: 'Piece', quantity: 1, partDescription: 'Complete mounting hardware kit for Dura_Glide 3000 Series installation.' },
+    ],
+  },
+  {
+    id: 'QE_2691_Order', eventId: 'QE_2691', orderStatus: 'Open', jobNo: 'SO110030001', lastUpdated: '06-07-2026 08:36',
+    parts: [
+      { seqNo: 1, configId: 'SO110030001.1', dfoLineItem: 1, elLineItem: 1, door: 'Dura_Glide 3000 Series', partNumber: '412207-2', quantityType: 'Piece', quantity: 1, partDescription: 'Left jamb assembly for Dura_Glide 3000 Series frame.' },
+    ],
+  },
+  {
+    id: 'QE_2692_Order', eventId: 'QE_2692', orderStatus: 'Open', jobNo: 'SO110030001', lastUpdated: '06-07-2026 08:49',
+    parts: [
+      { seqNo: 1, configId: 'SO110030001.1', dfoLineItem: 1, elLineItem: 1, door: 'Dura_Glide 3000 Series', partNumber: '412213-1', quantityType: 'Piece', quantity: 1, partDescription: 'Header assembly with operator track for Dura_Glide 3000 Series.' },
     ],
   },
 ];

@@ -69,6 +69,13 @@ export interface QualityEvent {
     quantity: number;
     description: string;
   }>;
+  // Where the replacement part ships, chosen by the tech at submission.
+  // Applies to the parts request as a whole. Absent means 'branch'.
+  shipTo?: 'branch' | 'address';
+  shipToAddress?: {
+    street: string;
+    cityStateZip: string;
+  };
   hardwareKit?: {
     kitInfo: string;
     serialNumber: string;

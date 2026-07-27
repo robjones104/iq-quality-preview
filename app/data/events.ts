@@ -44,6 +44,17 @@ const ASSIGNEES = [
 
 const QTY_TYPES = ['Piece', 'Length'] as const;
 
+// Job-site addresses used when a tech ships a replacement direct instead of
+// to the branch.
+const DIRECT_SHIP_ADDRESSES = [
+  { street: '4821 Commerce Park Dr', cityStateZip: 'Marietta, GA 30060' },
+  { street: '1160 Lakeview Medical Plaza', cityStateZip: 'Franklin, TN 37067' },
+  { street: '380 Harbor Point Blvd', cityStateZip: 'Tampa, FL 33602' },
+  { street: '2210 Northgate Industrial Pkwy', cityStateZip: 'Columbus, OH 43229' },
+  { street: '755 Summit Ridge Center', cityStateZip: 'Aurora, CO 80014' },
+  { street: '96 Riverside Professional Ct', cityStateZip: 'Rochester, MN 55901' },
+] as const;
+
 const ADDITIONAL_INFO_NOTES = [
   'Please provide photos of the installation site and confirm the serial number from the component label.',
   'Can you verify whether all hardware components were present at time of installation?',
@@ -117,6 +128,12 @@ function generateBulkEvents(): QualityEvent[] {
       quantity:     1 + Math.floor(r() * 5),
       description:  `${component} replacement component for ${door} installation.`,
     }] : undefined;
+    // ~30% of parts requests ship direct to the job site instead of the
+    // branch. Derived from the part number's own digits (not an r() draw) so
+    // the PRNG sequence stays identical.
+    const shipDigits   = partsRequest ? parseInt(partsRequest[0].partNumber.slice(3, 5), 10) : 0;
+    const shipToDirect = !!partsRequest && shipDigits % 10 < 3;
+    const shipToAddr   = shipToDirect ? DIRECT_SHIP_ADDRESSES[shipDigits % DIRECT_SHIP_ADDRESSES.length] : undefined;
 
     const hasEditHistory =
       (status === 'Validated' || status === 'Invalidated') && r() < 0.22;
@@ -147,6 +164,7 @@ function generateBulkEvents(): QualityEvent[] {
       assignee, reportedBy, reportedAt,
       ...(additionalInfoRequested ? { additionalInfoRequested, additionalInfoNote, additionalInfoRequests } : {}),
       ...(partsRequest ? { partsRequest } : {}),
+      ...(shipToDirect ? { shipTo: 'address' as const, shipToAddress: shipToAddr } : {}),
       ...(editHistory ? { editHistory } : {}),
     });
   }
@@ -176,6 +194,8 @@ const SEED_EVENTS: QualityEvent[] = [
       partNumber: '43212345', quantityType: 'Piece', quantity: 5,
       description: 'Secondary mounting bracket for Motor Gearbox assembly. Required for Dura_Glide Greenstar 3000 installation.',
     }],
+    shipTo: 'address',
+    shipToAddress: { street: '4821 Commerce Park Dr', cityStateZip: 'Marietta, GA 30060' },
     hardwareKit: { kitInfo: 'Entire Hardware Kit', serialNumber: '43212345', quantityType: 'Piece', quantity: 5 },
   },
   {
@@ -489,5 +509,48 @@ const SEED_EVENTS: QualityEvent[] = [
   },
 ];
 
-export const events: QualityEvent[] = [...SEED_EVENTS, ...generateBulkEvents()]
+// Same-SO cluster: one install (SO110030001) reported piecemeal by the same
+// tech. Three events, three auto-created orders, one real fix (a complete
+// door). This is the consolidation demo story.
+const SAME_SO_CLUSTER: QualityEvent[] = [
+  {
+    id: 'QE_2690', date: '2026-06-07', jobNo: 'SO110030001', dfo: 1, elLine: 1,
+    status: 'Under Investigation', rootCause: null,
+    branch: 'Atlanta', plant: 'FAR (Farmington)', component: 'Hardware Kit',
+    issue: 'Missing Hardware', door: 'Dura_Glide 3000 Series',
+    issueDescription: 'Full hardware kit missing from delivery. Door cannot be hung without mounting hardware.',
+    assignee: 'Callum V. Blackswood', reportedBy: 'Lysandra T. Pemberton', reportedAt: '2026-06-07T08:20:00',
+    tags: ['Urgent'],
+    partsRequest: [{
+      partNumber: '412201-1', quantityType: 'Piece', quantity: 1,
+      description: 'Complete mounting hardware kit for Dura_Glide 3000 Series installation.',
+    }],
+  },
+  {
+    id: 'QE_2691', date: '2026-06-07', jobNo: 'SO110030001', dfo: 1, elLine: 1,
+    status: 'Under Investigation', rootCause: null,
+    branch: 'Atlanta', plant: 'FAR (Farmington)', component: 'Jamb',
+    issue: 'Freight Damage', door: 'Dura_Glide 3000 Series',
+    issueDescription: 'Left jamb crushed in transit. Frame member unusable; replacement required before installation can proceed.',
+    assignee: 'Callum V. Blackswood', reportedBy: 'Lysandra T. Pemberton', reportedAt: '2026-06-07T08:34:00',
+    partsRequest: [{
+      partNumber: '412207-2', quantityType: 'Piece', quantity: 1,
+      description: 'Left jamb assembly for Dura_Glide 3000 Series frame.',
+    }],
+  },
+  {
+    id: 'QE_2692', date: '2026-06-07', jobNo: 'SO110030001', dfo: 1, elLine: 1,
+    status: 'Under Investigation', rootCause: null,
+    branch: 'Atlanta', plant: 'FAR (Farmington)', component: 'Header',
+    issue: 'Freight Damage', door: 'Dura_Glide 3000 Series',
+    issueDescription: 'Header bent along mounting face; operator track will not seat. Same shipment as the damaged jamb on this job.',
+    assignee: 'Callum V. Blackswood', reportedBy: 'Lysandra T. Pemberton', reportedAt: '2026-06-07T08:47:00',
+    partsRequest: [{
+      partNumber: '412213-1', quantityType: 'Piece', quantity: 1,
+      description: 'Header assembly with operator track for Dura_Glide 3000 Series.',
+    }],
+  },
+];
+
+export const events: QualityEvent[] = [...SEED_EVENTS, ...SAME_SO_CLUSTER, ...generateBulkEvents()]
   .sort((a, b) => b.reportedAt.localeCompare(a.reportedAt));

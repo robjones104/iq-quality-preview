@@ -50,7 +50,7 @@ function applyFilters(list: QualityEvent[], dateRange: DateRange | null, applied
 
 // Orders-view category filter predicate (orderStatus + decision).
 function matchesOrderFilters(o: Order, applied: Record<string, string[]>): boolean {
-  const decision = o.declined ? 'Declined' : o.approved ? 'Approved' : 'Pending';
+  const decision = o.declined ? 'Declined' : o.approved ? 'Approved' : o.consolidated ? 'Consolidated' : 'Pending';
   const matchStatus   = !applied.orderStatus?.length || applied.orderStatus.includes(o.orderStatus);
   const matchDecision = !applied.decision?.length    || applied.decision.includes(decision);
   return matchStatus && matchDecision;
@@ -461,6 +461,8 @@ function DashboardPageContent() {
       declineReason:         m.declineReason ?? o.declineReason,
       assignedToProcurement: m.assignedToProcurement ?? o.assignedToProcurement,
       replacementOrderNo:    m.replacementOrderNo ?? o.replacementOrderNo,
+      consolidated:          m.consolidated ?? o.consolidated,
+      consolidatedInto:      m.consolidatedInto ?? o.consolidatedInto,
     };
   }), [orders, orderMutations]);
 
