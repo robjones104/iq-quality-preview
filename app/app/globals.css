@@ -14,6 +14,17 @@ body {
   white-space: nowrap;
 }
 
+/* Sort arrows sit beside the column title. AntD space-betweens title and
+   sorter across the full cell, which strands the arrows at the far edge of
+   wide flexible columns (Categories Name column). */
+.ant-table-thead th .ant-table-column-sorters {
+  justify-content: flex-start;
+  gap: 6px;
+}
+.ant-table-thead th .ant-table-column-title {
+  flex: 0 1 auto;
+}
+
 /* Small card body padding fallback — bodyPaddingSM token may be hardcoded at 12px in this AntD version */
 .ant-card-small > .ant-card-body {
   padding: 20px;

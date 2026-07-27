@@ -19,6 +19,51 @@ export const DEFAULT_ROOT_CAUSES: ListItem[] = [
   { id: 'rc-10', name: 'Short Shipping',           createdBy: 'System', createdAt: '2026-01-01', isSystem: true },
 ];
 
+// The "title" of an escalation means different things per type: CAR and PR
+// titles are reference numbers from the quality system, an Assist IT Ticket is
+// identified by its ticket number, and everything else is a prose title. The
+// title field adapts its label, placeholder, and helper copy accordingly.
+// `isReference` marks number-typed titles so create flows can skip the
+// descriptive "issue: component" prefill.
+export type EscalationTitleMeta = {
+  label: string;
+  placeholder: string;
+  help?: string;
+  isReference: boolean;
+};
+
+export const escalationTitleMeta = (type?: string): EscalationTitleMeta => {
+  switch (type) {
+    case 'Corrective Action Report':
+      return {
+        label: 'CAR #',
+        placeholder: 'e.g. CAR-2026-0413',
+        help: 'Enter the Corrective Action Report number from the quality system.',
+        isReference: true,
+      };
+    case 'Problem Report':
+      return {
+        label: 'PR #',
+        placeholder: 'e.g. PR-2026-1187',
+        help: 'Enter the Problem Report number from the quality system.',
+        isReference: true,
+      };
+    case 'Assist IT Ticket':
+      return {
+        label: 'Ticket #',
+        placeholder: 'e.g. IT-482911',
+        help: 'Enter the Assist IT ticket number.',
+        isReference: true,
+      };
+    default:
+      return {
+        label: 'Title',
+        placeholder: 'Brief title describing the escalation...',
+        isReference: false,
+      };
+  }
+};
+
 // Seed escalation types. "Custom" is not a type: creating a new type in
 // Categories > Escalations IS the custom mechanism.
 export const DEFAULT_ESCALATION_TYPES: ListItem[] = [

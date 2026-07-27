@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Button, Form, Input, Modal, Radio, Select, Typography, theme } from 'antd';
 import { CheckCircleFilled } from '@ant-design/icons';
 import { useEscalationTypeStore } from '@/store/escalationTypeStore';
+import { escalationTitleMeta } from '@/data/manageLists';
 import type { Escalation } from '@/data/types';
 
 const { TextArea } = Input;
@@ -39,6 +40,11 @@ export function EscalateModal({ open, onCancel, event, openEscalations, onCreate
   const [existingId, setExistingId] = useState<string | undefined>(undefined);
   const [typeSearch, setTypeSearch] = useState('');
   const [result, setResult] = useState<{ id: string; linked: boolean } | null>(null);
+  const selectedType = Form.useWatch('type', form);
+  const titleMeta = escalationTitleMeta(selectedType);
+  // The descriptive prefill only fits prose-titled types; reference-number
+  // types (CAR #, PR #, Ticket #) start empty so the format hint shows.
+  const defaultTitle = `${event.issue}: ${event.component}`;
 
   // destroyOnHidden remounts the Form on each open, so initialValues re-apply;
   // the remaining modal state resets in handleCancel.
@@ -118,7 +124,7 @@ export function EscalateModal({ open, onCancel, event, openEscalations, onCreate
           layout="vertical"
           size="small"
           initialValues={{
-            title: `${event.issue}: ${event.component}`,
+            title: defaultTitle,
             reportedIssue: event.issueDescription,
           }}
         >
@@ -129,10 +135,19 @@ export function EscalateModal({ open, onCancel, event, openEscalations, onCreate
               filterOption={false}
               onSearch={setTypeSearch}
               onChange={(v: string) => {
+                let name = v;
                 if (v?.startsWith('__create__')) {
-                  const name = v.slice('__create__'.length).trim();
+                  name = v.slice('__create__'.length).trim();
                   addType(name, createdBy);
                   form.setFieldValue('type', name);
+                }
+                // Swap the untouched prefill for an empty field (and back) so
+                // the reference-number hint shows; a hand-typed title is kept.
+                const currentTitle = form.getFieldValue('title');
+                if (escalationTitleMeta(name).isReference && currentTitle === defaultTitle) {
+                  form.setFieldValue('title', '');
+                } else if (!escalationTitleMeta(name).isReference && !currentTitle?.trim()) {
+                  form.setFieldValue('title', defaultTitle);
                 }
                 setTypeSearch('');
               }}
@@ -149,8 +164,13 @@ export function EscalateModal({ open, onCancel, event, openEscalations, onCreate
               })()}
             />
           </Form.Item>
-          <Form.Item name="title" label="Title" rules={[{ required: true, message: 'Title is required' }]}>
-            <Input placeholder="Brief title describing the escalation" />
+          <Form.Item
+            name="title"
+            label={titleMeta.label}
+            extra={titleMeta.help}
+            rules={[{ required: true, message: `${titleMeta.label} is required` }]}
+          >
+            <Input placeholder={titleMeta.placeholder} />
           </Form.Item>
           <Form.Item name="reportedIssue" label="Reported Issue" rules={[{ required: true, message: 'Reported issue is required' }]} style={{ marginBottom: 0 }}>
             <TextArea rows={4} placeholder="Describe the reported issue" />

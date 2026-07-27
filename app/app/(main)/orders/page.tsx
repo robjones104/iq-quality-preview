@@ -12,7 +12,7 @@ import {
   CheckCircleFilled, CheckOutlined, CloseCircleFilled, CloseOutlined, ExportOutlined, RollbackOutlined,
   SearchOutlined,
 } from '@ant-design/icons';
-import { CopyableValue } from '@/components/CopyableValue';
+import { JobNoValue } from '@/components/JobNoValue';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { orders } from '@/data/orders';
@@ -28,7 +28,7 @@ import { OrderCard } from '@/components/OrderCard';
 import { eventStatusTagProps } from '@/components/StatusTag';
 import type { Order, OrderStatus } from '@/data/orders';
 import type { QualityEvent } from '@/data/types';
-type OrderRow = Order & Pick<QualityEvent, 'issue' | 'component' | 'door' | 'branch' | 'plant' | 'reportedBy' | 'status'>;
+type OrderRow = Order & Pick<QualityEvent, 'issue' | 'component' | 'door' | 'branch' | 'plant' | 'reportedBy' | 'status' | 'jobNoManualEntry'>;
 
 const ORDER_STATUS_FILTER = [
   ...ORDER_FILTER_CATEGORIES,
@@ -57,6 +57,7 @@ const buildOrderRow = (o: Order, eventMap: Map<string, QualityEvent>): OrderRow 
     plant:       event.plant,
     reportedBy:  event.reportedBy,
     status:      event.status,
+    jobNoManualEntry: event.jobNoManualEntry,
   };
 };
 
@@ -338,7 +339,7 @@ function OrdersPageContent() {
       key: 'jobNo',
       sorter: (a, b) => a.jobNo.localeCompare(b.jobNo),
       width: 148,
-      render: (jobNo: string) => <CopyableValue value={jobNo} />,
+      render: (jobNo: string, record) => <JobNoValue jobNo={jobNo} manualEntry={record.jobNoManualEntry} />,
     },
     {
       title: 'Issue',

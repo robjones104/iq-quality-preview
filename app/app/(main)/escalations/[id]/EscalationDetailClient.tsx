@@ -35,6 +35,7 @@ import {
 import { PageHeader } from '@/components/PageHeader';
 import { CopyableValue } from '@/components/CopyableValue';
 import { nowStampIso } from '@/lib/appTime';
+import { escalationTitleMeta } from '@/data/manageLists';
 import { useEscalationStore } from '@/store/escalationStore';
 import { useEscalationTypeStore } from '@/store/escalationTypeStore';
 import { useCapabilities } from '@/store/roleStore';
@@ -348,6 +349,31 @@ export function EscalationDetailClient({ escalation: escalationProp, escalationI
 
   const detailsTab = (
     <div style={{ padding: '12px 0' }}>
+      {/* Title lives in the card during creation; once created it moves to the
+          page-heading bar above the cards. */}
+      {isNew && (() => {
+        const titleMeta = escalationTitleMeta(type);
+        return (
+          <>
+            <div style={{ marginBottom: 16 }}>
+              <SectionLabel token={token}>{titleMeta.label}</SectionLabel>
+              <Input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                size="small"
+                placeholder={titleMeta.placeholder}
+              />
+              {titleMeta.help && (
+                <Text type="secondary" style={{ display: 'block', marginTop: 4, fontSize: token.fontSizeSM }}>
+                  {titleMeta.help}
+                </Text>
+              )}
+            </div>
+            <Divider style={{ margin: '12px 0' }} />
+          </>
+        );
+      })()}
+
       {/* Reported Issue */}
       <div style={{ marginBottom: 16 }}>
         <SectionLabel token={token}>Reported Issue</SectionLabel>
@@ -732,7 +758,8 @@ export function EscalationDetailClient({ escalation: escalationProp, escalationI
       <PageHeader left={headerLeft} right={headerActions()} />
 
       <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
-        {/* Title bar under header when not new */}
+        {/* Title bar under header when not new; in create mode the title input
+            sits inside the details card above Reported Issue. */}
         {!isNew && (
           <div style={{ marginBottom: 12 }}>
             {editing ? (

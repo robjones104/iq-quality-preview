@@ -6,7 +6,7 @@ import {
   Button, Card, Table, Tag, Tooltip, Typography, theme,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { CopyableValue } from '@/components/CopyableValue';
+import { JobNoValue } from '@/components/JobNoValue';
 import Link from 'next/link';
 import { orders } from '@/data/orders';
 import { useEffectiveEventMap } from '@/lib/effectiveEvents';
@@ -17,7 +17,7 @@ import { eventStatusTagProps } from '@/components/StatusTag';
 import type { Order, OrderStatus } from '@/data/orders';
 import type { QualityEvent } from '@/data/types';
 
-type OrderRow = Order & Pick<QualityEvent, 'issue' | 'component' | 'door' | 'branch' | 'plant' | 'reportedBy' | 'status'>;
+type OrderRow = Order & Pick<QualityEvent, 'issue' | 'component' | 'door' | 'branch' | 'plant' | 'reportedBy' | 'status' | 'jobNoManualEntry'>;
 
 const buildOrderRow = (o: Order, eventMap: Map<string, QualityEvent>): OrderRow => {
   const event = eventMap.get(o.eventId)!;
@@ -30,6 +30,7 @@ const buildOrderRow = (o: Order, eventMap: Map<string, QualityEvent>): OrderRow 
     plant:       event.plant,
     reportedBy:  event.reportedBy,
     status:      event.status,
+    jobNoManualEntry: event.jobNoManualEntry,
   };
 };
 
@@ -89,7 +90,7 @@ export default function ProcurementPage() {
       key: 'jobNo',
       sorter: (a, b) => a.jobNo.localeCompare(b.jobNo),
       width: 148,
-      render: (jobNo: string) => <CopyableValue value={jobNo} />,
+      render: (jobNo: string, record) => <JobNoValue jobNo={jobNo} manualEntry={record.jobNoManualEntry} />,
     },
     {
       title: 'Issue',

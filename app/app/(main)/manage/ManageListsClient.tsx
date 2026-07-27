@@ -7,16 +7,21 @@ import {
   Button, Card, Grid, Input, Modal, Table, Tabs, Typography, theme,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import {
-  CheckOutlined, CloseOutlined, DeleteFilled, EditFilled,
-  PlusOutlined,
-} from '@ant-design/icons';
+import type { InputRef } from 'antd';
+import { DeleteFilled, EditFilled, PlusOutlined } from '@ant-design/icons';
 import { PageHeader } from '@/components/PageHeader';
 import { useEscalationTypeStore } from '@/store/escalationTypeStore';
+import { useCapabilities } from '@/store/roleStore';
 import { useEffectiveEscalations } from '@/lib/effectiveEscalations';
 import type { QualityEvent } from '@/data/types';
 
 type ManagedListKind = 'root-causes' | 'tags' | 'escalations';
+
+const ADD_LABEL: Record<ManagedListKind, string> = {
+  'root-causes': 'Root Cause',
+  tags: 'Tag',
+  escalations: 'Escalation Type',
+};
 
 const nextId = (prefix: string) => `${prefix}-${Date.now()}`;
 import type { ListItem } from '@/data/manageLists';
@@ -39,6 +44,7 @@ export function ManageListsClient({
 }: Props) {
   const evtMutations = useEventStore(s => s.mutations);
   const events = useMemo(() => eventsProp.map(e => mergeEvent(e, evtMutations[e.id])), [eventsProp, evtMutations]);
+  const caps = useCapabilities();
   const router = useRouter();
   const { token } = theme.useToken();
   const screens = Grid.useBreakpoint();
@@ -54,15 +60,19 @@ export function ManageListsClient({
     setTypes(next);
   };
   const effectiveEscalations = useEffectiveEscalations();
-  const [editingId, setEditingId]   = useState<string | null>(null);
-  const [editingName, setEditingName] = useState('');
   const [addingTo, setAddingTo]     = useState<ManagedListKind | null>(null);
   const [newItemName, setNewItemName] = useState('');
+  const addInputRef = React.useRef<InputRef>(null);
+  const editInputRef = React.useRef<InputRef>(null);
   const [selectedRootCauseKeys, setSelectedRootCauseKeys] = useState<React.Key[]>([]);
   const [selectedTagKeys, setSelectedTagKeys]             = useState<React.Key[]>([]);
   const [selectedEscTypeKeys, setSelectedEscTypeKeys]     = useState<React.Key[]>([]);
 
-  // Delete modals
+  // Edit + delete modals
+  type EditItemTarget = {
+    record: ListItem;
+    setList: React.Dispatch<React.SetStateAction<ListItem[]>>;
+  };
   type DeleteItemTarget = {
     record: ListItem;
     setList: React.Dispatch<React.SetStateAction<ListItem[]>>;
@@ -72,20 +82,26 @@ export function ManageListsClient({
     setList: React.Dispatch<React.SetStateAction<ListItem[]>>;
     setKeys: React.Dispatch<React.SetStateAction<React.Key[]>>;
   };
+  const [editTarget,        setEditTarget]        = useState<EditItemTarget | null>(null);
+  const [editName,          setEditName]          = useState('');
   const [deleteItemTarget,  setDeleteItemTarget]  = useState<DeleteItemTarget | null>(null);
   const [batchDeleteTarget, setBatchDeleteTarget] = useState<BatchDeleteTarget | null>(null);
 
   // ── CRUD ───────────────────────────────────────────────────────────────────
 
-  const saveEdit = (
-    list: ListItem[],
-    setList: React.Dispatch<React.SetStateAction<ListItem[]>>,
-  ) => {
-    setList(list.map(item =>
-      item.id === editingId ? { ...item, name: editingName } : item,
+  const openEdit = (record: ListItem, setList: React.Dispatch<React.SetStateAction<ListItem[]>>) => {
+    setEditTarget({ record, setList });
+    setEditName(record.name);
+  };
+
+  const saveEdit = () => {
+    if (!editTarget || !editName.trim()) return;
+    const { record, setList } = editTarget;
+    setList(prev => prev.map(item =>
+      item.id === record.id ? { ...item, name: editName.trim() } : item,
     ));
-    setEditingId(null);
-    setEditingName('');
+    setEditTarget(null);
+    setEditName('');
   };
 
   const addItem = (type: ManagedListKind) => {
@@ -93,7 +109,7 @@ export function ManageListsClient({
     const newItem: ListItem = {
       id: nextId(type === 'root-causes' ? 'rc' : type === 'tags' ? 'tag' : 'esct'),
       name: newItemName.trim(),
-      createdBy: 'Theron K. Aldwick',
+      createdBy: caps.displayName,
       createdAt: nowDateStr(),
       isSystem: false,
     };
@@ -161,20 +177,9 @@ export function ManageListsClient({
       )}
     >
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {editingId === record.id ? (
-          <Input
-            size="small"
-            value={editingName}
-            onChange={e => setEditingName(e.target.value)}
-            onPressEnter={() => saveEdit(list, setList)}
-            autoFocus
-            onClick={e => e.stopPropagation()}
-          />
-        ) : (
-          <Text style={{ fontWeight: 600, fontSize: token.fontSize, lineHeight: 1.4 }}>
-            {record.name}
-          </Text>
-        )}
+        <Text style={{ fontWeight: 600, fontSize: token.fontSize, lineHeight: 1.4 }}>
+          {record.name}
+        </Text>
 
         <Text type="secondary" style={{ fontSize: token.fontSizeSM, lineHeight: 1.4 }}>
           {eventCount(type, record)} {type === 'escalations' ? 'escalation' : 'event'}{eventCount(type, record) !== 1 ? 's' : ''}
@@ -190,25 +195,12 @@ export function ManageListsClient({
         style={{ display: 'flex', justifyContent: 'flex-end', gap: 4, marginTop: 'auto' }}
         onClick={e => e.stopPropagation()}
       >
-        {editingId === record.id ? (
-          <>
-            <Button size="small" type="text" icon={<CheckOutlined />}
-              style={{ color: token.colorSuccess }}
-              onClick={() => saveEdit(list, setList)} />
-            <Button size="small" type="text" icon={<CloseOutlined />}
-              style={{ color: token.colorTextTertiary }}
-              onClick={() => { setEditingId(null); setEditingName(''); }} />
-          </>
-        ) : (
-          <>
-            <Button size="small" type="text" icon={<EditFilled />}
-              style={{ color: token.colorTextTertiary }}
-              onClick={() => { setEditingId(record.id); setEditingName(record.name); }} />
-            <Button size="small" type="text" icon={<DeleteFilled />}
-              style={{ color: token.colorTextTertiary }}
-              onClick={() => setDeleteItemTarget({ record, setList })} />
-          </>
-        )}
+        <Button size="small" type="text" icon={<EditFilled />}
+          style={{ color: token.colorTextTertiary }}
+          onClick={() => openEdit(record, setList)} />
+        <Button size="small" type="text" icon={<DeleteFilled />}
+          style={{ color: token.colorTextTertiary }}
+          onClick={() => setDeleteItemTarget({ record, setList })} />
       </div>
     </Card>
   );
@@ -225,26 +217,12 @@ export function ManageListsClient({
       dataIndex: 'name',
       key: 'name',
       sorter: (a, b) => a.name.localeCompare(b.name),
-      render: (name: string, record: ListItem) => {
-        if (editingId === record.id) {
-          return (
-            <Input
-              size="small"
-              value={editingName}
-              onChange={e => setEditingName(e.target.value)}
-              onPressEnter={() => saveEdit(list, setList)}
-              autoFocus
-              style={{ width: 200 }}
-            />
-          );
-        }
-        return <Text style={{ fontSize: token.fontSize }}>{name}</Text>;
-      },
+      render: (name: string) => <Text style={{ fontSize: token.fontSize }}>{name}</Text>,
     },
     {
       title: type === 'escalations' ? 'Escalations' : 'Events',
       key: 'events',
-      width: type === 'escalations' ? 100 : 80,
+      width: type === 'escalations' ? 130 : 100,
       sorter: (a, b) => eventCount(type, a) - eventCount(type, b),
       render: (_: unknown, record: ListItem) => (
         <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
@@ -276,63 +254,24 @@ export function ManageListsClient({
       title: '',
       key: 'actions',
       width: 80,
-      render: (_: unknown, record: ListItem) => {
-        if (editingId === record.id) {
-          return (
-            <span style={{ display: 'flex', gap: 4 }}>
-              <Button size="small" type="text" icon={<CheckOutlined />}
-                style={{ color: token.colorSuccess }}
-                onClick={() => saveEdit(list, setList)} />
-              <Button size="small" type="text" icon={<CloseOutlined />}
-                style={{ color: token.colorTextTertiary }}
-                onClick={() => { setEditingId(null); setEditingName(''); }} />
-            </span>
-          );
-        }
-        return (
-          <span style={{ display: 'flex', gap: 4 }}>
-            <Button size="small" type="text" icon={<EditFilled />}
-              style={{ color: token.colorTextTertiary }}
-              onClick={e => {
-                e.stopPropagation();
-                setEditingId(record.id);
-                setEditingName(record.name);
-              }} />
-            <Button size="small" type="text" icon={<DeleteFilled />}
-              style={{ color: token.colorTextTertiary }}
-              onClick={e => {
-                e.stopPropagation();
-                setDeleteItemTarget({ record, setList });
-              }} />
-          </span>
-        );
-      },
+      render: (_: unknown, record: ListItem) => (
+        <span style={{ display: 'flex', gap: 4 }}>
+          <Button size="small" type="text" icon={<EditFilled />}
+            style={{ color: token.colorTextTertiary }}
+            onClick={e => {
+              e.stopPropagation();
+              openEdit(record, setList);
+            }} />
+          <Button size="small" type="text" icon={<DeleteFilled />}
+            style={{ color: token.colorTextTertiary }}
+            onClick={e => {
+              e.stopPropagation();
+              setDeleteItemTarget({ record, setList });
+            }} />
+        </span>
+      ),
     },
   ];
-
-  // ── Add-row UI ─────────────────────────────────────────────────────────────
-
-  const addRowUI = (type: ManagedListKind) =>
-    addingTo === type ? (
-      <div style={{
-        display: 'flex', gap: 8, padding: '8px 0',
-        borderTop: `1px solid ${token.colorBorderSecondary}`,
-      }}>
-        <Input
-          size="small"
-          placeholder={`New ${type === 'root-causes' ? 'root cause' : type === 'tags' ? 'tag' : 'escalation type'}...`}
-          value={newItemName}
-          onChange={e => setNewItemName(e.target.value)}
-          onPressEnter={() => addItem(type)}
-          autoFocus
-          style={{ flex: 1 }}
-        />
-        <Button size="small" type="primary" onClick={() => addItem(type)}>Add</Button>
-        <Button size="small" type="text" onClick={() => { setAddingTo(null); setNewItemName(''); }}>
-          Cancel
-        </Button>
-      </div>
-    ) : null;
 
   // ── Tab content ────────────────────────────────────────────────────────────
 
@@ -377,7 +316,6 @@ export function ManageListsClient({
           />
         </Card>
       )}
-      {addRowUI(type)}
     </div>
   );
 
@@ -442,6 +380,65 @@ export function ManageListsClient({
           />
         </div>
       </div>
+
+      {/* Add item */}
+      <Modal
+        title={addingTo ? `Add ${ADD_LABEL[addingTo]}` : ''}
+        open={addingTo !== null}
+        onCancel={() => { setAddingTo(null); setNewItemName(''); }}
+        destroyOnHidden
+        // The modal's focus trap grabs focus after mount, so the Input's own
+        // autoFocus loses the race; focus it once the open transition settles.
+        afterOpenChange={open => { if (open) addInputRef.current?.focus(); }}
+        width={400}
+        footer={
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <Button onClick={() => { setAddingTo(null); setNewItemName(''); }}>Cancel</Button>
+            <Button
+              type="primary"
+              disabled={!newItemName.trim()}
+              onClick={() => addingTo && addItem(addingTo)}
+            >
+              Add
+            </Button>
+          </div>
+        }
+      >
+        <Input
+          ref={addInputRef}
+          placeholder={addingTo ? `${ADD_LABEL[addingTo]} name` : ''}
+          value={newItemName}
+          onChange={e => setNewItemName(e.target.value)}
+          onPressEnter={() => addingTo && addItem(addingTo)}
+          style={{ margin: '16px 0' }}
+        />
+      </Modal>
+
+      {/* Edit item */}
+      <Modal
+        title={`Edit ${ADD_LABEL[activeTab]}`}
+        open={editTarget !== null}
+        onCancel={() => { setEditTarget(null); setEditName(''); }}
+        destroyOnHidden
+        afterOpenChange={open => { if (open) editInputRef.current?.focus(); }}
+        width={400}
+        footer={
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <Button onClick={() => { setEditTarget(null); setEditName(''); }}>Cancel</Button>
+            <Button type="primary" disabled={!editName.trim()} onClick={saveEdit}>
+              Save
+            </Button>
+          </div>
+        }
+      >
+        <Input
+          ref={editInputRef}
+          value={editName}
+          onChange={e => setEditName(e.target.value)}
+          onPressEnter={saveEdit}
+          style={{ margin: '16px 0' }}
+        />
+      </Modal>
 
       {/* Delete single item */}
       <Modal

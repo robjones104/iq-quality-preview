@@ -118,7 +118,7 @@ Landings: CS starts at `/dashboard?view=orders`, Procurement at `/procurement`, 
 | Roles | `lib/roles.ts` | Includes demo persona names/emails |
 | Time | `lib/appTime.ts` | The only place that defines "now" |
 
-Business rules encoded in the UI worth knowing before schema design: order type derives from `jobNo` prefix (`WO` = Work Order, else Sales Order); DFO LIN / EL LIN are Sales-Order-only fields; Validated events stay enrichable (root cause, tags, photos, attachments) while Invalidated events are fully locked; orders auto-create from parts requests; escalation<->event links are many-to-many.
+Business rules encoded in the UI worth knowing before schema design: order type derives from `jobNo` prefix (`WO` = Work Order, else Sales Order); an order's `jobNo` always equals its linked event's `jobNo`; DFO LIN / EL LIN are Sales-Order-only fields; `QualityEvent.jobNoManualEntry` records that the tech keyed the SO number by hand instead of scanning it (SO-only, captured at submission by the tech's mobile app; the UI flags manual entries ahead of the Job No. as a verify-before-fulfillment cue); Validated events stay enrichable (root cause, tags, photos, attachments) while Invalidated events are fully locked; orders auto-create from parts requests; escalation<->event links are many-to-many; escalation "titles" for reference-number types (CAR, PR, Assist IT) are external system ids, mapped in `escalationTitleMeta` in `data/manageLists.ts`.
 
 ## 5. Demo state and reset
 

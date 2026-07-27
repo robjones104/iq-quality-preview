@@ -567,10 +567,12 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
               />
             </Form.Item>
             <Form.Item label="Escalation" style={{ marginBottom: 10 }}>
-              <Tooltip title={status !== 'Validated' ? 'An event can only be linked to an escalation once it has been validated.' : ''}>
+              {/* Open at any active status (not just Validated): blocking it
+                  pre-validation trains FQ to park CAR numbers in free text. */}
+              <Tooltip title={status === 'Invalidated' ? 'Invalidated events can’t be linked to an escalation.' : ''}>
                 <Select
                   showSearch
-                  disabled={status !== 'Validated' || !roleCanEdit}
+                  disabled={status === 'Invalidated' || !roleCanEdit}
                   value={escalation ?? undefined}
                   placeholder="Link to escalation"
                   optionFilterProp="label"
@@ -628,7 +630,6 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   const mobileActionItems = !roleCanEdit ? [] : [
     ...(status === 'Reported' ? [{ key: 'start-inv', icon: <SearchOutlined />, label: 'Start Investigation', onClick: () => setStartInvOpen(true) }] : []),
     ...(status === 'Validated' || status === 'Invalidated' ? [{ key: 'reopen', icon: <RollbackOutlined />, label: 'Reopen', onClick: () => setReopenEvtOpen(true) }] : []),
-    ...(status === 'Validated' && !escalation ? [{ key: 'escalate', icon: <ExclamationCircleFilled />, label: 'Escalate', onClick: () => setCreateEscOpen(true) }] : []),
     ...(editable ? [
       { type: 'divider' as const },
       { key: 'invalidate', icon: <StopFilled />, label: 'Invalidate', onClick: () => setInvalidateOpen(true) },
@@ -705,11 +706,6 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
               {(status === 'Validated' || status === 'Invalidated') && (
                 <Button type="text" icon={<RollbackOutlined />} onClick={() => setReopenEvtOpen(true)}>
                   Reopen
-                </Button>
-              )}
-              {status === 'Validated' && !escalation && (
-                <Button icon={<ExclamationCircleFilled />} onClick={() => setCreateEscOpen(true)}>
-                  Escalate
                 </Button>
               )}
               {editable && (

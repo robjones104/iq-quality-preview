@@ -16,6 +16,7 @@ import {
   EditFilled, MoreOutlined, PictureFilled, PlusOutlined, RollbackOutlined, SendOutlined,
 } from '@ant-design/icons';
 import { CopyableValue } from '@/components/CopyableValue';
+import { JobNoValue } from '@/components/JobNoValue';
 import { PageHeader } from '@/components/PageHeader';
 import { useInfoRequestThread, InfoRequestThreadPanel } from '@/components/InfoRequestThread';
 import type { Order, OrderPart, OrderStatus } from '@/data/orders';
@@ -606,7 +607,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
                   <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
                     <div>
                       <Text style={{ display: 'block', fontSize: token.fontSizeXS, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: token.colorTextTertiary, marginBottom: 2 }}>Job No</Text>
-                      <CopyableValue value={order.jobNo} />
+                      <JobNoValue jobNo={order.jobNo} manualEntry={event.jobNoManualEntry} />
                     </div>
                     {!order.jobNo.startsWith('WO') && event.elLine != null && (
                       <>

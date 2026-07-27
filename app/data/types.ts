@@ -42,6 +42,9 @@ export interface QualityEvent {
   id: string;
   date: string;
   jobNo: string;
+  // SO job number keyed by hand at submission instead of barcode-scanned.
+  // SO-only; absence means scanned (the normal path). Never set on WOs.
+  jobNoManualEntry?: boolean;
   dfo: number;
   elLine?: number;
   status: EventStatus;

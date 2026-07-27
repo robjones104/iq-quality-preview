@@ -89,6 +89,10 @@ function generateBulkEvents(): QualityEvent[] {
     const orderType  = r() < 0.72 ? 'SO' : 'WO';
     const jobNo   = `${orderType}${200000000 + Math.floor(r() * 13000000)}`;
     const elLine     = orderType === 'SO' ? 1 + Math.floor(r() * 3) : undefined;
+    // ~15% of SOs keyed by hand instead of scanned. Derived from the jobNo's
+    // own digits (not another r() draw) so the PRNG sequence, and with it the
+    // rest of the generated dataset, stays byte-identical.
+    const jobNoManualEntry = orderType === 'SO' && parseInt(jobNo.slice(-2), 10) < 15;
 
     const rootCause: RootCause | null =
       status === 'Validated'
@@ -137,7 +141,7 @@ function generateBulkEvents(): QualityEvent[] {
 
     out.push({
       id:           `QE_${i < 300 ? (2001 + i) : (2403 + (i - 300))}`,
-      date, jobNo, dfo, ...(elLine != null ? { elLine } : {}), status, rootCause,
+      date, jobNo, ...(jobNoManualEntry ? { jobNoManualEntry } : {}), dfo, ...(elLine != null ? { elLine } : {}), status, rootCause,
       branch, plant, component, issue, door,
       issueDescription: `${issue} identified on ${component}. ${branch} branch reported issue with ${door} installation.`,
       assignee, reportedBy, reportedAt,
@@ -195,7 +199,7 @@ const SEED_EVENTS: QualityEvent[] = [
     ],
   },
   {
-    id: 'QE_2385', date: '2026-06-04', jobNo: 'SO109816772', dfo: 1, elLine: 1,
+    id: 'QE_2385', date: '2026-06-04', jobNo: 'SO109816772', jobNoManualEntry: true, dfo: 1, elLine: 1,
     status: 'Validated', rootCause: 'Supplier Issue',
     branch: 'Dallas', plant: 'FAR (Farmington)', component: 'Controller',
     issue: 'Will not Operate', door: 'Dura_Glide 3000 Series',

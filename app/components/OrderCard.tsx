@@ -5,14 +5,16 @@ import { useRouter } from 'next/navigation';
 import { Button, Card, Dropdown, Tag, Tooltip, theme } from 'antd';
 import { MoreOutlined } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
-import { CopyableValue } from './CopyableValue';
+import { JobNoValue } from './JobNoValue';
 import { eventStatusTagProps } from './StatusTag';
 import type { EventStatus } from '@/data/types';
+import type { OrderStatus } from '@/data/orders';
 
 interface OrderCardRow {
   id: string;
   eventId: string;
   jobNo: string;
+  jobNoManualEntry?: boolean;
   branch: string;
   lastUpdated: string;
   issue: string;
@@ -21,7 +23,7 @@ interface OrderCardRow {
 
 interface OrderCardProps {
   row: OrderCardRow;
-  status: 'Open' | 'Closed';
+  status: OrderStatus;
   eventStatus: EventStatus;
   menuItems: MenuProps['items'];
   onAction: (key: string) => void;
@@ -73,7 +75,7 @@ export function OrderCard({ row, status, eventStatus, menuItems, onAction }: Ord
       </div>
 
       <div onClick={e => e.stopPropagation()}>
-        <CopyableValue value={row.jobNo} />
+        <JobNoValue jobNo={row.jobNo} manualEntry={row.jobNoManualEntry} />
       </div>
 
       <div style={{ fontSize: token.fontSizeSM, color: token.colorTextSecondary, lineHeight: 1.4, marginTop: 'auto' }}>
