@@ -1,31 +1,44 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { Button, Card, Table, Tag, Typography, theme } from 'antd';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Button, Card, Segmented, Select, Table, Tag, Typography, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined } from '@ant-design/icons';
 import { PageHeader } from '@/components/PageHeader';
+import { useEffectiveEscalations } from '@/lib/effectiveEscalations';
+import { useEscalationTypeStore } from '@/store/escalationTypeStore';
+import { useCapabilities } from '@/store/roleStore';
 import type { Escalation } from '@/data/escalations';
 
 const { Text } = Typography;
 
-type EventMapEntry = {
-  reportedBy: string;
-  branch: string;
-  component: string;
-};
-
-type Props = {
-  escalations: Escalation[];
-  eventMap: Record<string, EventMapEntry>;
-};
-
-export function EscalationsClient({ escalations, eventMap }: Props) {
+export function EscalationsClient() {
   const router = useRouter();
   const { token } = theme.useToken();
-  const [_eventMap] = useState(eventMap);
+  const caps = useCapabilities();
+  const escalations = useEffectiveEscalations();
+  const managedTypes = useEscalationTypeStore(s => s.types);
+
+  const searchParams = useSearchParams();
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Open' | 'Closed'>('All');
+  const [typeFilter, setTypeFilter] = useState<string | undefined>(searchParams.get('type') ?? undefined);
+
+  // Filter options cover managed types plus any legacy types still on data.
+  const typeOptions = useMemo(() => {
+    const names = new Set<string>(managedTypes.map(t => t.name));
+    escalations.forEach(e => names.add(e.type));
+    return [...names].map(name => ({ value: name, label: name }));
+  }, [managedTypes, escalations]);
+
+  const visible = useMemo(
+    () => escalations.filter(e =>
+      (statusFilter === 'All' || e.status === statusFilter) &&
+      (!typeFilter || e.type === typeFilter)
+    ),
+    [escalations, statusFilter, typeFilter],
+  );
 
   const columns: ColumnsType<Escalation> = [
     {
@@ -122,24 +135,44 @@ export function EscalationsClient({ escalations, eventMap }: Props) {
           </Text>
         }
         right={
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => router.push('/escalations/new')}
-          >
-            New Escalation
-          </Button>
+          caps.editEvents ? (
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => router.push('/escalations/new')}
+            >
+              New Escalation
+            </Button>
+          ) : undefined
         }
       />
 
       <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+          <Segmented
+            options={['All', 'Open', 'Closed']}
+            value={statusFilter}
+            onChange={(v) => setStatusFilter(v as 'All' | 'Open' | 'Closed')}
+          />
+          <Select
+            allowClear
+            placeholder="All types"
+            style={{ minWidth: 220 }}
+            value={typeFilter}
+            onChange={setTypeFilter}
+            options={typeOptions}
+          />
+          <Text type="secondary" style={{ fontSize: token.fontSizeSM, marginLeft: 'auto' }}>
+            {visible.length} escalation{visible.length !== 1 ? 's' : ''}
+          </Text>
+        </div>
         <Card
           size="small"
           styles={{ body: { padding: 0 } }}
         >
           <Table<Escalation>
             columns={columns}
-            dataSource={escalations}
+            dataSource={visible}
             rowKey="id"
             size="small"
             pagination={{ pageSize: 25, size: 'small' }}

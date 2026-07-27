@@ -7,7 +7,7 @@ import { theme, Grid, Button, Drawer, Menu } from 'antd';
 import {
   MenuOutlined, MoonFilled, SunFilled,
   HomeFilled, CalendarFilled, ShoppingFilled, ContainerFilled,
-  DatabaseFilled, UserOutlined, UserSwitchOutlined, EditOutlined, LogoutOutlined,
+  DatabaseFilled, FlagFilled, UserOutlined, UserSwitchOutlined, EditOutlined, LogoutOutlined,
 } from '@ant-design/icons';
 import { useThemeStore } from '@/store/themeStore';
 import { useFilterStore } from '@/store/filterStore';
@@ -57,6 +57,7 @@ export function PageHeader({ left, middle, center, right }: Props) {
     if (pathname.startsWith('/manage'))       return '/manage/root-causes';
     if (pathname.startsWith('/events'))       return '/events';
     if (pathname.startsWith('/orders'))       return '/orders';
+    if (pathname.startsWith('/escalations'))  return '/escalations';
     if (pathname.startsWith('/procurement'))  return '/procurement';
     if (pathname.startsWith('/account'))      return 'edit-password';
     return '';
@@ -66,6 +67,7 @@ export function PageHeader({ left, middle, center, right }: Props) {
     ...(caps.dashboard        ? [{ key: '/dashboard',          icon: <HomeFilled />,      label: <Link href="/dashboard"          onClick={close}>Home</Link> }] : []),
     ...(caps.events           ? [{ key: '/events',             icon: <CalendarFilled />,  label: <Link href={navHref('/events')}  onClick={close}>Events</Link> }] : []),
     ...(caps.orders           ? [{ key: '/orders',             icon: <ShoppingFilled />,  label: <Link href={navHref('/orders')}  onClick={close}>Orders</Link> }] : []),
+    ...(caps.escalations      ? [{ key: '/escalations',        icon: <FlagFilled />,      label: <Link href="/escalations"        onClick={close}>Escalations</Link> }] : []),
     ...(caps.procurementQueue ? [{ key: '/procurement',        icon: <ContainerFilled />, label: <Link href="/procurement"        onClick={close}>Procurement</Link> }] : []),
     ...(caps.categories       ? [{ key: '/manage/root-causes', icon: <DatabaseFilled />,  label: <Link href="/manage/root-causes" onClick={close}>Categories</Link> }] : []),
     { type: 'divider' as const },

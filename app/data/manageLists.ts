@@ -19,9 +19,14 @@ export const DEFAULT_ROOT_CAUSES: ListItem[] = [
   { id: 'rc-10', name: 'Short Shipping',           createdBy: 'System', createdAt: '2026-01-01', isSystem: true },
 ];
 
-export const ESCALATION_TYPE_OPTIONS = [
-  'IT Ticket', 'EH&S', 'Corrective Action Report', 'Problem Report', 'Custom',
-].map(v => ({ value: v, label: v }));
+// Seed escalation types. "Custom" is not a type: creating a new type in
+// Categories > Escalations IS the custom mechanism.
+export const DEFAULT_ESCALATION_TYPES: ListItem[] = [
+  { id: 'esct-1', name: 'Assist IT Ticket',          createdBy: 'System', createdAt: '2026-01-01', isSystem: true },
+  { id: 'esct-2', name: 'EH&S',                      createdBy: 'System', createdAt: '2026-01-01', isSystem: true },
+  { id: 'esct-3', name: 'Corrective Action Report',  createdBy: 'System', createdAt: '2026-01-01', isSystem: true },
+  { id: 'esct-4', name: 'Problem Report',            createdBy: 'System', createdAt: '2026-01-01', isSystem: true },
+];
 
 export const DEFAULT_TAGS: ListItem[] = [
   { id: 'tag-1',  name: 'Urgent',             createdBy: 'System', createdAt: '2026-01-01', isSystem: false },

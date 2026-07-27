@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useEventStore } from '@/store/eventStore';
 import { mergeEvent } from '@/lib/effectiveEvents';
 import { useRouter } from 'next/navigation';
@@ -38,20 +38,19 @@ import {
 import { PageHeader } from '@/components/PageHeader';
 import { CopyableValue } from '@/components/CopyableValue';
 import { nowStampIso } from '@/lib/appTime';
+import { useEscalationStore } from '@/store/escalationStore';
+import { useEscalationTypeStore } from '@/store/escalationTypeStore';
+import { useCapabilities } from '@/store/roleStore';
+import { mergeEscalation } from '@/lib/effectiveEscalations';
 import type { Escalation, EscalationType } from '@/data/escalations';
 import type { QualityEvent } from '@/data/types';
 const { Text, Paragraph } = Typography;
 
-const ESCALATION_TYPE_OPTIONS: { value: EscalationType; label: string }[] = [
-  { value: 'Corrective Action Report', label: 'Corrective Action Report' },
-  { value: 'Problem Report', label: 'Problem Report' },
-  { value: 'IT Ticket', label: 'IT Ticket' },
-  { value: 'EH&S', label: 'EH&S' },
-  { value: 'Custom', label: 'Custom' },
-];
-
 type Props = {
   escalation: Escalation | null;
+  // For ids not in the static data: resolved client-side from the store
+  // (runtime-created escalations under static export).
+  escalationId?: string;
   allEvents: QualityEvent[];
   isNew?: boolean;
 };
@@ -103,11 +102,27 @@ function DisplayField({
   );
 }
 
-export function EscalationDetailClient({ escalation, allEvents: allEventsProp, isNew = false }: Props) {
+export function EscalationDetailClient({ escalation: escalationProp, escalationId, allEvents: allEventsProp, isNew = false }: Props) {
   const evtMutations = useEventStore(s => s.mutations);
+  const patchEvent = useEventStore(s => s.patchEvent);
   const allEvents = useMemo(() => allEventsProp.map(e => mergeEvent(e, evtMutations[e.id])), [allEventsProp, evtMutations]);
+  const escMutations = useEscalationStore(s => s.mutations);
+  const createdEscalations = useEscalationStore(s => s.created);
+  const patchEscalation = useEscalationStore(s => s.patchEscalation);
+  const createEscalationInStore = useEscalationStore(s => s.createEscalation);
+  const managedTypes = useEscalationTypeStore(s => s.types);
+  const caps = useCapabilities();
+  const canEdit = caps.editEvents;
   const router = useRouter();
   const { token } = theme.useToken();
+
+  // Static escalations get the runtime overlay; unknown ids resolve from the
+  // created set (client-side fallback, same pattern as CreatedOrderDetail).
+  const escalation = useMemo(() => {
+    if (escalationProp) return mergeEscalation(escalationProp, escMutations[escalationProp.id]);
+    if (escalationId) return createdEscalations[escalationId] ?? null;
+    return null;
+  }, [escalationProp, escalationId, escMutations, createdEscalations]);
 
   const [title, setTitle] = useState(escalation?.title ?? '');
   const [type, setType] = useState<EscalationType>(escalation?.type ?? 'Problem Report');
@@ -130,6 +145,15 @@ export function EscalationDetailClient({ escalation, allEvents: allEventsProp, i
   const nowTs = () => nowStampIso();
 
   const id = escalation?.id ?? 'New Escalation';
+
+  // View-only roles can browse escalations but not create them.
+  useEffect(() => {
+    if (isNew && !canEdit) router.replace('/escalations');
+  }, [isNew, canEdit, router]);
+
+  if (!isNew && !escalation) {
+    return <div style={{ padding: 32 }}>Escalation not found.</div>;
+  }
 
   // Linked event objects
   const linkedEvents = allEvents.filter((e) => linkedEventIds.includes(e.id));
@@ -164,11 +188,52 @@ export function EscalationDetailClient({ escalation, allEvents: allEventsProp, i
     setEditing(false);
   };
 
+  const syncEventPointers = (escId: string, before: string[], after: string[]) => {
+    after.filter(eid => !before.includes(eid)).forEach(eid => patchEvent(eid, { escalation: escId }));
+    before.filter(eid => !after.includes(eid)).forEach(eid => patchEvent(eid, { escalation: null }));
+  };
+
+  const handleSaveEdit = () => {
+    if (!escalation) return;
+    patchEscalation(escalation.id, {
+      title,
+      type,
+      reportedIssue,
+      rootCause: rootCause.trim() ? rootCause : null,
+      correctionImplemented: correctionImplemented.trim() ? correctionImplemented : null,
+      fieldAction: fieldAction.trim() ? fieldAction : null,
+      eventIds: linkedEventIds,
+      updatedAt: nowTs(),
+    });
+    syncEventPointers(escalation.id, escalation.eventIds, linkedEventIds);
+    setEditing(false);
+  };
+
   const handleCreate = () => {
-    router.push('/escalations');
+    const newId = `ESC_R${Date.now().toString(36).toUpperCase()}`;
+    const ts = nowTs();
+    createEscalationInStore({
+      id: newId,
+      type,
+      title: title.trim(),
+      status: 'Open',
+      reportedIssue: reportedIssue.trim(),
+      rootCause: rootCause.trim() ? rootCause : null,
+      correctionImplemented: correctionImplemented.trim() ? correctionImplemented : null,
+      fieldAction: fieldAction.trim() ? fieldAction : null,
+      eventIds: linkedEventIds,
+      createdBy: caps.displayName,
+      createdAt: ts,
+      updatedAt: ts,
+    });
+    syncEventPointers(newId, [], linkedEventIds);
+    router.push(`/escalations/${newId}`);
   };
 
   const handleCloseSend = () => {
+    if (escalation) {
+      patchEscalation(escalation.id, { status: 'Closed', closedAt: nowTs(), updatedAt: nowTs() });
+    }
     setStatus('Closed');
     setCloseModalOpen(false);
     setCloseMessage('');
@@ -494,9 +559,9 @@ export function EscalationDetailClient({ escalation, allEvents: allEventsProp, i
         isNew ? null : editing ? (
           <Space size={4}>
             <Button type="text" size="small" icon={<CloseOutlined />} onClick={handleCancelEdit}>Cancel</Button>
-            <Button type="primary" size="small" icon={<SaveFilled />} onClick={() => setEditing(false)}>Save</Button>
+            <Button type="primary" size="small" icon={<SaveFilled />} onClick={handleSaveEdit}>Save</Button>
           </Space>
-        ) : status === 'Open' ? (
+        ) : status === 'Open' && canEdit ? (
           <Button type="text" size="small" icon={<EditFilled />} onClick={() => setEditing(true)}>Edit</Button>
         ) : null
       }
@@ -519,7 +584,7 @@ export function EscalationDetailClient({ escalation, allEvents: allEventsProp, i
             onChange={setType}
             size="small"
             style={{ width: '100%' }}
-            options={ESCALATION_TYPE_OPTIONS}
+            options={managedTypes.map(t => ({ value: t.name, label: t.name }))}
           />
         ) : (
           <Text style={{ fontSize: token.fontSizeSM }}>{type}</Text>
@@ -595,12 +660,18 @@ export function EscalationDetailClient({ escalation, allEvents: allEventsProp, i
           <Button type="text" onClick={handleCancelEdit}>
             Cancel
           </Button>
-          <Button type="primary" icon={<CheckOutlined />} onClick={handleCreate}>
+          <Button
+            type="primary"
+            icon={<CheckOutlined />}
+            onClick={handleCreate}
+            disabled={!title.trim() || !reportedIssue.trim() || !type}
+          >
             Create Escalation
           </Button>
         </Space>
       );
     }
+    if (!canEdit) return null;
     if (!editing && status === 'Open') {
       return (
         <Button
@@ -614,7 +685,10 @@ export function EscalationDetailClient({ escalation, allEvents: allEventsProp, i
     }
     if (!editing && status === 'Closed') {
       return (
-        <Button type="primary" onClick={() => setStatus('Open')}>
+        <Button type="primary" onClick={() => {
+          if (escalation) patchEscalation(escalation.id, { status: 'Open', updatedAt: nowTs() });
+          setStatus('Open');
+        }}>
           Reopen
         </Button>
       );

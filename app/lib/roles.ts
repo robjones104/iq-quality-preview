@@ -31,6 +31,7 @@ export interface RoleCapabilities {
   dashboard: boolean;
   events: boolean;           // can view the events list + detail
   orders: boolean;           // can view the orders list + detail
+  escalations: boolean;      // can view the escalations list + detail
   procurementQueue: boolean; // can see the /procurement screen
   categories: boolean;       // can see the Categories (manage) screen
   // Actions
@@ -51,42 +52,42 @@ export interface RoleCapabilities {
 
 const CAPS: Record<Role, RoleCapabilities> = {
   'Full Access': {
-    dashboard: true, events: true, orders: true, procurementQueue: true, categories: true,
+    dashboard: true, events: true, orders: true, escalations: true, procurementQueue: true, categories: true,
     editEvents: true, decideOrders: true, closeOrders: true, manageLists: true,
     branchScoped: false,
     landing: '/dashboard',
     displayName: 'Sophronia T. Aldwick', email: 'sophronia.aldwick@allegion.com',
   },
   'Field Quality': {
-    dashboard: true, events: true, orders: true, procurementQueue: true, categories: true,
+    dashboard: true, events: true, orders: true, escalations: true, procurementQueue: true, categories: true,
     editEvents: true, decideOrders: false, closeOrders: false, manageLists: true,
     branchScoped: false,
     landing: '/dashboard',
     displayName: 'Callum V. Blackswood', email: 'callum.blackswood@allegion.com',
   },
   'Customer Service': {
-    dashboard: true, events: true, orders: true, procurementQueue: true, categories: false,
+    dashboard: true, events: true, orders: true, escalations: false, procurementQueue: true, categories: false,
     editEvents: false, decideOrders: true, closeOrders: true, manageLists: false,
     branchScoped: false,
     landing: '/dashboard?view=orders',
     displayName: 'Theron K. Aldwick', email: 'theron.aldwick@allegion.com',
   },
   'Procurement': {
-    dashboard: true, events: false, orders: true, procurementQueue: true, categories: false,
+    dashboard: true, events: false, orders: true, escalations: false, procurementQueue: true, categories: false,
     editEvents: false, decideOrders: false, closeOrders: true, manageLists: false,
     branchScoped: false,
     landing: '/procurement',
     displayName: 'Ptolemy R. Dunholm', email: 'ptolemy.dunholm@allegion.com',
   },
   'Global (View-Only)': {
-    dashboard: true, events: true, orders: true, procurementQueue: false, categories: false,
+    dashboard: true, events: true, orders: true, escalations: true, procurementQueue: false, categories: false,
     editEvents: false, decideOrders: false, closeOrders: false, manageLists: false,
     branchScoped: false,
     landing: '/dashboard',
     displayName: 'Marchmont R. Fenwick', email: 'marchmont.fenwick@allegion.com',
   },
   'Branch (View-Only)': {
-    dashboard: true, events: true, orders: true, procurementQueue: false, categories: false,
+    dashboard: true, events: true, orders: true, escalations: false, procurementQueue: false, categories: false,
     editEvents: false, decideOrders: false, closeOrders: false, manageLists: false,
     branchScoped: true, assignedBranch: ASSIGNED_BRANCH,
     landing: '/dashboard',

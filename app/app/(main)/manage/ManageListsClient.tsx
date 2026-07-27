@@ -3,9 +3,8 @@ import React, { useMemo, useState } from 'react';
 import { useEventStore } from '@/store/eventStore';
 import { mergeEvent } from '@/lib/effectiveEvents';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import {
-  Button, Card, Grid, Input, Modal, Table, Tabs, Tag, Typography, theme,
+  Button, Card, Grid, Input, Modal, Table, Tabs, Typography, theme,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -13,7 +12,11 @@ import {
   PlusOutlined,
 } from '@ant-design/icons';
 import { PageHeader } from '@/components/PageHeader';
+import { useEscalationTypeStore } from '@/store/escalationTypeStore';
+import { useEffectiveEscalations } from '@/lib/effectiveEscalations';
 import type { QualityEvent } from '@/data/types';
+
+type ManagedListKind = 'root-causes' | 'tags' | 'escalations';
 import type { Escalation } from '@/data/escalations';
 import type { ListItem } from '@/data/manageLists';
 import { nowDateStr } from '@/lib/appTime';
@@ -23,7 +26,6 @@ const { Text } = Typography;
 type Props = {
   defaultTab: 'root-causes' | 'tags' | 'escalations';
   events: QualityEvent[];
-  escalations: Escalation[];
   initialRootCauses: ListItem[];
   initialTags: ListItem[];
 };
@@ -31,7 +33,6 @@ type Props = {
 export function ManageListsClient({
   defaultTab,
   events: eventsProp,
-  escalations,
   initialRootCauses,
   initialTags,
 }: Props) {
@@ -44,13 +45,20 @@ export function ManageListsClient({
   const [activeTab, setActiveTab]   = useState(defaultTab);
   const [rootCauses, setRootCauses] = useState<ListItem[]>(initialRootCauses);
   const [tags, setTags]             = useState<ListItem[]>(initialTags);
-  const [escList, setEscList]       = useState<Escalation[]>(escalations);
+  const escTypes = useEscalationTypeStore(st => st.types);
+  const setEscTypes: React.Dispatch<React.SetStateAction<ListItem[]>> = (updater) => {
+    const prev = useEscalationTypeStore.getState().types;
+    const next = typeof updater === 'function' ? (updater as (p: ListItem[]) => ListItem[])(prev) : updater;
+    useEscalationTypeStore.setState({ types: next });
+  };
+  const effectiveEscalations = useEffectiveEscalations();
   const [editingId, setEditingId]   = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
-  const [addingTo, setAddingTo]     = useState<'root-causes' | 'tags' | null>(null);
+  const [addingTo, setAddingTo]     = useState<ManagedListKind | null>(null);
   const [newItemName, setNewItemName] = useState('');
   const [selectedRootCauseKeys, setSelectedRootCauseKeys] = useState<React.Key[]>([]);
   const [selectedTagKeys, setSelectedTagKeys]             = useState<React.Key[]>([]);
+  const [selectedEscTypeKeys, setSelectedEscTypeKeys]     = useState<React.Key[]>([]);
 
   // Delete modals
   type DeleteItemTarget = {
@@ -64,7 +72,6 @@ export function ManageListsClient({
   };
   const [deleteItemTarget,  setDeleteItemTarget]  = useState<DeleteItemTarget | null>(null);
   const [batchDeleteTarget, setBatchDeleteTarget] = useState<BatchDeleteTarget | null>(null);
-  const [deleteEscTarget,   setDeleteEscTarget]   = useState<Escalation | null>(null);
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -84,25 +91,28 @@ export function ManageListsClient({
     setEditingName('');
   };
 
-  const addItem = (type: 'root-causes' | 'tags') => {
+  const addItem = (type: ManagedListKind) => {
     if (!newItemName.trim()) return;
     const newItem: ListItem = {
-      id: nextId(type === 'root-causes' ? 'rc' : 'tag', type === 'root-causes' ? rootCauses : tags),
+      id: nextId(type === 'root-causes' ? 'rc' : type === 'tags' ? 'tag' : 'esct', rootCauses),
       name: newItemName.trim(),
       createdBy: 'Theron K. Aldwick',
       createdAt: nowDateStr(),
       isSystem: false,
     };
     if (type === 'root-causes') setRootCauses(prev => [...prev, newItem]);
-    else setTags(prev => [...prev, newItem]);
+    else if (type === 'tags') setTags(prev => [...prev, newItem]);
+    else setEscTypes(prev => [...prev, newItem]);
     setNewItemName('');
     setAddingTo(null);
   };
 
-  const eventCount = (type: 'root-causes' | 'tags', record: ListItem) =>
+  const eventCount = (type: ManagedListKind, record: ListItem) =>
     type === 'root-causes'
       ? events.filter(e => e.rootCause === record.name).length
-      : events.filter(e => e.tags?.includes(record.name)).length;
+      : type === 'tags'
+      ? events.filter(e => e.tags?.includes(record.name)).length
+      : effectiveEscalations.filter(esc => esc.type === record.name).length;
 
   const batchToolbar = (
     keys: React.Key[],
@@ -135,7 +145,7 @@ export function ManageListsClient({
   // ── Card renderer (mobile/tablet) ──────────────────────────────────────────
 
   const listItemCard = (
-    type: 'root-causes' | 'tags',
+    type: ManagedListKind,
     record: ListItem,
     list: ListItem[],
     setList: React.Dispatch<React.SetStateAction<ListItem[]>>,
@@ -148,7 +158,9 @@ export function ManageListsClient({
       onClick={() => router.push(
         type === 'root-causes'
           ? `/events?rootCause=${encodeURIComponent(record.name)}`
-          : `/events?tag=${encodeURIComponent(record.name)}`
+          : type === 'tags'
+          ? `/events?tag=${encodeURIComponent(record.name)}`
+          : `/escalations?type=${encodeURIComponent(record.name)}`
       )}
     >
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -168,7 +180,7 @@ export function ManageListsClient({
         )}
 
         <Text type="secondary" style={{ fontSize: token.fontSizeSM, lineHeight: 1.4 }}>
-          {eventCount(type, record)} event{eventCount(type, record) !== 1 ? 's' : ''}
+          {eventCount(type, record)} {type === 'escalations' ? 'escalation' : 'event'}{eventCount(type, record) !== 1 ? 's' : ''}
           {record.isSystem ? ' · System default' : ''}
         </Text>
 
@@ -207,7 +219,7 @@ export function ManageListsClient({
   // ── Column builders ────────────────────────────────────────────────────────
 
   const listColumns = (
-    type: 'root-causes' | 'tags',
+    type: ManagedListKind,
     list: ListItem[],
     setList: React.Dispatch<React.SetStateAction<ListItem[]>>,
   ): ColumnsType<ListItem> => [
@@ -233,9 +245,9 @@ export function ManageListsClient({
       },
     },
     {
-      title: 'Events',
+      title: type === 'escalations' ? 'Escalations' : 'Events',
       key: 'events',
-      width: 80,
+      width: type === 'escalations' ? 100 : 80,
       sorter: (a, b) => eventCount(type, a) - eventCount(type, b),
       render: (_: unknown, record: ListItem) => (
         <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
@@ -301,87 +313,9 @@ export function ManageListsClient({
     },
   ];
 
-  const escalationColumns: ColumnsType<Escalation> = [
-    {
-      title: 'ID',
-      dataIndex: 'id',
-      key: 'id',
-      width: 90,
-      sorter: (a, b) => a.id.localeCompare(b.id),
-      render: (id: string) => (
-        <Link
-          href={`/escalations/${id}`}
-          style={{ fontFamily: 'monospace', fontSize: token.fontSizeSM, color: token.colorPrimary }}
-          onClick={e => e.stopPropagation()}
-        >
-          {id}
-        </Link>
-      ),
-    },
-    {
-      title: 'Title',
-      dataIndex: 'title',
-      key: 'title',
-      ellipsis: true,
-      sorter: (a, b) => a.title.localeCompare(b.title),
-      render: (t: string) => (
-        <Text style={{ fontSize: token.fontSizeSM }} ellipsis>{t}</Text>
-      ),
-    },
-    {
-      title: 'Type',
-      dataIndex: 'type',
-      key: 'type',
-      width: 200,
-      sorter: (a, b) => a.type.localeCompare(b.type),
-      render: (t: string) => (
-        <Tag style={{ fontSize: token.fontSizeSM, margin: 0 }}>{t}</Tag>
-      ),
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      width: 110,
-      align: 'center',
-      sorter: (a, b) => a.status.localeCompare(b.status),
-      render: (s: string) => (
-        <Tag color={s === 'Closed' ? 'green' : 'blue'} style={{ fontSize: token.fontSizeSM, margin: 0 }}>
-          {s}
-        </Tag>
-      ),
-    },
-    {
-      title: 'Events',
-      key: 'events',
-      width: 90,
-      align: 'center',
-      sorter: (a, b) => a.eventIds.length - b.eventIds.length,
-      render: (_: unknown, row: Escalation) => (
-        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>{row.eventIds.length}</Text>
-      ),
-    },
-    {
-      title: '',
-      key: 'actions',
-      width: 90,
-      align: 'right',
-      render: (_: unknown, row: Escalation) => (
-        <span style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
-          <Button size="small" type="text" icon={<EditFilled />}
-            style={{ color: token.colorTextTertiary }}
-            onClick={e => { e.stopPropagation(); router.push(`/escalations/${row.id}`); }} />
-          <Button size="small" type="text" icon={<DeleteFilled />}
-            style={{ color: token.colorTextTertiary }}
-            onClick={e => { e.stopPropagation(); setDeleteEscTarget(row); }} />
-        </span>
-      ),
-    },
-  ];
-
   // ── Add-row UI ─────────────────────────────────────────────────────────────
 
-  const addRowUI = (type: 'root-causes' | 'tags') =>
+  const addRowUI = (type: ManagedListKind) =>
     addingTo === type ? (
       <div style={{
         display: 'flex', gap: 8, padding: '8px 0',
@@ -389,7 +323,7 @@ export function ManageListsClient({
       }}>
         <Input
           size="small"
-          placeholder={`New ${type === 'root-causes' ? 'root cause' : 'tag'}...`}
+          placeholder={`New ${type === 'root-causes' ? 'root cause' : type === 'tags' ? 'tag' : 'escalation type'}...`}
           value={newItemName}
           onChange={e => setNewItemName(e.target.value)}
           onPressEnter={() => addItem(type)}
@@ -406,7 +340,7 @@ export function ManageListsClient({
   // ── Tab content ────────────────────────────────────────────────────────────
 
   const listTabContent = (
-    type: 'root-causes' | 'tags',
+    type: ManagedListKind,
     list: ListItem[],
     setList: React.Dispatch<React.SetStateAction<ListItem[]>>,
     selectedKeys: React.Key[],
@@ -430,14 +364,16 @@ export function ManageListsClient({
             size="small"
             tableLayout="fixed"
             pagination={false}
-            locale={{ emptyText: type === 'root-causes' ? 'No root causes yet.' : 'No tags yet.' }}
+            locale={{ emptyText: type === 'root-causes' ? 'No root causes yet.' : type === 'tags' ? 'No tags yet.' : 'No escalation types yet.' }}
             rowSelection={{ selectedRowKeys: selectedKeys, onChange: setKeys }}
             columns={listColumns(type, list, setList)}
             onRow={record => ({
               onClick: () => router.push(
                 type === 'root-causes'
                   ? `/events?rootCause=${encodeURIComponent(record.name)}`
-                  : `/events?tag=${encodeURIComponent(record.name)}`
+                  : type === 'tags'
+                  ? `/events?tag=${encodeURIComponent(record.name)}`
+                  : `/escalations?type=${encodeURIComponent(record.name)}`
               ),
               style: { cursor: 'pointer' },
             })}
@@ -445,89 +381,6 @@ export function ManageListsClient({
         </Card>
       )}
       {addRowUI(type)}
-    </div>
-  );
-
-  const escalationsTabContent = (
-    <div style={{ display: 'flex', flexDirection: 'column' }}>
-      {screens.xl === false ? (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: screens.md !== false ? 'repeat(2, 1fr)' : '1fr',
-          gap: 12,
-        }}>
-          {escList.map(esc => (
-            <Card
-              key={esc.id}
-              size="small"
-              hoverable
-              style={{ height: '100%' }}
-              styles={{ body: { padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 4 } }}
-              onClick={() => {
-                const ids = esc.eventIds.join(',');
-                router.push(ids ? `/events?ids=${ids}` : '/events');
-              }}
-            >
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                  <Link
-                    href={`/escalations/${esc.id}`}
-                    style={{ fontFamily: 'monospace', fontSize: token.fontSizeSM, color: token.colorPrimary }}
-                    onClick={e => e.stopPropagation()}
-                  >
-                    {esc.id}
-                  </Link>
-                  <Tag
-                    color={esc.status === 'Closed' ? 'green' : 'blue'}
-                    style={{ fontSize: token.fontSizeSM, margin: 0 }}
-                  >
-                    {esc.status}
-                  </Tag>
-                </div>
-
-                <Text style={{ fontSize: token.fontSize, fontWeight: 500, lineHeight: 1.4 }}>
-                  {esc.title}
-                </Text>
-
-                <Text type="secondary" style={{ fontSize: token.fontSizeSM, lineHeight: 1.4 }}>
-                  {esc.type} · {esc.eventIds.length} event{esc.eventIds.length !== 1 ? 's' : ''}
-                </Text>
-              </div>
-
-              <div
-                style={{ display: 'flex', justifyContent: 'flex-end', gap: 4, marginTop: 'auto' }}
-                onClick={e => e.stopPropagation()}
-              >
-                <Button size="small" type="text" icon={<EditFilled />}
-                  style={{ color: token.colorTextTertiary }}
-                  onClick={() => router.push(`/escalations/${esc.id}`)} />
-                <Button size="small" type="text" icon={<DeleteFilled />}
-                  style={{ color: token.colorTextTertiary }}
-                  onClick={() => setDeleteEscTarget(esc)} />
-              </div>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <Card size="small" styles={{ body: { padding: 0 } }}>
-          <Table
-            dataSource={escList}
-            rowKey="id"
-            size="small"
-            tableLayout="fixed"
-            pagination={{ pageSize: 25, size: 'small' }}
-            locale={{ emptyText: 'No escalations yet.' }}
-            columns={escalationColumns}
-            onRow={record => ({
-              onClick: () => {
-                const ids = record.eventIds.join(',');
-                router.push(ids ? `/events?ids=${ids}` : '/events');
-              },
-              style: { cursor: 'pointer' },
-            })}
-          />
-        </Card>
-      )}
     </div>
   );
 
@@ -542,8 +395,8 @@ export function ManageListsClient({
       Add Tag
     </Button>
   ) : (
-    <Button type="primary" icon={<PlusOutlined />} onClick={() => router.push('/escalations/new')}>
-      New Escalation
+    <Button type="primary" icon={<PlusOutlined />} onClick={() => setAddingTo('escalations')}>
+      Add Escalation Type
     </Button>
   );
 
@@ -568,6 +421,7 @@ export function ManageListsClient({
               setActiveTab(key as typeof activeTab);
               setSelectedRootCauseKeys([]);
               setSelectedTagKeys([]);
+              setSelectedEscTypeKeys([]);
             }}
             size="small"
             style={{ flex: 1 }}
@@ -584,8 +438,8 @@ export function ManageListsClient({
               },
               {
                 key: 'escalations',
-                label: `Escalations (${escList.length})`,
-                children: escalationsTabContent,
+                label: `Escalation Types (${escTypes.length})`,
+                children: listTabContent('escalations', escTypes, setEscTypes, selectedEscTypeKeys, setSelectedEscTypeKeys),
               },
             ]}
           />
@@ -645,28 +499,6 @@ export function ManageListsClient({
         </p>
       </Modal>
 
-      {/* Delete escalation */}
-      <Modal
-        title="Remove Escalation"
-        open={deleteEscTarget !== null}
-        onCancel={() => setDeleteEscTarget(null)}
-        footer={
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-            <Button onClick={() => setDeleteEscTarget(null)}>Cancel</Button>
-            <Button danger type="primary" onClick={() => {
-              if (deleteEscTarget) setEscList(prev => prev.filter(e => e.id !== deleteEscTarget.id));
-              setDeleteEscTarget(null);
-            }}>
-              Remove
-            </Button>
-          </div>
-        }
-        width={400}
-      >
-        <p style={{ margin: '16px 0' }}>
-          Remove <strong>{deleteEscTarget?.id}</strong> — {deleteEscTarget?.title}?
-        </p>
-      </Modal>
     </div>
   );
 }

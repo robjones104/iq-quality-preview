@@ -23,9 +23,10 @@ import { StatusTag, STATUS_COLORS } from '@/components/StatusTag';
 import { PageHeader } from '@/components/PageHeader';
 import { logs } from '@/data/logs';
 import { events as allEvents } from '@/data/events';
-import { ESCALATION_TYPE_OPTIONS } from '@/data/manageLists';
 import { ISSUE_OPTIONS, DOOR_OPTIONS, PART_CATALOG, PLANT_OPTIONS, COMPONENT_OPTIONS } from '@/data/filterOptions';
-import { CreateEscalationModal } from '@/components/CreateEscalationModal';
+import { EscalateModal } from '@/components/EscalateModal';
+import { useEffectiveEscalations } from '@/lib/effectiveEscalations';
+import { useEscalationStore } from '@/store/escalationStore';
 import { useInfoRequestThread, InfoRequestThreadPanel } from '@/components/InfoRequestThread';
 import type { QualityEvent, EventStatus, RootCause, ActivityLog } from '@/data/types';
 import { nowDate, nowStampIso, nowStampUs } from '@/lib/appTime';
@@ -37,7 +38,6 @@ const ROOT_CAUSE_OPTIONS = [
   'Training Issue', 'Supplier Issue', 'Engineering Issue', 'Short Shipping',
 ].map(v => ({ value: v, label: v }));
 
-const ESCALATION_OPTIONS = ESCALATION_TYPE_OPTIONS.filter(o => o.value !== 'Custom');
 
 const STATUS_STEP: Record<EventStatus, number> = {
   Reported:              0,
@@ -98,6 +98,9 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   const { mutations: evtMutations, patchEvent, pushActivityLog } = useEventStore();
   const { mutations: orderMutations, createdOrders, createOrder } = useOrderStore();
   const evtStored = evtMutations[event.id] ?? {};
+  const effectiveEscalations = useEffectiveEscalations();
+  const { createEscalation, linkEvent: linkEventToEscalation, unlinkEvent: unlinkEventFromEscalation } = useEscalationStore();
+  const openEscalations = effectiveEscalations.filter(e => e.status === 'Open');
   // Orders created at runtime for this event (parts request on an orderless
   // event). Server only knows static orders, so resolve the link client-side.
   const [runtimeOrderId, setRuntimeOrderId] = useState<string | null>(null);
@@ -149,7 +152,6 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   const [rcConfirmOpen,     setRcConfirmOpen]     = useState(false);
   const [pendingEscalation, setPendingEscalation] = useState<string | null>(null);
   const [escConfirmOpen,    setEscConfirmOpen]    = useState(false);
-  const [escSearch,         setEscSearch]         = useState('');
   const [expandedImg,       setExpandedImg]       = useState<number | null>(null);
   const [analysisDrawerOpen, setAnalysisDrawerOpen] = useState(false);
   const [analysisTab, setAnalysisTab]         = useState<'analysis' | 'messages'>('messages');
@@ -367,6 +369,9 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   // affordance below.
   const locked        = status === 'Validated' || status === 'Invalidated';
   const editable      = roleCanEdit && status !== 'Validated' && status !== 'Invalidated';
+  // Validated events stay open for enrichment: root cause, tags, photos, and
+  // attachments can still be added without reopening. Invalidated stays locked.
+  const canAugment    = editable || (roleCanEdit && status === 'Validated');
   const reopenTarget: EventStatus = 'Under Investigation';
 
   const stepIdx      = STATUS_STEP[status];
@@ -555,25 +560,22 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                   disabled={status !== 'Validated' || !roleCanEdit}
                   value={escalation ?? undefined}
                   placeholder="Link to escalation"
-                  filterOption={false}
-                  onSearch={setEscSearch}
+                  optionFilterProp="label"
                   onChange={(v: string | undefined) => {
-                    if (!v) { setEscalation(null); patchEvent(event.id, { escalation: null }); setEscSearch(''); return; }
-                    const isExisting = ESCALATION_OPTIONS.some(o => o.value === v);
-                    if (!isExisting) { setCreateEscOpen(true); setEscSearch(''); return; }
+                    if (!v) {
+                      if (escalation) {
+                        const target = effectiveEscalations.find(e => e.id === escalation);
+                        unlinkEventFromEscalation(escalation, event.id, target?.eventIds ?? []);
+                        addToActivityLog(`Unlinked from escalation: ${escalation}.`);
+                      }
+                      setEscalation(null);
+                      patchEvent(event.id, { escalation: null });
+                      return;
+                    }
                     setPendingEscalation(v);
                     setEscConfirmOpen(true);
                   }}
-                  options={(() => {
-                    const q = escSearch.toLowerCase();
-                    const matches = q
-                      ? ESCALATION_OPTIONS.filter(o => o.value.toLowerCase().includes(q))
-                      : ESCALATION_OPTIONS;
-                    const hasExact = ESCALATION_OPTIONS.some(o => o.value.toLowerCase() === q);
-                    return q && !hasExact
-                      ? [...matches, { value: escSearch, label: `+ Create "${escSearch}"` }]
-                      : matches;
-                  })()}
+                  options={openEscalations.map(e => ({ value: e.id, label: `${e.id}: ${e.title}` }))}
                   allowClear
                 />
               </Tooltip>
@@ -581,7 +583,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
             <Form.Item label="Tags" style={{ marginBottom: 0 }}>
               <Select
                 mode="tags"
-                disabled={!editable}
+                disabled={!canAugment}
                 value={tags}
                 onChange={(t: string[]) => { setTags(t); patchEvent(event.id, { tags: t }); }}
                 placeholder="Add tags"
@@ -609,7 +611,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   const mobileActionItems = !roleCanEdit ? [] : [
     ...(status === 'Reported' ? [{ key: 'start-inv', icon: <SearchOutlined />, label: 'Start Investigation', onClick: () => setStartInvOpen(true) }] : []),
     ...(status === 'Validated' || status === 'Invalidated' ? [{ key: 'reopen', icon: <RollbackOutlined />, label: 'Reopen', onClick: () => setReopenEvtOpen(true) }] : []),
-    ...(status === 'Validated' && !escalation ? [{ key: 'escalate', icon: <ExclamationCircleFilled />, label: 'Escalate', onClick: () => router.push('/escalations/new') }] : []),
+    ...(status === 'Validated' && !escalation ? [{ key: 'escalate', icon: <ExclamationCircleFilled />, label: 'Escalate', onClick: () => setCreateEscOpen(true) }] : []),
     ...(editable ? [
       { type: 'divider' as const },
       { key: 'invalidate', icon: <StopFilled />, label: 'Invalidate', onClick: () => setInvalidateOpen(true) },
@@ -627,11 +629,34 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
         style={{ display: 'none' }}
         onChange={handlePhotoFilesSelected}
       />
-      <CreateEscalationModal
+      <EscalateModal
         open={createEscOpen}
         onCancel={() => setCreateEscOpen(false)}
-        onSuccess={() => { setCreateEscOpen(false); setEscalation('Custom'); }}
-        eventIds={[event.id]}
+        event={{ id: event.id, issue: event.issue, component: event.component, issueDescription: event.issueDescription }}
+        openEscalations={openEscalations}
+        createdBy={caps.displayName}
+        onCreate={({ type, title, reportedIssue }) => {
+          const id = `ESC_R${Date.now().toString(36).toUpperCase()}`;
+          const ts = nowStampIso();
+          createEscalation({
+            id, type, title, status: 'Open', reportedIssue,
+            rootCause: null, correctionImplemented: null, fieldAction: null,
+            eventIds: [event.id], createdBy: caps.displayName, createdAt: ts, updatedAt: ts,
+          });
+          setEscalation(id);
+          patchEvent(event.id, { escalation: id });
+          addToActivityLog(`Escalated to ${type}: ${id}.`);
+          setCreateEscOpen(false);
+          router.push(`/escalations/${id}`);
+        }}
+        onLink={(escId) => {
+          const target = effectiveEscalations.find(e => e.id === escId);
+          linkEventToEscalation(escId, event.id, target?.eventIds ?? []);
+          setEscalation(escId);
+          patchEvent(event.id, { escalation: escId });
+          addToActivityLog(`Linked to escalation: ${escId}.`);
+          setCreateEscOpen(false);
+        }}
       />
       <PageHeader
         left={
@@ -668,7 +693,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                 </Button>
               )}
               {status === 'Validated' && !escalation && (
-                <Button icon={<ExclamationCircleFilled />} onClick={() => router.push('/escalations/new')}>
+                <Button icon={<ExclamationCircleFilled />} onClick={() => setCreateEscOpen(true)}>
                   Escalate
                 </Button>
               )}
@@ -701,7 +726,9 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
           <Space size={6} style={{ marginTop: 12, flexShrink: 0, color: token.colorTextTertiary }}>
             <LockFilled style={{ fontSize: token.fontSizeSM }} />
             <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary }}>
-              {status} — locked from further edits. Reopen to resume editing.
+              {status === 'Validated'
+                ? 'Validated: core fields are locked, but root cause, tags, photos, and attachments can still be added.'
+                : `${status}: locked from further edits. Reopen to resume editing.`}
             </Text>
           </Space>
         )}
@@ -797,7 +824,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                     </Button>
                   )
                 ) : activeTab === 'photos' ? (
-                  !editable ? null : (
+                  !canAugment ? null : (
                     <Button type="text" size="small" icon={<PlusOutlined />} onClick={() => photoInputRef.current?.click()} />
                   )
                 ) : activeTab === 'attachments' ? null : null
@@ -1219,7 +1246,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                           </div>
                         ))}
                       </div>
-                      {editable && (
+                      {canAugment && (
                         <Button
                           size="small"
                           type="text"
@@ -1286,7 +1313,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                     })()}
                   </Modal>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    {editable && (
+                    {canAugment && (
                       <Upload.Dragger
                         multiple
                         accept=".pdf,.png,.jpg,.jpeg,.csv,.txt,.xlsx,.xls,.doc,.docx,.ppt,.pptx,.eml,.msg"
@@ -1706,14 +1733,17 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
       <Modal
         title="Link Escalation"
         open={escConfirmOpen}
-        onCancel={() => { setEscConfirmOpen(false); setPendingEscalation(null); setEscSearch(''); }}
+        onCancel={() => { setEscConfirmOpen(false); setPendingEscalation(null); }}
         onOk={() => {
+          if (pendingEscalation) {
+            const target = effectiveEscalations.find(e => e.id === pendingEscalation);
+            linkEventToEscalation(pendingEscalation, event.id, target?.eventIds ?? []);
+          }
           setEscalation(pendingEscalation);
           patchEvent(event.id, { escalation: pendingEscalation });
           addToActivityLog(`Linked to escalation: ${pendingEscalation}.`);
           setEscConfirmOpen(false);
           setPendingEscalation(null);
-          setEscSearch('');
         }}
         okText="Confirm"
         okButtonProps={{ type: 'primary' }}

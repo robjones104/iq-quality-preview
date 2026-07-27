@@ -11,6 +11,7 @@ function requiredCapability(pathname: string): keyof RoleCapabilities | null {
   if (pathname.startsWith('/dashboard'))    return 'dashboard';
   if (pathname.startsWith('/events'))       return 'events';
   if (pathname.startsWith('/orders'))       return 'orders';
+  if (pathname.startsWith('/escalations'))  return 'escalations';
   if (pathname.startsWith('/procurement'))  return 'procurementQueue';
   if (pathname.startsWith('/manage'))       return 'categories';
   if (pathname.startsWith('/escalations'))  return 'editEvents';

@@ -1,18 +1,10 @@
-import { escalations } from '@/data/escalations';
-import { events } from '@/data/events';
+import { Suspense } from 'react';
 import { EscalationsClient } from './EscalationsClient';
 
 export default function EscalationsPage() {
-  const eventMap = Object.fromEntries(
-    events.map((e) => [
-      e.id,
-      {
-        reportedBy: e.reportedBy,
-        branch: e.branch,
-        component: e.component,
-      },
-    ])
+  return (
+    <Suspense>
+      <EscalationsClient />
+    </Suspense>
   );
-
-  return <EscalationsClient escalations={escalations} eventMap={eventMap} />;
 }

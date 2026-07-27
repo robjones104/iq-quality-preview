@@ -25,17 +25,12 @@ export default async function EscalationDetailPage({ params }: Props) {
 
   const escalation = escalations.find((e) => e.id === id) ?? null;
 
-  if (!escalation) {
-    return (
-      <div style={{ padding: 32 }}>
-        Escalation not found.
-      </div>
-    );
-  }
-
+  // Unknown ids may be runtime-created escalations (client store); the client
+  // resolves them and renders its own not-found state otherwise.
   return (
     <EscalationDetailClient
       escalation={escalation}
+      escalationId={id}
       allEvents={events}
       isNew={false}
     />

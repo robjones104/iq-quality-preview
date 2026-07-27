@@ -74,12 +74,10 @@ export interface QualityEvent {
   editHistory?: EditHistoryEntry[];
 }
 
-export type EscalationType =
-  | 'IT Ticket'
-  | 'EH&S'
-  | 'Corrective Action Report'
-  | 'Problem Report'
-  | 'Custom';
+// Escalation types are a managed taxonomy (Categories > Escalations), so the
+// type is an open string rather than a fixed union. Seed types live in
+// data/manageLists.ts; runtime additions in store/escalationTypeStore.ts.
+export type EscalationType = string;
 
 export type EscalationStatus = 'Open' | 'Closed';
 

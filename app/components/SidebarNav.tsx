@@ -8,6 +8,7 @@ import {
   ShoppingFilled,
   ContainerFilled,
   DatabaseFilled,
+  FlagFilled,
   UserOutlined,
   UserSwitchOutlined,
   EditOutlined,
@@ -28,6 +29,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ style?: React.CSSProperties
   'Home': HomeFilled,
   'Events': CalendarFilled,
   'Orders': ShoppingFilled,
+  'Escalations': FlagFilled,
   'Procurement': ContainerFilled,
   'Categories': DatabaseFilled,
 };
@@ -54,6 +56,7 @@ export function SidebarNav() {
     ...(caps.dashboard ? [{ href: '/dashboard', label: 'Home' }] : []),
     ...(caps.events ? [{ href: '/events', label: 'Events' }] : []),
     ...(caps.orders ? [{ href: '/orders', label: 'Orders' }] : []),
+    ...(caps.escalations ? [{ href: '/escalations', label: 'Escalations' }] : []),
     ...(caps.procurementQueue ? [{ href: '/procurement', label: 'Procurement' }] : []),
     ...(caps.categories ? [{ href: '/manage/root-causes', label: 'Categories' }] : []),
   ];
