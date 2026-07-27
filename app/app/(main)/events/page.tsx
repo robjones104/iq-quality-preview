@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import dayjs from 'dayjs';
-import { AutoComplete, Input, Pagination, Table, Button, Space, Tag, Typography, Tooltip, theme, Grid } from 'antd';
+import { AutoComplete, Input, Pagination, Table, Button, Tag, Typography, theme, Grid } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { CloseOutlined, SearchOutlined, ArrowLeftOutlined, ExportOutlined } from '@ant-design/icons';
 import { CopyableValue } from '@/components/CopyableValue';
@@ -85,6 +85,8 @@ function EventsPageContent() {
 
   const [selectedEventKeys, setSelectedEventKeys] = useState<string[]>([]);
   const [cardPage, setCardPage] = useState(1);
+  // Reset mobile card pagination when the result set changes.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setCardPage(1); }, [appliedFiltersLocal, dateRange]);
 
   const handleExportEvents = () => {
@@ -128,7 +130,7 @@ function EventsPageContent() {
       ...(matchingEvents.length > 0 ? [{ label: 'Go to Event', options: matchingEvents }] : []),
       ...(filterOpts.length > 0 ? [{ label: 'Filter by', options: filterOpts }] : []),
     ];
-  }, [searchText, events]);
+  }, [searchText, events, token.colorTextTertiary]);
 
   const handleSearchSelect = (value: string) => {
     setSearchText('');

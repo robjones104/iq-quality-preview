@@ -19,10 +19,6 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={montserrat.variable} style={{ height: '100%' }}>
-      <head>
-        {/* eslint-disable-next-line @next/next/no-sync-scripts */}
-        <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
-      </head>
       <body style={{ height: '100%', fontFamily: 'var(--font-montserrat), sans-serif' }}>
         <AntdRegistry><AntdProvider>{children}</AntdProvider></AntdRegistry>
       </body>

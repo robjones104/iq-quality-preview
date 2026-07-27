@@ -1,7 +1,7 @@
 'use client';
 
 import React, { Fragment, Suspense, useEffect, useRef, useMemo, useState } from 'react';
-import { AutoComplete, Button, Card, Col, Flex, Grid, Input, Progress, Row, Segmented, Select, Statistic, Tag, Space, Tooltip, Typography, theme } from 'antd';
+import { AutoComplete, Button, Card, Col, Flex, Grid, Input, Progress, Row, Segmented, Statistic, Tag, Space, Tooltip, theme } from 'antd';
 import {
   CloseOutlined, SearchOutlined, InfoCircleOutlined,
 } from '@ant-design/icons';
@@ -26,7 +26,6 @@ import type { QualityEvent } from '@/data/types';
 import type { Order } from '@/data/orders';
 import type { DateRange } from '@/components/DateRangeFilter';
 
-const { Text } = Typography;
 
 type View = 'events' | 'orders';
 type EventsSection = 'intake' | 'triage';
@@ -163,7 +162,7 @@ function KpiCard({
       <div style={{ minWidth: 0 }}>
         <Statistic
           value={count}
-          valueStyle={{ fontSize: token.fontSizeHeading3, fontWeight: 700, color: token.colorText, lineHeight: 1.2 }}
+          styles={{ content: { fontSize: token.fontSizeHeading3, fontWeight: 700, color: token.colorText, lineHeight: 1.2 } }}
         />
         <div style={{
           fontSize: token.fontSizeSM,
@@ -365,6 +364,9 @@ function DashboardPageContent() {
   // Keep the view in sync when the URL changes while mounted (e.g. the role
   // switcher navigating to /dashboard?view=orders for Customer Service).
   useEffect(() => {
+    // Deliberate URL-to-state sync: the URL is the source of truth for the view
+    // (role landings navigate to /dashboard?view=orders while mounted).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setViewState(searchParams.get('view') === 'orders' ? 'orders' : 'events');
   }, [searchParams]);
   const [eventsSection, setEventsSection] = useState<EventsSection>('triage');
@@ -408,7 +410,7 @@ function DashboardPageContent() {
       ...(matchingOrders.length > 0 ? [{ label: 'Go to Order', options: matchingOrders }] : []),
       ...(filterOpts.length > 0 ? [{ label: 'Filter by', options: filterOpts }] : []),
     ];
-  }, [searchText, events, orders]);
+  }, [searchText, events, orders, token.colorTextTertiary]);
 
   const handleSearchSelect = (value: string) => {
     setSearchText('');
@@ -758,7 +760,6 @@ function DashboardPageContent() {
               {view === 'events' && eventsSection === 'triage' && <TriageReview events={filteredEvents} waitingViewAllHref={buildKpiHref('/events?flag=additionalInfo', dateRange, {})} dataQualityViewAllHref={buildKpiHref('/events?flag=edited', dateRange, {})} />}
               {view === 'orders' && (
                 <OrderFulfillment
-                  events={filteredEvents}
                   orders={filteredOrders}
                   fulfillmentHref={buildKpiHref('/orders?orderStatus=Open', dateRange, {})}
                   declinedHref={buildKpiHref('/orders?decision=Declined', dateRange, {})}

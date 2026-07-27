@@ -9,7 +9,7 @@ import { useCapabilities } from '@/store/roleStore';
 import { orders as allOrders } from '@/data/orders';
 import type { Order } from '@/data/orders';
 import {
-  Button, Card, Col, Divider, Drawer, Dropdown, Form, Grid, Input, InputNumber, List, message, Modal, Radio, Row,
+  Button, Card, Col, Divider, Drawer, Dropdown, Form, Grid, Input, InputNumber, message, Modal, Radio, Row,
   Segmented, Select, Slider, Space, Switch, Table, Tooltip, Typography, Upload, theme,
 } from 'antd';
 import {
@@ -22,13 +22,13 @@ import type { ColumnsType } from 'antd/es/table';
 import { StatusTag, STATUS_COLORS } from '@/components/StatusTag';
 import { PageHeader } from '@/components/PageHeader';
 import { logs } from '@/data/logs';
-import { events as allEvents } from '@/data/events';
 import { ISSUE_OPTIONS, DOOR_OPTIONS, PART_CATALOG, PLANT_OPTIONS, COMPONENT_OPTIONS } from '@/data/filterOptions';
 import { EscalateModal } from '@/components/EscalateModal';
+import { useEffectiveEvents } from '@/lib/effectiveEvents';
 import { useEffectiveEscalations } from '@/lib/effectiveEscalations';
 import { useEscalationStore } from '@/store/escalationStore';
 import { useInfoRequestThread, InfoRequestThreadPanel } from '@/components/InfoRequestThread';
-import type { QualityEvent, EventStatus, RootCause, ActivityLog } from '@/data/types';
+import type { QualityEvent, EventStatus, ActivityLog } from '@/data/types';
 import { nowDate, nowStampIso, nowStampUs } from '@/lib/appTime';
 const { Text, Paragraph } = Typography;
 
@@ -98,6 +98,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   const { mutations: evtMutations, patchEvent, pushActivityLog } = useEventStore();
   const { mutations: orderMutations, createdOrders, createOrder } = useOrderStore();
   const evtStored = evtMutations[event.id] ?? {};
+  const effectiveEvents = useEffectiveEvents();
   const effectiveEscalations = useEffectiveEscalations();
   const { createEscalation, linkEvent: linkEventToEscalation, unlinkEvent: unlinkEventFromEscalation } = useEscalationStore();
   const openEscalations = effectiveEscalations.filter(e => e.status === 'Open');
@@ -121,7 +122,6 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
       ? (evtStored.rootCause ? [evtStored.rootCause] : [])
       : (event.rootCause ? [event.rootCause] : []))
   );
-  const rootCause = rootCauses[0] ?? null;
   const [rootCauseOptions, setRootCauseOptions] = useState(() => {
     const extras = (evtStored.rootCauseOptions ?? []).filter(
       s => !ROOT_CAUSE_OPTIONS.some(b => b.value === s.value)
@@ -400,7 +400,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   const handleGenerateHistorical = () => {
     setLoadingHistorical(true);
     setTimeout(() => {
-      setHistorical(generateHistoricalInsights(event, allEvents));
+      setHistorical(generateHistoricalInsights(event, effectiveEvents));
       setLoadingHistorical(false);
       setInsightsStep('historical');
     }, 1100);
@@ -611,7 +611,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
 
           <Divider style={{ margin: '12px 0' }} />
 
-          <Space direction="vertical" style={{ width: '100%' }} size={8}>
+          <Space orientation="vertical" style={{ width: '100%' }} size={8}>
             <Button block icon={<StarFilled />} loading={loadingInsights} onClick={handleGenerateInsights}>
               Generate AI Insights
             </Button>
@@ -1303,15 +1303,19 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                     title={<Text style={{ fontSize: token.fontSizeSM, fontWeight: 500 }} ellipsis={{ tooltip: previewFile?.name }}>{previewFile?.name}</Text>}
                     width="80vw"
                     styles={{ body: { padding: 0, overflow: 'hidden', borderRadius: token.borderRadiusSM } }}
-                    destroyOnClose
+                    destroyOnHidden
                   >
                     {(() => {
                       if (!previewFile) return null;
                       const ext = previewFile.name.split('.').pop()?.toLowerCase() ?? '';
                       const isImage = ['png','jpg','jpeg'].includes(ext);
                       const isEmbeddable = ['pdf','txt','csv'].includes(ext);
+                      // Runtime blob preview; next/image offers no benefit for object URLs.
                       if (isImage) return (
-                        <img src={previewFile.blobUrl} alt={previewFile.name} style={{ width: '100%', maxHeight: '80vh', objectFit: 'contain', display: 'block' }} />
+                        <>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={previewFile.blobUrl} alt={previewFile.name} style={{ width: '100%', maxHeight: '80vh', objectFit: 'contain', display: 'block' }} />
+                        </>
                       );
                       if (isEmbeddable) return (
                         <iframe src={previewFile.blobUrl} style={{ width: '100%', height: '75vh', border: 'none', display: 'block' }} title={previewFile.name} />
@@ -1389,13 +1393,14 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
               {activeTab === 'log' && (
                 <>
                   {isMobile ? (
-                    <List
-                      dataSource={[...activityLog].reverse()}
-                      rowKey="id"
-                      locale={{ emptyText: 'No activity logged for this event yet.' }}
-                      pagination={{ pageSize: 10, simple: true }}
-                      renderItem={(entry: ActivityLog) => (
-                        <div style={{
+                    <div>
+                      {activityLog.length === 0 && (
+                        <Text type="secondary" style={{ display: 'block', padding: '16px 0', textAlign: 'center', fontSize: token.fontSizeSM }}>
+                          No activity logged for this event yet.
+                        </Text>
+                      )}
+                      {[...activityLog].reverse().map((entry: ActivityLog) => (
+                        <div key={entry.id} style={{
                           padding: '10px 12px',
                           marginBottom: 8,
                           background: token.colorFillQuaternary,
@@ -1419,8 +1424,8 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                             </div>
                           )}
                         </div>
-                      )}
-                    />
+                      ))}
+                    </div>
                   ) : (
                     <Table
                       dataSource={[...activityLog].reverse()}
@@ -1491,7 +1496,6 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
             placement="bottom"
             open={analysisDrawerOpen}
             onClose={() => setAnalysisDrawerOpen(false)}
-            maskClosable
             closable
             title={
               <div

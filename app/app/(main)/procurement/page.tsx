@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import dayjs from 'dayjs';
 import {
-  Button, Card, Table, Tag, Tooltip, Typography, theme, Grid,
+  Button, Card, Table, Tag, Tooltip, Typography, theme,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { CopyableValue } from '@/components/CopyableValue';
@@ -14,11 +14,10 @@ import { PageHeader } from '@/components/PageHeader';
 import { DateRangeFilter, type DateRange } from '@/components/DateRangeFilter';
 import { useOrderStore } from '@/store/orderStore';
 import { eventStatusTagProps } from '@/components/StatusTag';
-import type { Order } from '@/data/orders';
+import type { Order, OrderStatus } from '@/data/orders';
 import type { QualityEvent } from '@/data/types';
 
 type OrderRow = Order & Pick<QualityEvent, 'issue' | 'component' | 'door' | 'branch' | 'plant' | 'reportedBy' | 'status'>;
-type OrderStatus = 'Open' | 'Closed';
 
 const buildOrderRow = (o: Order, eventMap: Map<string, QualityEvent>): OrderRow => {
   const event = eventMap.get(o.eventId)!;
@@ -37,8 +36,6 @@ const buildOrderRow = (o: Order, eventMap: Map<string, QualityEvent>): OrderRow 
 export default function ProcurementPage() {
   const { token } = theme.useToken();
   const isDark = token.colorBgContainer !== '#ffffff';
-  const screens = Grid.useBreakpoint();
-  const isMobile = !screens.md;
 
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
   const [showClosed, setShowClosed] = useState(false);
@@ -53,12 +50,11 @@ export default function ProcurementPage() {
 
   const effectiveStatus = (row: OrderRow): OrderStatus =>
     orderMutations[row.id]?.status ?? (row.orderStatus as OrderStatus);
-  const isAssignedToProcurement = (row: OrderRow): boolean =>
-    orderMutations[row.id]?.assignedToProcurement ?? row.assignedToProcurement ?? false;
 
   const queue = useMemo(() => orderRows.filter(o => {
-    if (!isAssignedToProcurement(o)) return false;
-    if (!showClosed && effectiveStatus(o) !== 'Open') return false;
+    const assigned = orderMutations[o.id]?.assignedToProcurement ?? o.assignedToProcurement ?? false;
+    if (!assigned) return false;
+    if (!showClosed && (orderMutations[o.id]?.status ?? o.orderStatus) !== 'Open') return false;
     if (dateRange) {
       const d = dayjs(o.lastUpdated, 'MM-DD-YYYY HH:mm');
       if (d.isBefore(dateRange[0], 'day') || d.isAfter(dateRange[1], 'day')) return false;
@@ -159,7 +155,7 @@ export default function ProcurementPage() {
       <div style={{ padding: '16px 20px' }}>
         <Card size="small" style={{ marginBottom: 12 }}>
           <Typography.Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
-            Orders assigned to Procurement by Customer Service. Close an order once the replacement has been placed in the ERP, or return it to Customer Service if it can't be fulfilled.
+            Orders assigned to Procurement by Customer Service. Close an order once the replacement has been placed in the ERP, or return it to Customer Service if it can&apos;t be fulfilled.
           </Typography.Text>
         </Card>
         <Table

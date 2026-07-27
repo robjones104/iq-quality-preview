@@ -99,7 +99,6 @@ export function FilterDrawer({ open, onClose, categories, selected, onChange, on
       title="Filter"
       open={open}
       onClose={onClose}
-      width={420}
       footer={
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <Button onClick={onClear} disabled={totalSelected === 0}>
@@ -116,7 +115,7 @@ export function FilterDrawer({ open, onClose, categories, selected, onChange, on
           </Space>
         </div>
       }
-      styles={{ body: { padding: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' } }}
+      styles={{ wrapper: { width: 420 }, body: { padding: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' } }}
     >
       {/* Global search */}
       <div style={{ padding: '12px 16px', borderBottom: `1px solid ${token.colorBorderSecondary}`, flexShrink: 0 }}>

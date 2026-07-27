@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { App, Avatar, Button, Input, List, Tag, Typography, theme } from 'antd';
+import { App, Avatar, Button, Input, Tag, Typography, theme } from 'antd';
 import { MessageFilled, RedoOutlined } from '@ant-design/icons';
 import { useEventStore } from '@/store/eventStore';
 import { nowStampIso } from '@/lib/appTime';
@@ -109,25 +109,23 @@ export function InfoRequestThreadPanel({
           .sort((a, b) => a.sentAt.localeCompare(b.sentAt));
         return (
           <div key={t.id} style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: token.borderRadiusSM, padding: '4px 12px' }}>
-            <List
-              itemLayout="horizontal"
-              dataSource={messages}
-              renderItem={m => {
+            <div>
+              {messages.map(m => {
                 if (m.kind === 'followup') {
                   return (
-                    <List.Item style={{ border: 'none', padding: '6px 0 6px 42px' }}>
+                    <div key={m.id} style={{ padding: '6px 0 6px 42px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <RedoOutlined style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary }} />
                         <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
                           Reminder sent · {m.sentAt}
                         </Text>
                       </div>
-                    </List.Item>
+                    </div>
                   );
                 }
                 const meta = SENDER_META[m.sentBy ?? 'Field Quality'];
                 return (
-                  <List.Item style={{ border: 'none', padding: '10px 0', alignItems: 'flex-start' }}>
+                  <div key={m.id} style={{ padding: '10px 0' }}>
                     <div style={{ display: 'flex', gap: 10, width: '100%' }}>
                       <Avatar size="small" style={{ background: meta.avatarBg, fontSize: token.fontSizeSM, flexShrink: 0, marginTop: 2 }}>
                         {meta.initial}
@@ -149,10 +147,10 @@ export function InfoRequestThreadPanel({
                         <Text style={{ fontSize: token.fontSizeSM, lineHeight: 1.5 }}>{m.text}</Text>
                       </div>
                     </div>
-                  </List.Item>
+                  </div>
                 );
-              }}
-            />
+              })}
+            </div>
           </div>
         );
       })}

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Button, Calendar, DatePicker, Drawer, Grid, Input, Segmented, Select, theme } from 'antd';
 import { CalendarOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
-import dayjs, { type Dayjs } from 'dayjs';
+import type { Dayjs } from 'dayjs';
 import { now as appNow } from '@/lib/appTime';
 
 const { RangePicker } = DatePicker;

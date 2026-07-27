@@ -8,8 +8,8 @@ import { ExportOutlined, InfoCircleOutlined, ShoppingCartOutlined } from '@ant-d
 import Link from 'next/link';
 import dayjs from 'dayjs';
 import { now } from '@/lib/appTime';
-import type { QualityEvent } from '@/data/types';
 import type { Order } from '@/data/orders';
+import type { QualityEvent } from '@/data/types';
 import { useEffectiveEventMap } from '@/lib/effectiveEvents';
 import { Dot } from './CardControls';
 
@@ -127,12 +127,10 @@ function PendingRow({ item, token }: { item: PendingItem; token: ReturnType<type
 }
 
 export function OrderFulfillment({
-  events,
   orders,
   fulfillmentHref = '/orders?orderStatus=Open',
   declinedHref = '/orders?decision=Declined',
 }: {
-  events: QualityEvent[];
   orders: Order[];
   fulfillmentHref?: string;
   declinedHref?: string;
@@ -555,7 +553,7 @@ function DeclinedRow({ item, token }: { item: DeclinedItem; token: ReturnType<ty
   );
 }
 
-function buildDeclinedItems(orders: Order[], eventMap: Map<string, import('@/data/types').QualityEvent>): DeclinedItem[] {
+function buildDeclinedItems(orders: Order[], eventMap: Map<string, QualityEvent>): DeclinedItem[] {
   return orders
     .filter(o => o.declined)
     .map(o => {
@@ -602,7 +600,7 @@ export function DeclinedByBranchChart({ orders, height = 220 }: { orders: Order[
     return Object.entries(counts)
       .sort((a, b) => b[1] - a[1])
       .map(([branch, count]) => ({ branch, count }));
-  }, [orders]);
+  }, [orders, eventMap]);
 
   if (chartData.length === 0) {
     return (

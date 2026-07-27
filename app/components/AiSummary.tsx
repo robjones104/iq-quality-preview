@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Card, List, Skeleton, Tag, Tooltip, Typography, Button, theme } from 'antd';
+import { Card, Skeleton, Tag, Tooltip, Typography, Button, theme } from 'antd';
 import { RobotFilled, ArrowRightOutlined, CaretDownFilled, CaretUpFilled } from '@ant-design/icons';
 import Link from 'next/link';
 import dayjs from 'dayjs';
@@ -213,11 +213,9 @@ export function AiSummary({
           </Paragraph>
 
           {actions.length > 0 && (
-            <List
-              size="small"
-              dataSource={actions}
-              renderItem={(item) => (
-                <List.Item style={{ padding: '5px 0', borderBlockEnd: 'none' }}>
+            <div>
+              {actions.map((item) => (
+                <div key={item.href + item.label} style={{ padding: '5px 0' }}>
                   <Link href={item.href} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', textDecoration: 'none' }}>
                     <Tag
                       color={PRIORITY_TAG[item.priority]}
@@ -228,9 +226,9 @@ export function AiSummary({
                     <Text style={{ fontSize: token.fontSizeSM, flex: 1, color: token.colorText }}>{item.label}</Text>
                     <ArrowRightOutlined style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary, flexShrink: 0 }} />
                   </Link>
-                </List.Item>
-              )}
-            />
+                </div>
+              ))}
+            </div>
           )}
         </>
       )}

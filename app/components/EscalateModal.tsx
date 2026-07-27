@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { Button, Form, Input, Modal, Radio, Select, Typography, theme } from 'antd';
 import { CheckCircleFilled } from '@ant-design/icons';
@@ -40,19 +40,15 @@ export function EscalateModal({ open, onCancel, event, openEscalations, onCreate
   const [typeSearch, setTypeSearch] = useState('');
   const [result, setResult] = useState<{ id: string; linked: boolean } | null>(null);
 
-  // Re-prefill each time the modal opens for a fresh event context.
-  useEffect(() => {
-    if (open) {
-      form.setFieldsValue({
-        type: undefined,
-        title: `${event.issue}: ${event.component}`,
-        reportedIssue: event.issueDescription,
-      });
-      setMode('new');
-      setExistingId(undefined);
-      setResult(null);
-    }
-  }, [open, event.id, event.issue, event.component, event.issueDescription, form]);
+  // destroyOnHidden remounts the Form on each open, so initialValues re-apply;
+  // the remaining modal state resets in handleCancel.
+  const handleCancel = () => {
+    setMode('new');
+    setExistingId(undefined);
+    setTypeSearch('');
+    setResult(null);
+    onCancel();
+  };
 
   const handleOk = () => {
     if (mode === 'existing') {
@@ -73,13 +69,13 @@ export function EscalateModal({ open, onCancel, event, openEscalations, onCreate
       title={result ? null : 'Escalate Event'}
       open={open}
       onOk={handleOk}
-      onCancel={onCancel}
+      onCancel={handleCancel}
       okText={mode === 'new' ? 'Create Escalation' : 'Add to Escalation'}
       okButtonProps={{ disabled: mode === 'existing' && !existingId }}
       footer={result ? null : undefined}
       width={560}
-      maskClosable={false}
-      destroyOnClose
+      mask={{ closable: false }}
+      destroyOnHidden
     >
       {result ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -97,7 +93,7 @@ export function EscalateModal({ open, onCancel, event, openEscalations, onCreate
             <Link href={`/escalations/${result.id}`}>
               <Button>View Escalation</Button>
             </Link>
-            <Button type="primary" onClick={onCancel}>Done</Button>
+            <Button type="primary" onClick={handleCancel}>Done</Button>
           </div>
         </div>
       ) : (
@@ -117,7 +113,15 @@ export function EscalateModal({ open, onCancel, event, openEscalations, onCreate
       />
 
       {mode === 'new' ? (
-        <Form form={form} layout="vertical" size="small">
+        <Form
+          form={form}
+          layout="vertical"
+          size="small"
+          initialValues={{
+            title: `${event.issue}: ${event.component}`,
+            reportedIssue: event.issueDescription,
+          }}
+        >
           <Form.Item name="type" label="Escalation Type" rules={[{ required: true, message: 'Type is required' }]}>
             <Select
               showSearch

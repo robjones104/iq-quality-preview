@@ -1,14 +1,15 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
 
 export function useLargeScreen(threshold = 2400): boolean {
-  const [isLarge, setIsLarge] = useState(false);
-  useEffect(() => {
+  const subscribe = useCallback((onChange: () => void) => {
     const mq = window.matchMedia(`(min-width: ${threshold}px)`);
-    setIsLarge(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setIsLarge(e.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
   }, [threshold]);
-  return isLarge;
+  return useSyncExternalStore(
+    subscribe,
+    () => window.matchMedia(`(min-width: ${threshold}px)`).matches,
+    () => false,
+  );
 }

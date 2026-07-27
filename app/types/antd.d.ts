@@ -1,4 +1,4 @@
-import type { FontMapToken } from 'antd/es/theme/interface/maps/font';
+import 'antd/es/theme/interface/maps/font';
 
 declare module 'antd/es/theme/interface/maps/font' {
   interface FontMapToken {

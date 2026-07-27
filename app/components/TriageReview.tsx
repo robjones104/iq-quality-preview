@@ -263,7 +263,7 @@ export function TriageReview({ events, waitingViewAllHref, dataQualityViewAllHre
                 {/* By Field */}
                 <div>
                   <Text style={{ fontSize: token.fontSizeXS, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: token.colorTextTertiary, display: 'block', marginBottom: 6 }}>
-                    What's Being Changed
+                    What&apos;s Being Changed
                   </Text>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                     {editsByField.map(({ field, count }) => (
@@ -361,7 +361,7 @@ export function DataQualityChart({ events }: { events: QualityEvent[] }) {
       </div>
       <div>
         <Text style={{ fontSize: token.fontSizeXS, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: token.colorTextTertiary, display: 'block', marginBottom: 6 }}>
-          What's Being Changed
+          What&apos;s Being Changed
         </Text>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {editsByField.map(({ field, count }) => (

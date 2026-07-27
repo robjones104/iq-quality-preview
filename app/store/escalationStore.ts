@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Escalation } from '@/data/types';
+import { now } from '@/lib/appTime';
 
 // Runtime escalation state, mirroring the eventStore/orderStore overlay
 // pattern: `mutations` patch static escalations by id, `created` holds
@@ -49,13 +50,13 @@ export const useEscalationStore = create<EscalationStore>()(
         if (currentEventIds.includes(eventId)) return;
         get().patchEscalation(escalationId, {
           eventIds: [...currentEventIds, eventId],
-          updatedAt: new Date().toISOString(),
+          updatedAt: now().toISOString(),
         });
       },
       unlinkEvent: (escalationId, eventId, currentEventIds) => {
         get().patchEscalation(escalationId, {
           eventIds: currentEventIds.filter(id => id !== eventId),
-          updatedAt: new Date().toISOString(),
+          updatedAt: now().toISOString(),
         });
       },
     }),

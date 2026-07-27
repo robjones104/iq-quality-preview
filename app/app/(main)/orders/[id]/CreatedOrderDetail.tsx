@@ -15,6 +15,7 @@ export function CreatedOrderDetail({ id }: { id: string }) {
   // The store rehydrates from localStorage after mount; wait one tick before
   // declaring the order missing.
   const [hydrated, setHydrated] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setHydrated(true); }, []);
 
   const order = createdOrders[id];

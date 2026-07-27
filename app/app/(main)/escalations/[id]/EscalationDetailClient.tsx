@@ -4,16 +4,13 @@ import { useState, useMemo, useEffect } from 'react';
 import { useEventStore } from '@/store/eventStore';
 import { mergeEvent } from '@/lib/effectiveEvents';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import {
   Button,
   Card,
-  Col,
-  Divider,
+    Divider,
   Input,
   Modal,
-  Row,
-  Select,
+    Select,
   Space,
   Tag,
   Typography,
@@ -263,14 +260,18 @@ export function EscalationDetailClient({ escalation: escalationProp, escalationI
         title={<Text style={{ fontSize: token.fontSizeSM, fontWeight: 500 }} ellipsis={{ tooltip: previewFile?.name }}>{previewFile?.name}</Text>}
         width="80vw"
         styles={{ body: { padding: 0, overflow: 'hidden', borderRadius: token.borderRadiusSM } }}
-        destroyOnClose
+        destroyOnHidden
       >
         {(() => {
           if (!previewFile) return null;
           const ext = previewFile.name.split('.').pop()?.toLowerCase() ?? '';
           const isImage = ['png', 'jpg', 'jpeg'].includes(ext);
+          // Runtime blob preview; next/image offers no benefit for object URLs.
           if (isImage) return (
-            <img src={previewFile.blobUrl} alt={previewFile.name} style={{ width: '100%', maxHeight: '80vh', objectFit: 'contain', display: 'block' }} />
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={previewFile.blobUrl} alt={previewFile.name} style={{ width: '100%', maxHeight: '80vh', objectFit: 'contain', display: 'block' }} />
+            </>
           );
           if (ext === 'pdf') return (
             <iframe src={previewFile.blobUrl} style={{ width: '100%', height: '75vh', border: 'none', display: 'block' }} title={previewFile.name} />

@@ -7,8 +7,8 @@ import { mergeEvent } from '@/lib/effectiveEvents';
 import { useOrderStore } from '@/store/orderStore';
 import { useCapabilities } from '@/store/roleStore';
 import {
-  Button, Card, Col, Divider, Dropdown, Form, Grid, Input, InputNumber, List, Modal,
-  Radio, Row, Segmented, Select, Slider, Space, Switch, Table, Tag, Typography, theme,
+  Button, Card, Col, Divider, Dropdown, Form, Grid, Input, InputNumber, Modal,
+  Radio, Row, Segmented, Select, Slider, Switch, Table, Tag, Typography, theme,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -18,13 +18,14 @@ import {
 import { CopyableValue } from '@/components/CopyableValue';
 import { PageHeader } from '@/components/PageHeader';
 import { useInfoRequestThread, InfoRequestThreadPanel } from '@/components/InfoRequestThread';
-import type { Order, OrderPart } from '@/data/orders';
+import type { Order, OrderPart, OrderStatus } from '@/data/orders';
 import type { QualityEvent } from '@/data/types';
 import { DOOR_OPTIONS, PART_CATALOG } from '@/data/filterOptions';
 import { nowStampUs } from '@/lib/appTime';
+import { capabilitiesFor } from '@/lib/roles';
 const { Text } = Typography;
 
-type Status = 'Open' | 'Closed';
+type Status = OrderStatus;
 
 interface LogEntry {
   id: string;
@@ -151,7 +152,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
       id: String(Date.now()),
       timestamp: nowTs(),
       role: role ?? (auto ? 'System' : 'Customer Service'),
-      employee: auto ? 'System' : role === 'Procurement' ? 'Ptolemy R. Dunholm' : 'Theron K. Aldwick',
+      employee: auto ? 'System' : capabilitiesFor(role === 'Procurement' ? 'Procurement' : 'Customer Service').displayName,
       orderStatus: atStatus ?? status,
       submittedStatus: event.status,
       content,
@@ -807,12 +808,14 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
             {activeTab === 'log' && (
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                 {isMobile ? (
-                  <List
-                    dataSource={[...logs].reverse()}
-                    rowKey="id"
-                    locale={{ emptyText: 'No activity logged for this order yet.' }}
-                    renderItem={(entry: LogEntry) => (
-                      <List.Item style={{ padding: '10px 0', alignItems: 'flex-start' }}>
+                  <div>
+                    {logs.length === 0 && (
+                      <Text type="secondary" style={{ display: 'block', padding: '16px 0', textAlign: 'center', fontSize: token.fontSizeSM }}>
+                        No activity logged for this order yet.
+                      </Text>
+                    )}
+                    {[...logs].reverse().map((entry: LogEntry) => (
+                      <div key={entry.id} style={{ padding: '10px 0', borderBlockEnd: `1px solid ${token.colorBorderSecondary}` }}>
                         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 4 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                             <Text style={{ fontSize: token.fontSizeSM, fontWeight: 500, color: entry.auto ? token.colorTextTertiary : token.colorText }}>
@@ -831,9 +834,9 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
                             {entry.content}
                           </Text>
                         </div>
-                      </List.Item>
-                    )}
-                  />
+                      </div>
+                    ))}
+                  </div>
                 ) : (
                   <Table
                     dataSource={[...logs].reverse()}
@@ -1141,7 +1144,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
         ) : (
           <>
             <Text style={{ display: 'block', marginBottom: 12, fontSize: token.fontSize, color: token.colorTextSecondary }}>
-              This order cannot be fulfilled by Procurement (e.g. discontinued parts). Please provide a comment explaining why it's being returned.
+              This order cannot be fulfilled by Procurement (e.g. discontinued parts). Please provide a comment explaining why it&apos;s being returned.
             </Text>
             <Input.TextArea
               placeholder="Reason for returning to Customer Service..."

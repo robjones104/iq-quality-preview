@@ -10,7 +10,7 @@ import type { ColumnsType } from 'antd/es/table';
 import type { MenuProps } from 'antd';
 import {
   CheckCircleFilled, CheckOutlined, CloseCircleFilled, CloseOutlined, ExportOutlined, RollbackOutlined,
-  SearchOutlined, SendOutlined,
+  SearchOutlined,
 } from '@ant-design/icons';
 import { CopyableValue } from '@/components/CopyableValue';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -21,19 +21,17 @@ import { useCapabilities } from '@/store/roleStore';
 import { FilterPanel } from '@/components/FilterPanel';
 import { PageHeader } from '@/components/PageHeader';
 import { DateRangeFilter, type DateRange } from '@/components/DateRangeFilter';
-import { EVENT_FILTER_CATEGORIES } from '@/data/filterOptions';
+import { EVENT_FILTER_CATEGORIES, ORDER_FILTER_CATEGORIES } from '@/data/filterOptions';
 import { useFilterStore } from '@/store/filterStore';
 import { useOrderStore } from '@/store/orderStore';
 import { OrderCard } from '@/components/OrderCard';
 import { eventStatusTagProps } from '@/components/StatusTag';
-import type { Order } from '@/data/orders';
+import type { Order, OrderStatus } from '@/data/orders';
 import type { QualityEvent } from '@/data/types';
 type OrderRow = Order & Pick<QualityEvent, 'issue' | 'component' | 'door' | 'branch' | 'plant' | 'reportedBy' | 'status'>;
-type OrderStatus = 'Open' | 'Closed';
 
 const ORDER_STATUS_FILTER = [
-  { key: 'orderStatus', label: 'Order Status', options: ['Open', 'Closed'] },
-  { key: 'decision',    label: 'Decision',     options: ['Approved', 'Declined', 'Pending'] },
+  ...ORDER_FILTER_CATEGORIES,
   ...EVENT_FILTER_CATEGORIES.map(cat =>
     cat.key === 'status' ? { ...cat, label: 'Event Status' } : cat
   ),
@@ -142,7 +140,7 @@ function OrdersPageContent() {
       ...(matchingOrders.length > 0 ? [{ label: 'Go to Order', options: matchingOrders }] : []),
       ...(filterOpts.length > 0 ? [{ label: 'Filter by', options: filterOpts }] : []),
     ];
-  }, [searchText, orderRows]);
+  }, [searchText, orderRows, token.colorTextTertiary]);
 
   const handleSearchSelect = (value: string) => {
     setSearchText('');
@@ -211,6 +209,8 @@ function OrdersPageContent() {
   const [closeSuccess,      setCloseSuccess]      = useState(false);
   const [reopenSuccess,     setReopenSuccess]     = useState(false);
   const [cardPage, setCardPage] = useState(1);
+  // Reset mobile card pagination when the result set changes.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setCardPage(1); }, [appliedFiltersLocal]);
 
   const handleExportOrders = () => {

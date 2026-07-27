@@ -17,7 +17,8 @@ import { useEffectiveEscalations } from '@/lib/effectiveEscalations';
 import type { QualityEvent } from '@/data/types';
 
 type ManagedListKind = 'root-causes' | 'tags' | 'escalations';
-import type { Escalation } from '@/data/escalations';
+
+const nextId = (prefix: string) => `${prefix}-${Date.now()}`;
 import type { ListItem } from '@/data/manageLists';
 import { nowDateStr } from '@/lib/appTime';
 
@@ -46,10 +47,11 @@ export function ManageListsClient({
   const [rootCauses, setRootCauses] = useState<ListItem[]>(initialRootCauses);
   const [tags, setTags]             = useState<ListItem[]>(initialTags);
   const escTypes = useEscalationTypeStore(st => st.types);
+  // Adapts the store to the setState-shaped setter the generic list CRUD expects.
   const setEscTypes: React.Dispatch<React.SetStateAction<ListItem[]>> = (updater) => {
-    const prev = useEscalationTypeStore.getState().types;
+    const { types: prev, setTypes } = useEscalationTypeStore.getState();
     const next = typeof updater === 'function' ? (updater as (p: ListItem[]) => ListItem[])(prev) : updater;
-    useEscalationTypeStore.setState({ types: next });
+    setTypes(next);
   };
   const effectiveEscalations = useEffectiveEscalations();
   const [editingId, setEditingId]   = useState<string | null>(null);
@@ -73,11 +75,6 @@ export function ManageListsClient({
   const [deleteItemTarget,  setDeleteItemTarget]  = useState<DeleteItemTarget | null>(null);
   const [batchDeleteTarget, setBatchDeleteTarget] = useState<BatchDeleteTarget | null>(null);
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
-
-  const nextId = (_prefix: string, _list: ListItem[]) =>
-    `${_prefix}-${Date.now()}`;
-
   // ── CRUD ───────────────────────────────────────────────────────────────────
 
   const saveEdit = (
@@ -94,7 +91,7 @@ export function ManageListsClient({
   const addItem = (type: ManagedListKind) => {
     if (!newItemName.trim()) return;
     const newItem: ListItem = {
-      id: nextId(type === 'root-causes' ? 'rc' : type === 'tags' ? 'tag' : 'esct', rootCauses),
+      id: nextId(type === 'root-causes' ? 'rc' : type === 'tags' ? 'tag' : 'esct'),
       name: newItemName.trim(),
       createdBy: 'Theron K. Aldwick',
       createdAt: nowDateStr(),
