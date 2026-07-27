@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { App, Avatar, Button, Input, List, Space, Tag, Typography, theme } from 'antd';
+import { App, Avatar, Button, Input, List, Tag, Typography, theme } from 'antd';
 import { MessageFilled, RedoOutlined } from '@ant-design/icons';
 import { useEventStore } from '@/store/eventStore';
 import { nowStampIso } from '@/lib/appTime';
@@ -93,11 +93,11 @@ export function InfoRequestThreadPanel({
   const isOwnLatestThread = !!latestThread && (latestThread.sentBy ?? 'Field Quality') === senderRole;
 
   return (
-    <Space direction="vertical" style={{ width: '100%' }} size={12}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', height: '100%' }}>
       {infoThreads.length === 0 && (
         <div style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          gap: 6, padding: '32px 16px', textAlign: 'center',
+          gap: 6, padding: '16px', textAlign: 'center', flex: 1,
         }}>
           <MessageFilled style={{ fontSize: token.fontSizeHeading2, color: token.colorTextQuaternary }} />
           <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No messages yet</Text>
@@ -193,6 +193,6 @@ export function InfoRequestThreadPanel({
           </Button>
         )
       )}
-    </Space>
+    </div>
   );
 }

@@ -172,7 +172,7 @@ function EventsPageContent() {
     const matchIssue       = !appliedFilters.issue?.length       || appliedFilters.issue.includes(e.issue);
     const matchDoor        = !appliedFilters.door?.length        || appliedFilters.door.includes(e.door);
     const matchComponent   = !appliedFilters.component?.length   || appliedFilters.component.includes(e.component);
-    const matchRootCause   = !appliedFilters.rootCause?.length   || (e.rootCause !== null && appliedFilters.rootCause.includes(e.rootCause));
+    const matchRootCause   = !appliedFilters.rootCause?.length   || (e.rootCauses ?? (e.rootCause ? [e.rootCause] : [])).some(rc => appliedFilters.rootCause.includes(rc));
     const matchBranch      = !appliedFilters.branch?.length      || appliedFilters.branch.includes(e.branch);
     const matchPlant       = !appliedFilters.plant?.length       || appliedFilters.plant.includes(e.plant);
     const matchReportedBy  = !appliedFilters.reportedBy?.length  || appliedFilters.reportedBy.includes(e.reportedBy);
@@ -221,7 +221,7 @@ function EventsPageContent() {
               whiteSpace: 'nowrap',
               marginTop: 2,
             }}>
-              {record.rootCause}
+              {(record.rootCauses?.length ? record.rootCauses.join(', ') : record.rootCause)}
             </div>
           )}
         </div>

@@ -115,9 +115,13 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   const [plantDraft, setPlantDraft]           = useState(plant);
   const [editingComponent, setEditingComponent] = useState(false);
   const [selectedPartIdx, setSelectedPartIdx] = useState(0);
-  const [rootCause, setRootCause]             = useState<string | null>(
-    evtStored.rootCause !== undefined ? evtStored.rootCause : event.rootCause
+  const [rootCauses, setRootCauses]           = useState<string[]>(
+    evtStored.rootCauses ??
+    (evtStored.rootCause !== undefined
+      ? (evtStored.rootCause ? [evtStored.rootCause] : [])
+      : (event.rootCause ? [event.rootCause] : []))
   );
+  const rootCause = rootCauses[0] ?? null;
   const [rootCauseOptions, setRootCauseOptions] = useState(() => {
     const extras = (evtStored.rootCauseOptions ?? []).filter(
       s => !ROOT_CAUSE_OPTIONS.some(b => b.value === s.value)
@@ -148,8 +152,6 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   const [invalidateSuccess, setInvalidateSuccess] = useState(false);
   const [startInvSuccess,   setStartInvSuccess]   = useState(false);
   const [reopenEvtSuccess,  setReopenEvtSuccess]  = useState(false);
-  const [pendingRootCause,  setPendingRootCause]  = useState<string | null>(null);
-  const [rcConfirmOpen,     setRcConfirmOpen]     = useState(false);
   const [pendingEscalation, setPendingEscalation] = useState<string | null>(null);
   const [escConfirmOpen,    setEscConfirmOpen]    = useState(false);
   const [expandedImg,       setExpandedImg]       = useState<number | null>(null);
@@ -175,7 +177,6 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   const isMissingHardware = currentIssue === 'Missing Hardware';
   const isSO              = !currentJobNo.startsWith('WO');
   const [partsState, setPartsState] = useState(evtStored.partsRequest ?? event.partsRequest ?? []);
-  const lastLoggedRootCause = useRef<string | null>(event.rootCause);
   const lastSavedValues = useRef({
     issue:            currentIssue,
     component:        currentComponent,
@@ -390,7 +391,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   const handleGenerateInsights = () => {
     setLoadingInsights(true);
     setTimeout(() => {
-      setInsights(generateInsights(event, rootCause));
+      setInsights(generateInsights(event, rootCauses.join(', ') || null));
       setLoadingInsights(false);
       setInsightsStep('summary');
     }, 900);
@@ -528,16 +529,29 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
           <Form layout="vertical" size="small">
             <Form.Item label="Root Cause" style={{ marginBottom: 10 }}>
               <Select
+                mode="multiple"
                 showSearch
-                disabled={!editable}
-                value={rootCause ?? undefined}
-                placeholder="Select or add root cause..."
+                disabled={!canAugment}
+                value={rootCauses}
+                placeholder="Select or add root causes..."
                 filterOption={false}
                 onSearch={setRcSearch}
-                onChange={(v: string | undefined) => {
-                  if (!v) { setRootCause(null); patchEvent(event.id, { rootCause: null }); setRcSearch(''); return; }
-                  setPendingRootCause(v);
-                  setRcConfirmOpen(true);
+                onChange={(vals: string[]) => {
+                  const added = vals.filter(v => !rootCauses.includes(v));
+                  const removed = rootCauses.filter(v => !vals.includes(v));
+                  // Custom entries (via the create option) join the options list
+                  const newOpts = added.filter(v => !rootCauseOptions.some(o => o.value === v));
+                  if (newOpts.length) {
+                    const updatedOpts = [...rootCauseOptions, ...newOpts.map(v => ({ value: v, label: v }))];
+                    setRootCauseOptions(updatedOpts);
+                    patchEvent(event.id, { rootCauseOptions: updatedOpts.filter(o => !ROOT_CAUSE_OPTIONS.some(r => r.value === o.value)) });
+                  }
+                  if (added.length || removed.length) {
+                    logEditEntry('Root Cause', rootCauses.join(', ') || null, vals.join(', ') || null);
+                  }
+                  setRootCauses(vals);
+                  patchEvent(event.id, { rootCauses: vals, rootCause: vals[0] ?? null });
+                  setRcSearch('');
                 }}
                 options={(() => {
                   const q = rcSearch.toLowerCase();
@@ -550,7 +564,6 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                     : matches;
                 })()}
                 allowClear
-                onClear={() => { setRootCause(null); patchEvent(event.id, { rootCause: null }); setRcSearch(''); }}
               />
             </Form.Item>
             <Form.Item label="Escalation" style={{ marginBottom: 10 }}>
@@ -572,10 +585,14 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                       patchEvent(event.id, { escalation: null });
                       return;
                     }
+                    if (v === '__new__') { setCreateEscOpen(true); return; }
                     setPendingEscalation(v);
                     setEscConfirmOpen(true);
                   }}
-                  options={openEscalations.map(e => ({ value: e.id, label: `${e.id}: ${e.title}` }))}
+                  options={[
+                    { value: '__new__', label: '+ New Escalation...' },
+                    ...openEscalations.map(e => ({ value: e.id, label: `${e.id}: ${e.title}` })),
+                  ]}
                   allowClear
                 />
               </Tooltip>
@@ -646,8 +663,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
           setEscalation(id);
           patchEvent(event.id, { escalation: id });
           addToActivityLog(`Escalated to ${type}: ${id}.`);
-          setCreateEscOpen(false);
-          router.push(`/escalations/${id}`);
+          return id;
         }}
         onLink={(escId) => {
           const target = effectiveEscalations.find(e => e.id === escId);
@@ -655,7 +671,6 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
           setEscalation(escId);
           patchEvent(event.id, { escalation: escId });
           addToActivityLog(`Linked to escalation: ${escId}.`);
-          setCreateEscOpen(false);
         }}
       />
       <PageHeader
@@ -1428,21 +1443,24 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
             </Card>
           </div>
 
-          {/* Right: analysis card — desktop only */}
+          {/* Right: messages + assessment stacked — desktop only */}
           {!isMobile && (
-            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 12, minHeight: 0 }}>
               <Card
                 size="small"
-                tabList={[
-                  { key: 'messages', label: <span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Messages</span> },
-                  { key: 'analysis', label: <span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Assessment</span> },
-                ]}
-                activeTabKey={analysisTab}
-                onTabChange={key => setAnalysisTab(key as 'analysis' | 'messages')}
+                title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Messages</span>}
                 style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
                 styles={{ body: { flex: 1, overflow: 'auto', padding: 16, minHeight: 0 } }}
               >
-                {analysisTab === 'analysis' ? analysisContent : messagesContent}
+                {messagesContent}
+              </Card>
+              <Card
+                size="small"
+                title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Assessment</span>}
+                style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
+                styles={{ body: { flex: 1, overflow: 'auto', padding: 16, minHeight: 0 } }}
+              >
+                {analysisContent}
               </Card>
             </div>
           )}
@@ -1540,7 +1558,16 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
             <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
               {event.id} has been validated. Customer Service and field tech {event.reportedBy} have been notified to proceed with fulfillment.
             </Text>
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <Button
+                icon={<ExclamationCircleFilled />}
+                onClick={() => {
+                  setValidateOpen(false); setValidateNote(''); setValidateSuccess(false);
+                  setCreateEscOpen(true);
+                }}
+              >
+                Escalate
+              </Button>
               <Button type="primary" onClick={() => { setValidateOpen(false); setValidateNote(''); setValidateSuccess(false); }}>Done</Button>
             </div>
           </div>
@@ -1695,38 +1722,6 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
             This will reopen the event and return it to <strong>{reopenTarget}</strong> status.
           </Text>
         )}
-      </Modal>
-
-      {/* ROOT CAUSE CONFIRM MODAL */}
-      <Modal
-        title="Set Root Cause"
-        open={rcConfirmOpen}
-        onCancel={() => { setRcConfirmOpen(false); setPendingRootCause(null); }}
-        onOk={() => {
-          if (!pendingRootCause) return;
-          const next = pendingRootCause;
-          if (next !== lastLoggedRootCause.current) {
-            logEditEntry('Root Cause', lastLoggedRootCause.current, next);
-            lastLoggedRootCause.current = next;
-          }
-          const isNew = !rootCauseOptions.find(o => o.value === next);
-          if (isNew) {
-            const updatedOpts = [...rootCauseOptions, { value: next, label: next }];
-            setRootCauseOptions(updatedOpts);
-            patchEvent(event.id, { rootCauseOptions: updatedOpts.filter(o => !ROOT_CAUSE_OPTIONS.some(r => r.value === o.value)) });
-          }
-          setRootCause(next);
-          patchEvent(event.id, { rootCause: next });
-          setRcSearch('');
-          setRcConfirmOpen(false);
-          setPendingRootCause(null);
-        }}
-        okText="Confirm"
-        okButtonProps={{ type: 'primary' }}
-      >
-        <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
-          Set root cause as <strong>{pendingRootCause}</strong>? This will be logged to the event history.
-        </Text>
       </Modal>
 
       {/* ESCALATION CONFIRM MODAL */}

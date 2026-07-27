@@ -6,6 +6,7 @@ export type EventMutations = {
   status?: EventStatus;
   plant?: string;
   rootCause?: string | null;
+  rootCauses?: string[];
   escalation?: string | null;
   tags?: string[];
   additionalInfoRequested?: boolean;

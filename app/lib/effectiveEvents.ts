@@ -10,12 +10,20 @@ import type { QualityEvent } from '@/data/types';
 // override when set, additionalInfoRequests replaces the static thread once
 // present, editHistory entries are additions appended to the static history.
 export function mergeEvent(e: QualityEvent, m?: EventMutations): QualityEvent {
-  if (!m) return e;
+  // Normalized multi root-cause list; `rootCause` stays as the primary for
+  // single-value consumers (charts, AI summary).
+  const rootCauses =
+    m?.rootCauses ??
+    (m && m.rootCause !== undefined
+      ? (m.rootCause ? [m.rootCause] : [])
+      : e.rootCauses ?? (e.rootCause ? [e.rootCause] : []));
+  if (!m) return { ...e, rootCauses, rootCause: (rootCauses[0] ?? null) as QualityEvent['rootCause'] };
   return {
     ...e,
     status:                  m.status ?? e.status,
     plant:                   m.plant ?? e.plant,
-    rootCause:               m.rootCause !== undefined ? (m.rootCause as QualityEvent['rootCause']) : e.rootCause,
+    rootCauses,
+    rootCause:               (rootCauses[0] ?? null) as QualityEvent['rootCause'],
     issue:                   m.issue ?? e.issue,
     component:               m.component ?? e.component,
     door:                    m.door ?? e.door,

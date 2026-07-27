@@ -45,7 +45,9 @@ export interface QualityEvent {
   dfo: number;
   elLine?: number;
   status: EventStatus;
+  // Primary root cause (first of rootCauses) kept for single-value consumers.
   rootCause: RootCause | null;
+  rootCauses?: string[];
   branch: string;
   plant: string;
   component: string;

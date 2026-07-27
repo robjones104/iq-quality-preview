@@ -109,7 +109,7 @@ export function ManageListsClient({
 
   const eventCount = (type: ManagedListKind, record: ListItem) =>
     type === 'root-causes'
-      ? events.filter(e => e.rootCause === record.name).length
+      ? events.filter(e => (e.rootCauses ?? (e.rootCause ? [e.rootCause] : [])).includes(record.name)).length
       : type === 'tags'
       ? events.filter(e => e.tags?.includes(record.name)).length
       : effectiveEscalations.filter(esc => esc.type === record.name).length;

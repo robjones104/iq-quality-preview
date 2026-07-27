@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Form, Input, Modal, Radio, Select, Typography, theme } from 'antd';
+import Link from 'next/link';
+import { Button, Form, Input, Modal, Radio, Select, Typography, theme } from 'antd';
+import { CheckCircleFilled } from '@ant-design/icons';
 import { useEscalationTypeStore } from '@/store/escalationTypeStore';
 import type { Escalation } from '@/data/types';
 
@@ -17,7 +19,9 @@ interface Props {
   event: { id: string; issue: string; component: string; issueDescription: string };
   // Open escalations the event can be added to (recurrence path)
   openEscalations: Escalation[];
-  onCreate: (payload: EscalateCreatePayload) => void;
+  // Returns the new escalation id; the modal shows an in-place success view
+  // so the user stays on the event.
+  onCreate: (payload: EscalateCreatePayload) => string;
   onLink: (escalationId: string) => void;
   // Recorded as the creator when a new escalation type is added inline.
   createdBy: string;
@@ -34,6 +38,7 @@ export function EscalateModal({ open, onCancel, event, openEscalations, onCreate
   const [form] = Form.useForm();
   const [existingId, setExistingId] = useState<string | undefined>(undefined);
   const [typeSearch, setTypeSearch] = useState('');
+  const [result, setResult] = useState<{ id: string; linked: boolean } | null>(null);
 
   // Re-prefill each time the modal opens for a fresh event context.
   useEffect(() => {
@@ -45,31 +50,58 @@ export function EscalateModal({ open, onCancel, event, openEscalations, onCreate
       });
       setMode('new');
       setExistingId(undefined);
+      setResult(null);
     }
   }, [open, event.id, event.issue, event.component, event.issueDescription, form]);
 
   const handleOk = () => {
     if (mode === 'existing') {
-      if (existingId) onLink(existingId);
+      if (existingId) {
+        onLink(existingId);
+        setResult({ id: existingId, linked: true });
+      }
       return;
     }
     form.validateFields().then(values => {
-      onCreate({ type: values.type, title: values.title.trim(), reportedIssue: values.reportedIssue.trim() });
+      const id = onCreate({ type: values.type, title: values.title.trim(), reportedIssue: values.reportedIssue.trim() });
+      setResult({ id, linked: false });
     });
   };
 
   return (
     <Modal
-      title="Escalate Event"
+      title={result ? null : 'Escalate Event'}
       open={open}
       onOk={handleOk}
       onCancel={onCancel}
       okText={mode === 'new' ? 'Create Escalation' : 'Add to Escalation'}
       okButtonProps={{ disabled: mode === 'existing' && !existingId }}
+      footer={result ? null : undefined}
       width={560}
       maskClosable={false}
       destroyOnClose
     >
+      {result ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: token.fontSize }} />
+            <Text style={{ fontSize: token.fontSize, fontWeight: 600 }}>
+              {result.linked ? 'Added to Escalation' : 'Escalation Created'}
+            </Text>
+          </div>
+          <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
+            {event.id} is now linked to <Text code style={{ fontSize: token.fontSizeSM }}>{result.id}</Text>.
+            You can keep working on this event; the escalation is available anytime from the Escalations screen.
+          </Text>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <Link href={`/escalations/${result.id}`}>
+              <Button>View Escalation</Button>
+            </Link>
+            <Button type="primary" onClick={onCancel}>Done</Button>
+          </div>
+        </div>
+      ) : (
+      <>
       <Text type="secondary" style={{ display: 'block', marginBottom: 12, fontSize: token.fontSizeSM }}>
         {event.id} will be linked to the escalation.
       </Text>
@@ -134,6 +166,8 @@ export function EscalateModal({ open, onCancel, event, openEscalations, onCreate
           }))}
           notFoundContent="No open escalations"
         />
+      )}
+      </>
       )}
     </Modal>
   );

@@ -41,7 +41,7 @@ function applyFilters(list: QualityEvent[], dateRange: DateRange | null, applied
     const matchStatus      = !applied.status?.length      || applied.status.includes(e.status);
     const matchIssue       = !applied.issue?.length       || applied.issue.includes(e.issue);
     const matchComponent   = !applied.component?.length   || applied.component.includes(e.component);
-    const matchRootCause   = !applied.rootCause?.length   || (e.rootCause !== null && applied.rootCause.includes(e.rootCause));
+    const matchRootCause   = !applied.rootCause?.length   || (e.rootCauses ?? (e.rootCause ? [e.rootCause] : [])).some(rc => applied.rootCause.includes(rc));
     const matchBranch      = !applied.branch?.length      || applied.branch.includes(e.branch);
     const matchPlant       = !applied.plant?.length       || applied.plant.includes(e.plant);
     const matchReportedBy  = !applied.reportedBy?.length  || applied.reportedBy.includes(e.reportedBy);
