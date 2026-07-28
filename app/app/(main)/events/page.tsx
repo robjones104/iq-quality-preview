@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { useEffectiveEvents } from '@/lib/effectiveEvents';
 import { useScopedEvents } from '@/lib/useScopedData';
 import { orders } from '@/data/orders';
+import { awaitingTechReply } from '@/components/TechReplyWarning';
 import { StatusTag } from '@/components/StatusTag';
 import { EventCard } from '@/components/EventCard';
 
@@ -166,7 +167,7 @@ function EventsPageContent() {
       const d = dayjs(e.date);
       if (d.isBefore(dateRange[0], 'day') || d.isAfter(dateRange[1], 'day')) return false;
     }
-    if (flagParam === 'additionalInfo' && !e.additionalInfoRequested) return false;
+    if (flagParam === 'additionalInfo' && !awaitingTechReply(e.additionalInfoRequests)) return false;
     if (flagParam === 'edited' && !(e.editHistory && e.editHistory.length > 0)) return false;
     if (tagFilter.length && !tagFilter.some(t => e.tags?.includes(t))) return false;
     if (idsFilter.length && !idsFilter.includes(e.id)) return false;

@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Badge, Button, Card, Col, Row, Tag, Tooltip, Typography, theme } from 'antd';
+import { Button, Card, Col, Row, Tag, Tooltip, Typography, theme } from 'antd';
 import { Column } from '@ant-design/plots';
 import { ExportOutlined, InfoCircleOutlined, ShoppingCartOutlined } from '@ant-design/icons';
 import Link from 'next/link';
@@ -71,14 +71,6 @@ function PendingRow({ item, token }: { item: PendingItem; token: ReturnType<type
       display: 'flex',
       gap: 10,
     }}>
-      <Tooltip
-        title={item.techReplied
-          ? `Tech replied — ${item.commentCount} comment${item.commentCount !== 1 ? 's' : ''}`
-          : `Waiting on tech reply — ${item.commentCount} comment${item.commentCount !== 1 ? 's' : ''}`}
-      >
-        <Badge status={item.techReplied ? 'success' : 'error'} style={{ position: 'absolute', top: -2, left: -2, zIndex: 1 }} />
-      </Tooltip>
-
       {/* Left: ID + parts tag, then branch · component */}
       <div style={{ flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3 }}>
@@ -175,7 +167,7 @@ export function OrderFulfillment({
           techReplied: last?.sentBy === 'Tech',
         };
       })
-      .filter(item => item.commentCount > 0)
+      .filter(item => item.commentCount > 0 && !item.techReplied)
       .sort((a, b) => b.ageDays - a.ageDays),
     [orders, eventMap],
   );
@@ -290,8 +282,8 @@ export function OrderFulfillment({
             size="small"
             title={
               <span style={{ fontSize: token.fontSizeSM, fontWeight: 500, display: 'flex', alignItems: 'center' }}>
-                Pending Information
-                <MetricInfoIcon tooltip="Open orders with info requests attached — the conversation between the office and the field tech." token={token} />
+                Awaiting Response
+                <MetricInfoIcon tooltip="Requests for more information on open orders that the technician has not yet answered. The request may come from Field Quality or Customer Service." token={token} />
               </span>
             }
             extra={
@@ -312,7 +304,7 @@ export function OrderFulfillment({
             {pendingItems.length === 0 ? (
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: token.colorTextTertiary }}>
                 <ShoppingCartOutlined style={{ fontSize: token.fontSizeHeading3 }} />
-                <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No pending orders with open message threads</Text>
+                <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No open orders awaiting a technician response</Text>
               </div>
             ) : (
               visiblePending.map(item => (
@@ -382,7 +374,7 @@ export function PendingCSReviewChart({ orders }: { orders: Order[] }) {
         const last = thread[thread.length - 1];
         return { id: o.id, eventId: o.eventId, jobNo: o.jobNo, branch: ev?.branch ?? '—', component: ev?.component ?? '—', partsCount: o.parts.length, ageDays: TODAY.diff(parseOrderDate(o.lastUpdated), 'day'), commentCount: thread.length, latestComment: last?.text ?? null, techReplied: last?.sentBy === 'Tech' };
       })
-      .filter(item => item.commentCount > 0)
+      .filter(item => item.commentCount > 0 && !item.techReplied)
       .sort((a, b) => b.ageDays - a.ageDays),
     [orders, eventMap]
   );
@@ -392,7 +384,7 @@ export function PendingCSReviewChart({ orders }: { orders: Order[] }) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 160, gap: 8, color: token.colorTextTertiary }}>
         <ShoppingCartOutlined style={{ fontSize: token.fontSizeHeading3 }} />
-        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No pending orders with open message threads</Text>
+        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No open orders awaiting a technician response</Text>
       </div>
     );
   }

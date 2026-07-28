@@ -10,6 +10,7 @@ import { now } from '@/lib/appTime';
 import type { QualityEvent } from '@/data/types';
 import { StatusTag } from '@/components/StatusTag';
 import { ExpandToggle, Dot } from './CardControls';
+import { awaitingTechReply } from './TechReplyWarning';
 
 const { Text, Paragraph } = Typography;
 const TODAY = now();
@@ -103,7 +104,7 @@ export function TriageReview({ events, waitingViewAllHref, dataQualityViewAllHre
 
   const waitingEvents = useMemo(() =>
     events
-      .filter(e => !!e.additionalInfoRequested)
+      .filter(e => awaitingTechReply(e.additionalInfoRequests))
       .sort((a, b) => ageDays(b.date) - ageDays(a.date)),
     [events]
   );
@@ -171,8 +172,8 @@ export function TriageReview({ events, waitingViewAllHref, dataQualityViewAllHre
             size="small"
             title={
               <span style={{ fontSize: token.fontSizeSM, fontWeight: 500, display: 'flex', alignItems: 'center' }}>
-                Pending Information
-                <MetricInfoIcon tooltip="Events waiting on info from the field." token={token} />
+                Awaiting Response
+                <MetricInfoIcon tooltip="Requests for more information that the technician has not yet answered, oldest first. The request may come from Field Quality or Customer Service." token={token} />
               </span>
             }
             extra={
@@ -187,7 +188,7 @@ export function TriageReview({ events, waitingViewAllHref, dataQualityViewAllHre
             {waitingEvents.length === 0 ? (
               <EmptyState
                 icon={<HourglassFilled />}
-                message="No events waiting on tech info"
+                message="No events awaiting a technician response"
               />
             ) : (
               visibleWaiting.map(e => (
@@ -203,8 +204,8 @@ export function TriageReview({ events, waitingViewAllHref, dataQualityViewAllHre
             size="small"
             title={
               <span style={{ fontSize: token.fontSizeSM, fontWeight: 500, display: 'flex', alignItems: 'center' }}>
-                Events Updated by Branch
-                <MetricInfoIcon tooltip="Events cleaned up or edited after submission, by branch." token={token} />
+                Events Updated by Field Quality
+                <MetricInfoIcon tooltip="Events whose details were edited by Field Quality after submission, broken down by branch. Frequent edits can point to unclear submissions from the field." token={token} />
               </span>
             }
             extra={
@@ -238,8 +239,8 @@ export function TriageReview({ events, waitingViewAllHref, dataQualityViewAllHre
                           <div
                             role="button"
                             tabIndex={0}
-                            onClick={() => router.push(`/events?branch=${encodeURIComponent(branch)}`)}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/events?branch=${encodeURIComponent(branch)}`); } }}
+                            onClick={() => router.push(`/events?flag=edited&branch=${encodeURIComponent(branch)}`)}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/events?flag=edited&branch=${encodeURIComponent(branch)}`); } }}
                             aria-label={label}
                             style={{ cursor: 'pointer' }}
                           >
@@ -287,20 +288,20 @@ export function TriageReview({ events, waitingViewAllHref, dataQualityViewAllHre
 export function WaitingOnTechChart({ events }: { events: QualityEvent[] }) {
   const { token } = theme.useToken();
   const waitingEvents = useMemo(() =>
-    events.filter(e => !!e.additionalInfoRequested).sort((a, b) => ageDays(b.date) - ageDays(a.date)),
+    events.filter(e => awaitingTechReply(e.additionalInfoRequests)).sort((a, b) => ageDays(b.date) - ageDays(a.date)),
     [events]
   );
   const preview = waitingEvents.slice(0, 3);
 
   if (waitingEvents.length === 0) {
     return (
-      <EmptyState icon={<HourglassFilled />} message="No events waiting on tech info" />
+      <EmptyState icon={<HourglassFilled />} message="No events awaiting a technician response" />
     );
   }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary, marginBottom: 2 }}>
-        {waitingEvents.length} pending
+        {waitingEvents.length} awaiting
       </div>
       {preview.map(e => <WaitingCard key={e.id} event={e} />)}
     </div>
@@ -347,7 +348,7 @@ export function DataQualityChart({ events }: { events: QualityEvent[] }) {
       <div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {visibleBranches.map(({ branch, count }) => (
-            <div key={branch} role="button" tabIndex={0} onClick={() => router.push(`/events?branch=${encodeURIComponent(branch)}`)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/events?branch=${encodeURIComponent(branch)}`); } }} aria-label={`Filter events by branch: ${branch}`} style={{ cursor: 'pointer' }}>
+            <div key={branch} role="button" tabIndex={0} onClick={() => router.push(`/events?flag=edited&branch=${encodeURIComponent(branch)}`)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/events?flag=edited&branch=${encodeURIComponent(branch)}`); } }} aria-label={`Filter events by branch: ${branch}`} style={{ cursor: 'pointer' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
                 <Text style={{ fontSize: token.fontSizeSM }}>{branch}</Text>
                 <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600 }}>{count}</Text>

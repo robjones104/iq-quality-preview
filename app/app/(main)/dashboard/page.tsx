@@ -17,6 +17,7 @@ import { useEffectiveEvents, useEffectiveEventMap } from '@/lib/effectiveEvents'
 import { orders as allOrders } from '@/data/orders';
 import { useFilterStore } from '@/store/filterStore';
 import { useOrderStore } from '@/store/orderStore';
+import { awaitingTechReply } from '@/components/TechReplyWarning';
 import { useScopedEvents, useScopedOrders } from '@/lib/useScopedData';
 import { AiSummary } from '@/components/AiSummary';
 import { FieldIntake, EventsOverTimeChart, EventsByBranchChart, EventsByIssueChart } from '@/components/FieldIntake';
@@ -489,7 +490,7 @@ function DashboardPageContent() {
 
   const isReported    = (e: QualityEvent) => e.status === 'Reported';
   const isUnderInv    = (e: QualityEvent) => e.status === 'Under Investigation';
-  const isWaiting     = (e: QualityEvent) => !!e.additionalInfoRequested;
+  const isWaiting     = (e: QualityEvent) => awaitingTechReply(e.additionalInfoRequests);
   const isValidated   = (e: QualityEvent) => e.status === 'Validated';
   const isInvalidated = (e: QualityEvent) => e.status === 'Invalidated';
 
@@ -498,8 +499,8 @@ function DashboardPageContent() {
       tooltip: 'Total count of events in the selected time period.', swatch: token.colorText },
     { title: 'Reported',            count: filteredEvents.filter(isReported).length,   prior: prior(isReported),           href: buildKpiHref('/events?status=Reported', dateRange, appliedFilters),
       tooltip: 'Events that have been submitted but have not yet been reviewed or assessed.', swatch: STATUS_COLORS.Reported },
-    { title: 'Pending Information', count: filteredEvents.filter(isWaiting).length,    prior: prior(isWaiting),            href: buildKpiHref('/events?flag=additionalInfo', dateRange, appliedFilters),
-      tooltip: 'Events awaiting requested information from the field.', swatch: '#faad14' },
+    { title: 'Awaiting Response', count: filteredEvents.filter(isWaiting).length,    prior: prior(isWaiting),            href: buildKpiHref('/events?flag=additionalInfo', dateRange, appliedFilters),
+      tooltip: 'More information has been requested from the reporting technician. Counts events where the latest request is still awaiting the technician\u2019s reply.', swatch: '#faad14' },
     { title: 'Under Investigation', count: filteredEvents.filter(isUnderInv).length,    prior: prior(isUnderInv),           href: buildKpiHref('/events?status=Under+Investigation', dateRange, appliedFilters),
       tooltip: 'Events that are actively being reviewed and investigated ahead of a validation decision.', swatch: STATUS_COLORS['Under Investigation'] },
     { title: 'Validated',           count: filteredEvents.filter(isValidated).length,   prior: prior(isValidated),          href: buildKpiHref('/events?status=Validated', dateRange, appliedFilters),
@@ -548,7 +549,7 @@ function DashboardPageContent() {
   // Approved/Declined are decisions (either can later close); Open/Closed is the
   // lifecycle. Decision cards count all orders carrying that decision in range.
   const isNewRequest       = (o: Order) => o.orderStatus === 'Open' && !o.approved && !o.declined;
-  const isPendingInfoOrder = (o: Order) => o.orderStatus === 'Open' && (eventById.get(o.eventId)?.additionalInfoRequests?.length ?? 0) > 0;
+  const isPendingInfoOrder = (o: Order) => o.orderStatus === 'Open' && awaitingTechReply(eventById.get(o.eventId)?.additionalInfoRequests);
   const isApprovedOrder    = (o: Order) => !!o.approved;
   const isDeclinedOrder    = (o: Order) => !!o.declined;
   const isWithProcurement  = (o: Order) => o.orderStatus === 'Open' && !!o.approved && !!o.assignedToProcurement;
@@ -558,8 +559,8 @@ function DashboardPageContent() {
       tooltip: 'Total count of orders in the selected time period.', swatch: token.colorText },
     { title: 'New Requests',        count: filteredOrders.filter(isNewRequest).length,          prior: priorOrder(isNewRequest),      href: buildKpiHref('/orders?orderStatus=Open&decision=Pending', dateRange, {}),
       tooltip: 'Orders that have been submitted but have not yet received an approve or decline decision.', swatch: STATUS_COLORS.Reported },
-    { title: 'Pending Information', count: filteredOrders.filter(isPendingInfoOrder).length,    prior: priorOrder(isPendingInfoOrder), href: buildKpiHref('/orders?flag=info', dateRange, {}),
-      tooltip: 'Orders awaiting requested information from the field.', swatch: '#faad14' },
+    { title: 'Awaiting Response', count: filteredOrders.filter(isPendingInfoOrder).length,    prior: priorOrder(isPendingInfoOrder), href: buildKpiHref('/orders?flag=info', dateRange, {}),
+      tooltip: 'More information has been requested from the technician on the linked event. Counts open orders still awaiting the technician\u2019s reply.', swatch: '#faad14' },
     { title: 'Approved',            count: filteredOrders.filter(isApprovedOrder).length,       prior: priorOrder(isApprovedOrder),   href: buildKpiHref('/orders?decision=Approved', dateRange, {}),
       tooltip: 'Orders that have been approved for parts fulfillment, whether still open or closed.', deltaTone: 'neutral' as const, swatch: STATUS_COLORS.Validated },
     { title: 'Declined',            count: filteredOrders.filter(isDeclinedOrder).length,       prior: priorOrder(isDeclinedOrder),   href: buildKpiHref('/orders?decision=Declined', dateRange, {}),
@@ -680,12 +681,12 @@ function DashboardPageContent() {
                       { title: 'Events by Branch',  content: <EventsByBranchChart events={filteredEvents} height={200} /> },
                       { title: 'By Issue',          content: <EventsByIssueChart events={filteredEvents} height={200} /> },
                     ] : [
-                      { title: 'Pending Information',   content: <WaitingOnTechChart events={filteredEvents} /> },
-                      { title: 'Poor Submissions by Branch', content: <DataQualityChart events={filteredEvents} /> },
+                      { title: 'Awaiting Response',   content: <WaitingOnTechChart events={filteredEvents} /> },
+                      { title: 'Events Updated by Field Quality', content: <DataQualityChart events={filteredEvents} /> },
                     ]
                   ) : (
                     ordersSection === 'fulfillment' ? [
-                      { title: 'Pending Information', content: <PendingCSReviewChart orders={filteredOrders} /> },
+                      { title: 'Awaiting Response', content: <PendingCSReviewChart orders={filteredOrders} /> },
                       { title: 'Decision Trend',     content: <DecisionTrendChart orders={filteredOrders} height={200} /> },
                     ] : [
                       { title: 'Declined Orders',    content: <DeclinedOrdersPreview orders={filteredOrders} /> },
