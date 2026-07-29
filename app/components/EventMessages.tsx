@@ -90,8 +90,8 @@ function MessageRow({ event, snippet, ageDays, hotWhenStale }: {
   );
 }
 
-function CardShell({ title, tooltip, accent, count, viewAllHref, children }: {
-  title: string; tooltip: string; accent: string; count: number; viewAllHref?: string; children: React.ReactNode;
+function CardShell({ title, tooltip, count, viewAllHref, children }: {
+  title: string; tooltip: string; count: number; viewAllHref?: string; children: React.ReactNode;
 }) {
   const { token } = theme.useToken();
   return (
@@ -99,7 +99,6 @@ function CardShell({ title, tooltip, accent, count, viewAllHref, children }: {
       size="small"
       title={
         <span style={{ fontSize: token.fontSizeSM, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span aria-hidden style={{ width: 8, height: 8, borderRadius: 2, background: accent, flexShrink: 0 }} />
           {title}
           <Tooltip title={tooltip}>
             <InfoCircleOutlined style={{ color: token.colorTextTertiary, fontSize: token.fontSizeSM, cursor: 'help' }} />
@@ -142,7 +141,6 @@ export function AwaitingResponseCard({ events, viewAllHref }: { events: QualityE
     <CardShell
       title="Awaiting Response"
       tooltip="Field Quality requests for more information that the technician has not yet answered, oldest first. Requests sent by Customer Service live on the Orders view."
-      accent="#faad14"
       count={waiting.length}
       viewAllHref={viewAllHref}
     >
@@ -176,7 +174,6 @@ export function ResponseReceivedCard({ events, viewAllHref }: { events: QualityE
     <CardShell
       title="Response Received"
       tooltip="The technician has replied to a Field Quality request and the event is waiting on your next step. Newest replies first."
-      accent="#389e0d"
       count={responded.length}
       viewAllHref={viewAllHref}
     >

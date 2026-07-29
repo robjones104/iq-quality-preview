@@ -142,4 +142,10 @@ export const LIGHT_COMPONENT_TOKENS: ThemeConfig['components'] = {
     itemSelectedColor: '#141414',
     itemHoverColor: '#141414',
   },
+  // Mirror of the dark-mode Tooltip pin: tooltips always invert their theme.
+  // Without an explicit bg, antd v6 derives a light spotlight surface here
+  // while the text token stays light-solid white — white on white.
+  Tooltip: {
+    colorBgSpotlight: 'rgba(38, 38, 38, 0.96)',
+  },
 };

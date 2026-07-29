@@ -509,6 +509,103 @@ const SEED_EVENTS: QualityEvent[] = [
   },
 ];
 
+// Message-thread seeds: every conversation state the dashboards distinguish,
+// demonstrable in pristine data. Ownership rule: a request belongs to whoever
+// sent the latest office message (absent sentBy = Field Quality).
+//   QE_2685/2686  tech replied to FQ    -> Events "Response Received"
+//   QE_2687       CS request unanswered -> Orders "Awaiting Response" (CS tag),
+//                                          correctly absent from the Events lanes
+//   QE_2688       tech replied to CS    -> Orders "Response Received"
+const MESSAGE_THREAD_SEEDS: QualityEvent[] = [
+  {
+    id: 'QE_2685', date: '2026-06-06', jobNo: 'SO110029410', dfo: 2, elLine: 1,
+    status: 'Under Investigation', rootCause: null,
+    branch: 'Houston', plant: 'FAR (Farmington)', component: 'Sensors',
+    issue: 'Will not Operate', door: 'IS 10000',
+    issueDescription: 'Activation sensor intermittently fails to detect approach. Door remains closed for some pedestrians.',
+    assignee: 'Callum V. Blackswood', reportedBy: 'Balthazar C. Dunmoor', reportedAt: '2026-06-06T09:12:00',
+    additionalInfoRequested: true,
+    additionalInfoNote: 'Please confirm the sensor model printed on the underside label and whether the lens shows any haze or film.',
+    additionalInfoRequests: [
+      { id: 'air_2685_0', text: 'Please confirm the sensor model printed on the underside label and whether the lens shows any haze or film.', sentAt: '2026-06-06T10:05:00', kind: 'initial' },
+      { id: 'air_2685_1', text: 'Label reads IS10-ACT-4. Lens has a visible film on the left third, looks like overspray from site painting.', sentAt: '2026-06-07T08:15:00', kind: 'reply', relatesTo: 'air_2685_0', sentBy: 'Tech' },
+    ],
+  },
+  {
+    id: 'QE_2686', date: '2026-06-06', jobNo: 'SO110029615', dfo: 1, elLine: 2,
+    status: 'Under Investigation', rootCause: null,
+    branch: 'Chicago', plant: 'MTC (Monterrey)', component: 'Threshold',
+    issue: 'Machining', door: 'Dura_Storm',
+    issueDescription: 'Threshold profile edges rough with visible tooling marks. Tech flagged a trip risk at handover.',
+    assignee: 'Callum V. Blackswood', reportedBy: 'Cressida M. Northcroft', reportedAt: '2026-06-06T11:40:00',
+    additionalInfoRequested: true,
+    additionalInfoNote: 'Can you measure the burr height and send a photo with a scale reference?',
+    additionalInfoRequests: [
+      { id: 'air_2686_0', text: 'Can you measure the burr height and send a photo with a scale reference?', sentAt: '2026-06-06T13:20:00', kind: 'initial' },
+      { id: 'air_2686_1', text: 'Burr measures just over 1mm at the worst point. Photo with caliper attached.', sentAt: '2026-06-06T16:44:00', kind: 'reply', relatesTo: 'air_2686_0', sentBy: 'Tech' },
+    ],
+  },
+  {
+    id: 'QE_2687', date: '2026-06-05', jobNo: 'SO110028902', dfo: 3, elLine: 1,
+    status: 'Under Investigation', rootCause: null,
+    branch: 'Orlando', plant: 'FAR (Farmington)', component: 'Panel',
+    issue: 'Freight Damage', door: 'Procare 8500',
+    issueDescription: 'Lower panel dented on arrival. Replacement requested; packaging photos captured at delivery.',
+    assignee: 'Callum V. Blackswood', reportedBy: 'Oswald M. Fenwick', reportedAt: '2026-06-05T14:25:00',
+    partsRequest: [{
+      partNumber: '414410-2', quantityType: 'Piece', quantity: 1,
+      description: 'Lower panel assembly for Procare 8500.',
+    }],
+    additionalInfoRequested: true,
+    additionalInfoNote: 'Before we approve the replacement panel, can you confirm the delivery site can receive freight on a liftgate truck?',
+    additionalInfoRequests: [
+      { id: 'air_2687_0', text: 'Before we approve the replacement panel, can you confirm the delivery site can receive freight on a liftgate truck?', sentAt: '2026-06-06T09:30:00', kind: 'initial', sentBy: 'Customer Service' },
+    ],
+  },
+  {
+    id: 'QE_2688', date: '2026-06-05', jobNo: 'SO110028655', dfo: 1, elLine: 3,
+    status: 'Under Investigation', rootCause: null,
+    branch: 'Memphis', plant: 'FAR (Farmington)', component: 'Controller',
+    issue: 'Incorrect Build', door: 'Magic Access',
+    issueDescription: 'Controller shipped configured for a swing door profile; unit is a slider. Reconfiguration failed on site.',
+    assignee: 'Callum V. Blackswood', reportedBy: 'Remington J. Dunwall', reportedAt: '2026-06-05T10:05:00',
+    partsRequest: [{
+      partNumber: '430221-1', quantityType: 'Piece', quantity: 1,
+      description: 'Controller PCB assembly preconfigured for Magic Access slider.',
+    }],
+    additionalInfoRequested: true,
+    additionalInfoNote: 'Can you confirm the controller serial and firmware version shown on the boot screen?',
+    additionalInfoRequests: [
+      { id: 'air_2688_0', text: 'Can you confirm the controller serial and firmware version shown on the boot screen?', sentAt: '2026-06-05T15:10:00', kind: 'initial', sentBy: 'Customer Service' },
+      { id: 'air_2688_1', text: 'Serial 88410322-01, firmware 4.2.7. Boot screen photo attached.', sentAt: '2026-06-06T08:50:00', kind: 'reply', relatesTo: 'air_2688_0', sentBy: 'Tech' },
+    ],
+  },
+];
+
+//   QE_2689       tech replied to FQ, event has an open order -> appears on
+//                  BOTH dashboards: Taylor reviews the reply, CS sees the
+//                  FQ-tagged row hinting validation is close.
+const MESSAGE_THREAD_SEEDS_2: QualityEvent[] = [
+  {
+    id: 'QE_2689', date: '2026-06-06', jobNo: 'SO110029120', dfo: 2, elLine: 2,
+    status: 'Under Investigation', rootCause: null,
+    branch: 'Tampa', plant: 'MTC (Monterrey)', component: 'Motor Gearbox',
+    issue: 'Loose Component', door: 'Dura_Glide 5200',
+    issueDescription: 'Gearbox mounting bolts backing out under vibration. Tech re-torqued once; issue recurred within a week.',
+    assignee: 'Callum V. Blackswood', reportedBy: 'Aldric R. Merriwood', reportedAt: '2026-06-06T08:35:00',
+    partsRequest: [{
+      partNumber: '413920-1', quantityType: 'Piece', quantity: 1,
+      description: 'Motor gearbox assembly with thread-locking hardware kit for Dura_Glide 5200.',
+    }],
+    additionalInfoRequested: true,
+    additionalInfoNote: 'Were thread-locking washers present on the original bolts? Photo of a removed bolt would help.',
+    additionalInfoRequests: [
+      { id: 'air_2689_0', text: 'Were thread-locking washers present on the original bolts? Photo of a removed bolt would help.', sentAt: '2026-06-06T09:20:00', kind: 'initial' },
+      { id: 'air_2689_1', text: 'No washers on any of the four bolts, and no thread-locker residue. Photo of two removed bolts attached.', sentAt: '2026-06-06T15:37:00', kind: 'reply', relatesTo: 'air_2689_0', sentBy: 'Tech' },
+    ],
+  },
+];
+
 // Same-SO cluster: one install (SO110030001) reported piecemeal by the same
 // tech. Three events, three auto-created orders, one real fix (a complete
 // door). This is the consolidation demo story.
@@ -552,5 +649,5 @@ const SAME_SO_CLUSTER: QualityEvent[] = [
   },
 ];
 
-export const events: QualityEvent[] = [...SEED_EVENTS, ...SAME_SO_CLUSTER, ...generateBulkEvents()]
+export const events: QualityEvent[] = [...SEED_EVENTS, ...MESSAGE_THREAD_SEEDS, ...MESSAGE_THREAD_SEEDS_2, ...SAME_SO_CLUSTER, ...generateBulkEvents()]
   .sort((a, b) => b.reportedAt.localeCompare(a.reportedAt));

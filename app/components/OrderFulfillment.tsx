@@ -565,69 +565,23 @@ function buildDeclinedItems(orders: Order[], eventMap: Map<string, QualityEvent>
     .sort((a, b) => b.sortTs - a.sortTs);
 }
 
-export function DeclinedByBranchChart({ orders, height = 220 }: { orders: Order[]; height?: number }) {
-  const { token } = theme.useToken();
+export function DeclinedCsvButton({ orders }: { orders: Order[] }) {
   const eventMap = useEffectiveEventMap();
-  const router = useRouter();
-  const isDark = token.colorBgBase === '#000000';
-  const plotTheme = isDark ? 'classicDark' : 'classic';
-  const axisStyle = {
-    labelFill:     token.colorText,
-    labelFontSize: token.fontSizeSM,
-    gridStroke:    token.colorBorderSecondary,
-    gridLineWidth: 1,
-    lineStroke:    token.colorBorderSecondary,
-    lineLineWidth: 1,
-    tickStroke:    token.colorBorderSecondary,
-    tickLineWidth: 1,
-  };
-
-  const chartData = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const o of orders) {
-      if (!o.declined) continue;
-      const branch = eventMap.get(o.eventId)?.branch ?? 'Unknown';
-      counts[branch] = (counts[branch] ?? 0) + 1;
-    }
-    return Object.entries(counts)
-      .sort((a, b) => b[1] - a[1])
-      .map(([branch, count]) => ({ branch, count }));
-  }, [orders, eventMap]);
-
-  if (chartData.length === 0) {
-    return (
-      <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No decline data</Text>
-      </div>
-    );
-  }
-
+  const declinedItems = useMemo(() => buildDeclinedItems(orders, eventMap), [orders, eventMap]);
   return (
-    <Column
-      key={plotTheme}
-      data={chartData}
-      xField="branch"
-      yField="count"
-      color={token.colorError}
-      height={height}
-      theme={plotTheme}
-      label={false}
-      interaction={{ elementHighlight: true }}
-      state={{ active: { opacity: 1 }, inactive: { opacity: 0.15 } }}
-      axis={{
-        x: {
-          ...axisStyle,
-          labelFormatter: (v: string) => v.length > 10 ? v.slice(0, 9) + '…' : v,
-          labelTransform: chartData.length > 6 ? 'rotate(-40)' : undefined,
-        },
-        y: { ...axisStyle, tickCount: 4 },
-      }}
-      tooltip={{ title: (d: { branch: string }) => d.branch, items: [{ field: 'count', name: 'Declined' }] }}
-      onEvent={(_chart, event) => {
-        if (event.type !== 'click' || !event.data) return;
-        router.push('/orders?decision=Declined');
-      }}
-    />
+    <Button
+      size="small"
+      type="text"
+      icon={<ExportOutlined />}
+      disabled={declinedItems.length === 0}
+      onClick={() => exportToCsv(
+        `declined-orders-export-${new Date().toISOString().slice(0, 10)}.csv`,
+        ['Order ID', 'Job No.', 'Branch', 'Reason for Decline', 'Date Declined', 'Age (days)'],
+        declinedItems.map(d => [d.id, d.jobNo, d.branch, d.reason, d.dateDeclined, d.ageDays]),
+      )}
+    >
+      Export
+    </Button>
   );
 }
 

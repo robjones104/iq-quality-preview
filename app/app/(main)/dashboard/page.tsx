@@ -13,24 +13,23 @@ import { FilterPanel } from '@/components/FilterPanel';
 import { DateRangeFilter, rangeLabelFor } from '@/components/DateRangeFilter';
 import { STATUS_COLORS } from '@/components/StatusTag';
 import { EVENT_FILTER_CATEGORIES, ORDER_FILTER_CATEGORIES } from '@/data/filterOptions';
-import { useEffectiveEvents, useEffectiveEventMap } from '@/lib/effectiveEvents';
+import { useEffectiveEvents } from '@/lib/effectiveEvents';
 import { orders as allOrders } from '@/data/orders';
 import { useFilterStore } from '@/store/filterStore';
 import { useOrderStore } from '@/store/orderStore';
-import { awaitingTechReply } from '@/components/TechReplyWarning';
 import { useScopedEvents, useScopedOrders } from '@/lib/useScopedData';
 import { AiSummary } from '@/components/AiSummary';
 import { EventsOverTimeChart, EventsByIssueChart, EventsDonutCard } from '@/components/FieldIntake';
 import { WaitingOnTechChart, DataQualityChart, EventsUpdatedByFqCard } from '@/components/TriageReview';
 import { AwaitingResponseCard, ResponseReceivedCard, ResponseReceivedPreview } from '@/components/EventMessages';
-import { OrderFulfillment, PendingCSReviewChart, DecisionTrendChart, DeclinedOrdersPreview, DeclinedByBranchChart } from '@/components/OrderFulfillment';
+import { PendingCSReviewChart, DecisionTrendChart, DeclinedOrdersPreview, DeclinedCsvButton } from '@/components/OrderFulfillment';
+import { OrderAwaitingResponseCard, OrderResponseReceivedCard, OrderResponseReceivedPreview } from '@/components/OrderWork';
 import type { QualityEvent } from '@/data/types';
 import type { Order } from '@/data/orders';
 import type { DateRange } from '@/components/DateRangeFilter';
 
 
 type View = 'events' | 'orders';
-type OrdersSection = 'fulfillment' | 'declined';
 
 function applyFilters(list: QualityEvent[], dateRange: DateRange | null, applied: Record<string, string[]>) {
   return list.filter((e) => {
@@ -58,6 +57,49 @@ function matchesOrderFilters(o: Order, applied: Record<string, string[]>): boole
 }
 
 
+
+
+// Holder split for the Approved card: two quiet clickable lines on the right
+// side of the card body, so the card stays the same height as its neighbors.
+// Dotted underline = the app's quiet-clickable convention.
+function HolderSplitAside({ withCs, withProcurement, hrefCs, hrefProcurement }: {
+  withCs: number; withProcurement: number; hrefCs: string; hrefProcurement: string;
+}) {
+  const { token } = theme.useToken();
+  const router = useRouter();
+  const go = (href: string) => (e: React.MouseEvent | React.KeyboardEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    router.push(href);
+  };
+  const line = (count: number, text: string, href: string) => (
+    <span
+      role="button"
+      tabIndex={0}
+      onClick={go(href)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') go(href)(e); }}
+      style={{
+        fontSize: token.fontSizeXS,
+        color: token.colorTextSecondary,
+        cursor: 'pointer',
+        whiteSpace: 'nowrap',
+        textDecoration: 'underline',
+        textDecorationStyle: 'dotted',
+        textDecorationColor: token.colorTextTertiary,
+        textUnderlineOffset: 3,
+      }}
+    >
+      <span style={{ fontWeight: 700, color: token.colorText }}>{count}</span> {text}
+    </span>
+  );
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-end', gap: 5, minWidth: 0 }}>
+      {line(withCs, 'with Customer Service', hrefCs)}
+      {line(withProcurement, 'with Procurement', hrefProcurement)}
+    </div>
+  );
+}
+
 function MetricInfoIcon({ tooltip }: { tooltip: string }) {
   const { token } = theme.useToken();
   return (
@@ -71,7 +113,7 @@ function MetricInfoIcon({ tooltip }: { tooltip: string }) {
 }
 
 function KpiCard({
-  title, count, prior, href, tooltip, deltaTone = 'inverse', swatch, dateRange,
+  title, count, prior, href, tooltip, deltaTone = 'inverse', swatch, dateRange, aside,
 }: {
   title: string; count: number; prior: number | null; href?: string;
   tooltip?: string;
@@ -81,6 +123,10 @@ function KpiCard({
   deltaTone?: 'inverse' | 'neutral';
   swatch?: string;
   dateRange?: DateRange | null;
+  // Optional right-side slot beside the stat (e.g. the Approved card's holder
+  // split). Keeps card height uniform; interactive children must
+  // stopPropagation + preventDefault (the card is wrapped in a link).
+  aside?: React.ReactNode;
 }) {
   const { token } = theme.useToken();
   const screens = Grid.useBreakpoint();
@@ -151,25 +197,28 @@ function KpiCard({
         body: { padding: '8px 16px' },
       }}
     >
-      <div style={{ minWidth: 0 }}>
-        <Statistic
-          value={count}
-          styles={{ content: { fontSize: token.fontSizeHeading3, fontWeight: 700, color: token.colorText, lineHeight: 1.2 } }}
-        />
-        <div style={{
-          fontSize: token.fontSizeSM,
-          marginTop: 2,
-          minHeight: 16,
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-        }}>
-          {deltaTooltip ? (
-            <Tooltip title={deltaTooltip}>
-              <span style={{ cursor: 'help' }}>{deltaLine}</span>
-            </Tooltip>
-          ) : deltaLine}
+      <div style={{ minWidth: 0, display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+        <div style={{ minWidth: 0 }}>
+          <Statistic
+            value={count}
+            styles={{ content: { fontSize: token.fontSizeHeading3, fontWeight: 700, color: token.colorText, lineHeight: 1.2 } }}
+          />
+          <div style={{
+            fontSize: token.fontSizeSM,
+            marginTop: 2,
+            minHeight: 16,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}>
+            {deltaTooltip ? (
+              <Tooltip title={deltaTooltip}>
+                <span style={{ cursor: 'help' }}>{deltaLine}</span>
+              </Tooltip>
+            ) : deltaLine}
+          </div>
         </div>
+        {aside}
       </div>
     </Card>
   );
@@ -216,7 +265,6 @@ function DashboardPageContent() {
   const { mutations: orderMutations } = useOrderStore();
   // Branch (View-Only) roles see only their branch's data; everyone else sees all.
   const events = useScopedEvents(useEffectiveEvents());
-  const eventById = useEffectiveEventMap();
   const orders = useScopedOrders(allOrders);
 
   const router = useRouter();
@@ -234,7 +282,6 @@ function DashboardPageContent() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setViewState(searchParams.get('view') === 'orders' ? 'orders' : 'events');
   }, [searchParams]);
-  const [ordersSection, setOrdersSection] = useState<OrdersSection>('fulfillment');
   const [searchText, setSearchText] = useState('');
 
   const searchOptions = useMemo(() => {
@@ -327,6 +374,7 @@ function DashboardPageContent() {
       replacementOrderNo:    m.replacementOrderNo ?? o.replacementOrderNo,
       consolidated:          m.consolidated ?? o.consolidated,
       consolidatedInto:      m.consolidatedInto ?? o.consolidatedInto,
+      trackingNumber:        m.trackingNumber,
     };
   }), [orders, orderMutations]);
 
@@ -385,30 +433,32 @@ function DashboardPageContent() {
     });
   }, [effectiveOrders, dateRange, orderFilters]);
 
-  const priorOrder = (fn: (o: Order) => boolean) =>
-    priorOrders ? priorOrders.filter(fn).length : null;
-
-  // Approved/Declined are decisions (either can later close); Open/Closed is the
-  // lifecycle. Decision cards count all orders carrying that decision in range.
-  const isNewRequest       = (o: Order) => o.orderStatus === 'Open' && !o.approved && !o.declined;
-  const isPendingInfoOrder = (o: Order) => o.orderStatus === 'Open' && awaitingTechReply(eventById.get(o.eventId)?.additionalInfoRequests);
-  const isApprovedOrder    = (o: Order) => !!o.approved;
-  const isDeclinedOrder    = (o: Order) => !!o.declined;
-  const isWithProcurement  = (o: Order) => o.orderStatus === 'Open' && !!o.approved && !!o.assignedToProcurement;
+  // The pipeline bar: five stage cards partitioning live demand, mirroring
+  // the Events bar. Approved (open) carries its holder split as a footer:
+  // on CS's desk vs handed to Procurement. Orders consolidated into another
+  // order are excluded; the surviving order carries their demand.
+  const liveOrders  = useMemo(() => filteredOrders.filter(o => !o.consolidated), [filteredOrders]);
+  const priorLive   = priorOrders ? priorOrders.filter(o => !o.consolidated) : null;
+  const priorLiveN  = (fn: (o: Order) => boolean) => priorLive ? priorLive.filter(fn).length : null;
+  const isPendingDecision = (o: Order) => o.orderStatus === 'Open' && !o.approved && !o.declined;
+  const isApprovedOpen    = (o: Order) => o.orderStatus === 'Open' && !!o.approved;
+  const isFulfilled       = (o: Order) => o.orderStatus === 'Closed' && !!o.approved;
+  const isDeclinedOrder   = (o: Order) => !!o.declined;
+  const approvedWithCs    = liveOrders.filter(o => isApprovedOpen(o) && !o.assignedToProcurement).length;
+  const approvedWithPro   = liveOrders.filter(o => isApprovedOpen(o) && o.assignedToProcurement).length;
 
   const orderKpis = [
-    { title: 'Total Order Count',   count: filteredOrders.length,                              prior: priorOrders?.length ?? null,   href: buildKpiHref('/orders', dateRange, {}),
-      tooltip: 'Total count of orders in the selected time period.', swatch: token.colorText },
-    { title: 'New Requests',        count: filteredOrders.filter(isNewRequest).length,          prior: priorOrder(isNewRequest),      href: buildKpiHref('/orders?orderStatus=Open&decision=Pending', dateRange, {}),
-      tooltip: 'Orders that have been submitted but have not yet received an approve or decline decision.', swatch: STATUS_COLORS.Reported },
-    { title: 'Awaiting Response', count: filteredOrders.filter(isPendingInfoOrder).length,    prior: priorOrder(isPendingInfoOrder), href: buildKpiHref('/orders?flag=info', dateRange, {}),
-      tooltip: 'More information has been requested from the technician on the linked event. Counts open orders still awaiting the technician\u2019s reply.', swatch: '#faad14' },
-    { title: 'Approved',            count: filteredOrders.filter(isApprovedOrder).length,       prior: priorOrder(isApprovedOrder),   href: buildKpiHref('/orders?decision=Approved', dateRange, {}),
-      tooltip: 'Orders that have been approved for parts fulfillment, whether still open or closed.', deltaTone: 'neutral' as const, swatch: STATUS_COLORS.Validated },
-    { title: 'Declined',            count: filteredOrders.filter(isDeclinedOrder).length,       prior: priorOrder(isDeclinedOrder),   href: buildKpiHref('/orders?decision=Declined', dateRange, {}),
-      tooltip: 'Orders that have been declined. These orders may be duplicates, incorrectly configured, or otherwise not qualify for fulfillment.', swatch: '#cf1322' },
-    { title: 'With Procurement',    count: filteredOrders.filter(isWithProcurement).length,     prior: priorOrder(isWithProcurement), href: buildKpiHref('/orders?orderStatus=Open&flag=procurement', dateRange, {}),
-      tooltip: 'Approved orders that have been handed off to Procurement to source a replacement part.', swatch: '#722ed1' },
+    { title: 'Total Order Count', count: liveOrders.length,                           prior: priorLive?.length ?? null,     href: buildKpiHref('/orders', dateRange, {}),
+      tooltip: 'Total count of orders in the selected time period. Excludes orders consolidated into other orders; the surviving order carries their demand.', swatch: token.colorText },
+    { title: 'Pending Decision',  count: liveOrders.filter(isPendingDecision).length, prior: priorLiveN(isPendingDecision), href: buildKpiHref('/orders?orderStatus=Open&decision=Pending', dateRange, {}),
+      tooltip: 'Orders that have not yet received an approve or decline decision, at any age.', swatch: STATUS_COLORS.Reported },
+    { title: 'Approved',          count: liveOrders.filter(isApprovedOpen).length,    prior: priorLiveN(isApprovedOpen),    href: buildKpiHref('/orders?orderStatus=Open&decision=Approved', dateRange, {}),
+      tooltip: 'Approved orders still being worked. The split shows whose desk each order is on: Customer Service closing it out, or Procurement sourcing the part.', swatch: STATUS_COLORS['Under Investigation'],
+      aside: <HolderSplitAside withCs={approvedWithCs} withProcurement={approvedWithPro} hrefCs={buildKpiHref('/orders?orderStatus=Open&decision=Approved&flag=withCS', dateRange, {})} hrefProcurement={buildKpiHref('/orders?orderStatus=Open&flag=procurement', dateRange, {})} /> },
+    { title: 'Fulfilled',         count: liveOrders.filter(isFulfilled).length,       prior: priorLiveN(isFulfilled),       href: buildKpiHref('/orders?orderStatus=Closed&decision=Approved', dateRange, {}),
+      tooltip: 'Approved orders that have been closed with a replacement order placed.', deltaTone: 'neutral' as const, swatch: STATUS_COLORS.Validated },
+    { title: 'Declined',          count: liveOrders.filter(isDeclinedOrder).length,   prior: priorLiveN(isDeclinedOrder),   href: buildKpiHref('/orders?decision=Declined', dateRange, {}),
+      tooltip: 'Orders that were declined and closed without fulfillment. These orders may be duplicates, incorrectly configured, or otherwise not qualify. A declined order can be reopened if circumstances change.', swatch: '#cf1322' },
   ];
 
   const carouselRef = useRef<HTMLDivElement>(null);
@@ -473,7 +523,7 @@ function DashboardPageContent() {
 
           <div style={{
             display: 'grid',
-            gridTemplateColumns: screens.md === false ? '1fr 1fr' : `repeat(${view === 'events' ? 5 : 6}, 1fr)`,
+            gridTemplateColumns: screens.md === false ? '1fr 1fr' : 'repeat(5, 1fr)',
             gap: token.marginSM,
           }}>
             {(view === 'events' ? kpis : orderKpis).map((k) => (
@@ -498,20 +548,7 @@ function DashboardPageContent() {
                 }}
                 style={{ marginBottom: token.marginSM }}
               />
-              {view === 'orders' && (
-                <Segmented
-                  block
-                  options={[{ label: 'Fulfillment', value: 'fulfillment' }, { label: 'Declined', value: 'declined' }]}
-                  value={ordersSection}
-                  onChange={(v) => {
-                    setOrdersSection(v as OrdersSection);
-                    setCarouselIndex(0);
-                    const el = carouselRef.current;
-                    if (el) el.scrollLeft = 0;
-                  }}
-                  style={{ marginBottom: token.marginSM }}
-                />
-              )}
+
               {(() => {
                 const panels =
                   view === 'events' ? [
@@ -520,15 +557,12 @@ function DashboardPageContent() {
                       { title: 'Events Over Time',  content: <EventsOverTimeChart events={filteredEvents} dateRange={dateRange} height={200} /> },
                       { title: 'By Issue',          content: <EventsByIssueChart events={filteredEvents} height={200} /> },
                       { title: 'Events Updated by Field Quality', content: <DataQualityChart events={filteredEvents} /> },
-                  ] : (
-                    ordersSection === 'fulfillment' ? [
-                      { title: 'Awaiting Response', content: <PendingCSReviewChart orders={filteredOrders} /> },
-                      { title: 'Decision Trend',     content: <DecisionTrendChart orders={filteredOrders} height={200} /> },
-                    ] : [
-                      { title: 'Declined Orders',    content: <DeclinedOrdersPreview orders={filteredOrders} /> },
-                      { title: 'Declined by Branch', content: <DeclinedByBranchChart orders={filteredOrders} height={200} /> },
-                    ]
-                  );
+                  ] : [
+                      { title: 'Awaiting Response',  content: <PendingCSReviewChart orders={liveOrders} /> },
+                      { title: 'Response Received',  content: <OrderResponseReceivedPreview orders={liveOrders} /> },
+                      { title: 'Decision Trend',     content: <DecisionTrendChart orders={liveOrders} height={200} /> },
+                      { title: 'Declined Orders',    content: <DeclinedOrdersPreview orders={liveOrders} /> },
+                  ];
                 return (
                   <>
                     <div
@@ -617,15 +651,52 @@ function DashboardPageContent() {
           )}
 
           {screens.md !== false && view === 'orders' && (
-            <div>
-              {view === 'orders' && (
-                <OrderFulfillment
-                  orders={filteredOrders}
-                  fulfillmentHref={buildKpiHref('/orders?orderStatus=Open', dateRange, {})}
-                  declinedHref={buildKpiHref('/orders?decision=Declined', dateRange, {})}
-                />
-              )}
-            </div>
+            <>
+              {/* Messages: the two conversation lanes, mirroring the Events view */}
+              <Row gutter={[token.marginSM, token.marginSM]} style={{ alignItems: 'stretch' }}>
+                <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column' }}>
+                  <OrderAwaitingResponseCard orders={liveOrders} viewAllHref={buildKpiHref('/orders?flag=info', dateRange, {})} />
+                </Col>
+                <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column' }}>
+                  <OrderResponseReceivedCard orders={liveOrders} viewAllHref={buildKpiHref('/orders?flag=responded', dateRange, {})} />
+                </Col>
+              </Row>
+
+              {/* Analysis */}
+              <Row gutter={[token.marginSM, token.marginSM]} style={{ alignItems: 'stretch' }}>
+                <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column' }}>
+                  <Card
+                    size="small"
+                    title={
+                      <span style={{ fontSize: token.fontSizeSM, fontWeight: 500, display: 'inline-flex', alignItems: 'center' }}>
+                        Decision Trend
+                        <MetricInfoIcon tooltip="Approved and declined counts per week across the selected period." />
+                      </span>
+                    }
+                    style={{ height: '100%' }}
+                    styles={{ body: { minHeight: 300 } }}
+                  >
+                    <DecisionTrendChart orders={liveOrders} height={260} />
+                  </Card>
+                </Col>
+                <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column' }}>
+                  <Card
+                    size="small"
+                    title={
+                      <span style={{ fontSize: token.fontSizeSM, fontWeight: 500, display: 'inline-flex', alignItems: 'center' }}>
+                        Declined Orders
+                        <MetricInfoIcon tooltip="Declined orders with their documented reasons, newest first. Export feeds claims reporting." />
+                      </span>
+                    }
+                    extra={<DeclinedCsvButton orders={liveOrders} />}
+                    style={{ height: '100%' }}
+                    styles={{ body: { minHeight: 300 } }}
+                  >
+                    <DeclinedOrdersPreview orders={liveOrders} />
+                  </Card>
+                </Col>
+              </Row>
+            </>
           )}
         </Flex>
       </div>

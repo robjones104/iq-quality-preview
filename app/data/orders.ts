@@ -427,6 +427,28 @@ const HAND_CRAFTED_ORDERS: Order[] = [
     ],
   },
 
+  // ── Message-thread seeds: open orders whose events carry the CS-owned
+  //    conversations (QE_2687 awaiting, QE_2688 tech replied) ─────────────────
+  {
+    id: 'QE_2687_Order', eventId: 'QE_2687', orderStatus: 'Open', jobNo: 'SO110028902', lastUpdated: '06-05-2026 14:41',
+    parts: [
+      { seqNo: 1, configId: 'SO110028902.1', dfoLineItem: 3, elLineItem: 1, door: 'Procare 8500', partNumber: '414410-2', quantityType: 'Piece', quantity: 1, partDescription: 'Lower panel assembly for Procare 8500.' },
+    ],
+  },
+  {
+    id: 'QE_2688_Order', eventId: 'QE_2688', orderStatus: 'Open', jobNo: 'SO110028655', lastUpdated: '06-05-2026 10:22',
+    parts: [
+      { seqNo: 1, configId: 'SO110028655.1', dfoLineItem: 1, elLineItem: 3, door: 'Magic Access', partNumber: '430221-1', quantityType: 'Piece', quantity: 1, partDescription: 'Controller PCB assembly preconfigured for Magic Access slider.' },
+    ],
+  },
+
+  {
+    id: 'QE_2689_Order', eventId: 'QE_2689', orderStatus: 'Open', jobNo: 'SO110029120', lastUpdated: '06-06-2026 08:52',
+    parts: [
+      { seqNo: 1, configId: 'SO110029120.1', dfoLineItem: 2, elLineItem: 2, door: 'Dura_Glide 5200', partNumber: '413920-1', quantityType: 'Piece', quantity: 1, partDescription: 'Motor gearbox assembly with thread-locking hardware kit for Dura_Glide 5200.' },
+    ],
+  },
+
   // ── Same-SO cluster (consolidation demo): three open orders on SO110030001,
   //    one per event, all really one damaged door ─────────────────────────────
   {

@@ -13,7 +13,7 @@ import {
   SearchOutlined,
 } from '@ant-design/icons';
 import { JobNoValue } from '@/components/JobNoValue';
-import { TechReplyWarning, awaitingTechReply } from '@/components/TechReplyWarning';
+import { TechReplyWarning, awaitingTechReply, replyReviewParty } from '@/components/TechReplyWarning';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { orders } from '@/data/orders';
@@ -318,6 +318,8 @@ function OrdersPageContent() {
     }
     if (flagParam === 'procurement' && !(isApproved(o) && isWithProcurement(o))) return false;
     if (flagParam === 'info' && !(effectiveStatus(o) === 'Open' && awaitingTechReply(eventMap.get(o.eventId)?.additionalInfoRequests))) return false;
+    if (flagParam === 'responded' && !(effectiveStatus(o) === 'Open' && replyReviewParty(eventMap.get(o.eventId)?.additionalInfoRequests) !== null)) return false;
+    if (flagParam === 'withCS' && !(effectiveStatus(o) === 'Open' && isApproved(o) && !isWithProcurement(o))) return false;
     const matchOrderStatus   = !appliedFiltersLocal.orderStatus?.length   || appliedFiltersLocal.orderStatus.includes(effectiveStatus(o));
     const matchDecision      = !appliedFiltersLocal.decision?.length      || appliedFiltersLocal.decision.some(d =>
       (d === 'Approved' && isApproved(o)) || (d === 'Declined' && isDeclined(o)) || (d === 'Consolidated' && isConsolidated(o)) || (d === 'Pending' && !isApproved(o) && !isDeclined(o) && !isConsolidated(o))
