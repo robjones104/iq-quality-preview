@@ -43,7 +43,7 @@ Every state mutation in the app goes through one of these named actions. No comp
 
 | Action | Semantics | Suggested endpoint |
 |---|---|---|
-| `patchEvent(eventId, patch)` | Field-level edit: status, issue, component, door, root cause, tags, escalation link, parts request, photos | `PATCH /events/:id` |
+| `patchEvent(eventId, patch)` | Field-level edit: status, issue, component, door, root cause, tags, escalation link, parts request, ship-to (`shipTo`/`shipToAddress`), photos | `PATCH /events/:id` |
 | `pushActivityLog(eventId, entry)` | Append to the event activity log | server-side effect of the mutation that caused it |
 | `pushEditHistory(eventId, entry)` | Append to the edit-history audit trail | server-side effect of `PATCH /events/:id` |
 | `pushAdditionalInfoRequest(eventId, entry)` | New message in the FQ/CS <-> tech thread | `POST /events/:id/info-requests` |
@@ -56,7 +56,7 @@ Every state mutation in the app goes through one of these named actions. No comp
 | Action | Semantics | Suggested endpoint |
 |---|---|---|
 | `createOrder(order)` | Order auto-created from a parts request on an orderless event | `POST /orders` (or a server-side effect of the parts-request mutation) |
-| `patchOrder(orderId, patch)` | Approve / decline / close / reopen / assign to procurement / replacement # | `PATCH /orders/:id` |
+| `patchOrder(orderId, patch)` | Approve / decline / close / reopen / assign to procurement / replacement # / tracking # (`trackingNumber`, must notify the tech) / consolidation fields (`consolidated`, `consolidatedInto`, `eventIds`, `partsOverride`) | `PATCH /orders/:id`; consolidation via `POST /orders/:id/consolidate` (transactional, see fulfillment rules) |
 | `pushOrderLog(orderId, entry)` | Append to the order log | server-side effect of the mutation |
 
 ### escalationStore (`store/escalationStore.ts`, key `iq-escalations`)
@@ -127,13 +127,27 @@ Fulfillment-loop rules (2026-07-27, demo walkthroughs in `STORIES.md`):
 - **Invalidation cascades**: invalidating an event declines and closes its open orders (decline reason "Event invalidated"). Approval is never blocked by an unanswered info request, but the UI warns first (`components/TechReplyWarning.tsx`).
 - **Consolidation**: several events on one SO can fold into one order. Source orders close with `consolidated: true` + `consolidatedInto` (a disposition distinct from Declined everywhere: filters, KPIs, tech messaging); the survivor carries the merged `eventIds` and a replaced parts list (`partsOverride` mutation). Event-to-order resolution must check `eventIds`, not just the primary `eventId`. Suggested endpoint: `POST /orders/:id/consolidate` taking source order ids plus the replacement part, performing all of the above transactionally.
 
+## 4b. Integration notes: the four patterns to replace
+
+Audited 2026-07-28 specifically for backend integration. These are the places where the prototype's architecture differs from what a production app does, in the order they will bite.
+
+**1. Ad-hoc effective-order merging (the one real structural gap).** Events have a single merge point: `lib/effectiveEvents.ts`. Orders never got the equivalent, so five files each merge `orderMutations` over static orders with their own field subsets: `dashboard/page.tsx` (an `effectiveOrders` memo with an explicit field list), `orders/page.tsx` (per-field helper functions), `procurement/page.tsx`, `orders/[id]/OrderDetailClient.tsx`, and `events/[id]/EventDetailClient.tsx`. The field lists have already drifted once (the dashboard merge had to be manually extended for consolidation). **For integration this is actually a simplification opportunity: replace all five sites with one orders query hook and the ad-hoc merging disappears entirely.** Do not replicate the five-site pattern server-side.
+
+**2. Screen-local optimistic state.** The two detail screens (`OrderDetailClient`, `EventDetailClient`) keep `useState` mirrors seeded from the persisted overlay (4 each: status, approved, replacement #, tracking / status, plant, parts, escalation) and every action writes both the local state and the store. This is the prototype's substitute for optimistic updates. With a real backend, replace both write paths with a mutation + cache-invalidation pattern (React Query or equivalent); do not port the double-write.
+
+**3. Static prerender + client-side runtime-record resolution.** All three `[id]` routes (`events`, `orders`, `escalations`) use `generateStaticParams` over the mock data (~1000 pages) and resolve runtime-created records client-side (`CreatedOrderDetail` and the escalation `id === 'new'` / `ESC_R*` patterns). With a backend, these become ordinary server-rendered dynamic routes and the client-side fallback components are deleted.
+
+**4. Client-simulated side effects.** Everything a server would derive is currently written by the client so screens behave correctly: activity logs, edit history, order logs (`pushActivityLog`, `pushEditHistory`, `pushOrderLog`), tech notifications (replacement/tracking, ship-to changes, invalidation cascades, consolidation), and the AI summary (700ms fake latency, deterministic content). Photos and attachments are simulated entirely; real upload is a net-new capability (object storage + attachments endpoint), not a wiring exercise.
+
+**Verified inventories (2026-07-28):** every internal deep link's query params are parsed by its target page (`status`, `issue`, `component`, `branch`, `flag`, `rootCause`, `tag`, `from/to`, `ids`, `decision`, `orderStatus`, `type`); all runtime state lives in the seven localStorage keys listed below; RoleGuard covers every `(main)` route; no store writes occur outside named actions; frozen-clock discipline holds (the only real-clock reads are CSV export filenames, intentionally); mock data is internally consistent (0 orphan orders, 0 order/event jobNo mismatches, 0 duplicate ids, ship-to and manual-entry flags well-formed).
+
 ## 5. Demo state and reset
 
 All runtime state lives in seven localStorage keys: `iq-event-mutations`, `iq-order-mutations`, `iq-escalations`, `iq-escalation-types`, `iq-quality-filters-v2`, `iq-quality-role`, `iq-theme`. To reset a demo machine to pristine, clear those keys (DevTools > Application > Local Storage) and reload. There is no in-app reset control.
 
 ## 6. State of the codebase at handoff
 
-- `pnpm build` passes (full static prerender), `tsc --noEmit` clean, `eslint .` zero errors and zero warnings.
+- Re-audited 2026-07-28 ahead of the engineering handoff: `pnpm build` passes (full static prerender, 1025 pages), `tsc --noEmit` clean, `eslint .` zero errors and zero warnings, all integration inventories in section 4b verified.
 - Dead code removed in the 2026-07-27 audit pass: `/prototype` (early dashboard draft) and `/logs` (unreachable route; `data/logs.ts` is still live, it seeds event activity logs).
 - Ant Design v6 deprecation warnings resolved; the dev console is clean.
 - Approved but unbuilt (see `AUDIT.md` "Still open"): P2 invalidation cascades decline+close to open orders; P3 approve-modal soft warning when the tech has not replied.

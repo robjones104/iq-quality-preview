@@ -1,7 +1,7 @@
 'use client';
 
 import React, { Fragment, Suspense, useEffect, useRef, useMemo, useState } from 'react';
-import { AutoComplete, Button, Card, Col, Flex, Grid, Input, Progress, Row, Segmented, Statistic, Tag, Space, Tooltip, theme } from 'antd';
+import { AutoComplete, Button, Card, Col, Flex, Grid, Input, Row, Segmented, Statistic, Tag, Space, Tooltip, Typography, theme } from 'antd';
 import {
   CloseOutlined, SearchOutlined, InfoCircleOutlined,
 } from '@ant-design/icons';
@@ -20,8 +20,9 @@ import { useOrderStore } from '@/store/orderStore';
 import { awaitingTechReply } from '@/components/TechReplyWarning';
 import { useScopedEvents, useScopedOrders } from '@/lib/useScopedData';
 import { AiSummary } from '@/components/AiSummary';
-import { FieldIntake, EventsOverTimeChart, EventsByBranchChart, EventsByIssueChart } from '@/components/FieldIntake';
-import { TriageReview, WaitingOnTechChart, DataQualityChart } from '@/components/TriageReview';
+import { EventsOverTimeChart, EventsByIssueChart, EventsDonutCard } from '@/components/FieldIntake';
+import { WaitingOnTechChart, DataQualityChart, EventsUpdatedByFqCard } from '@/components/TriageReview';
+import { AwaitingResponseCard, ResponseReceivedCard, ResponseReceivedPreview } from '@/components/EventMessages';
 import { OrderFulfillment, PendingCSReviewChart, DecisionTrendChart, DeclinedOrdersPreview, DeclinedByBranchChart } from '@/components/OrderFulfillment';
 import type { QualityEvent } from '@/data/types';
 import type { Order } from '@/data/orders';
@@ -29,7 +30,6 @@ import type { DateRange } from '@/components/DateRangeFilter';
 
 
 type View = 'events' | 'orders';
-type EventsSection = 'intake' | 'triage';
 type OrdersSection = 'fulfillment' | 'declined';
 
 function applyFilters(list: QualityEvent[], dateRange: DateRange | null, applied: Record<string, string[]>) {
@@ -57,15 +57,6 @@ function matchesOrderFilters(o: Order, applied: Record<string, string[]>): boole
   return matchStatus && matchDecision;
 }
 
-function topEntry(events: QualityEvent[], key: keyof QualityEvent): string {
-  const counts: Record<string, number> = {};
-  for (const e of events) {
-    const v = String(e[key] ?? '');
-    if (v) counts[v] = (counts[v] ?? 0) + 1;
-  }
-  const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
-  return top ? top[0] : '--';
-}
 
 function MetricInfoIcon({ tooltip }: { tooltip: string }) {
   const { token } = theme.useToken();
@@ -188,133 +179,6 @@ function KpiCard({
     : <div style={{ minWidth: 0 }}>{card}</div>;
 }
 
-function SectionStats({
-  stats,
-}: {
-  stats: { value: string | number; sub: string; progress?: { pct: number; color?: string } }[];
-}) {
-  const { token } = theme.useToken();
-  const divider = (
-    <div style={{
-      width: 1,
-      alignSelf: 'stretch',
-      background: token.colorBorderSecondary,
-      margin: '0 12px',
-      flexShrink: 0,
-    }} />
-  );
-  return (
-    <Flex align="flex-start" style={{ flexWrap: 'nowrap' }}>
-      {stats.map((s, i) => (
-        <Fragment key={i}>
-          {i > 0 && divider}
-          <div style={{ minWidth: 0, flex: '1 1 auto' }}>
-            {s.progress ? (
-              <>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, whiteSpace: 'nowrap' }}>
-                  <span style={{ fontSize: token.fontSizeLG, fontWeight: 700, color: token.colorText, lineHeight: 1 }}>
-                    {s.value}
-                  </span>
-                  <span style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary }}>
-                    {s.sub}
-                  </span>
-                </div>
-                <Progress
-                  percent={s.progress.pct}
-                  showInfo={false}
-                  size="small"
-                  style={{ margin: '8px 0 0' }}
-                  strokeColor={s.progress.color ?? token.colorSuccess}
-                  railColor={token.colorFillSecondary}
-                />
-              </>
-            ) : (
-              <>
-                <div style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary, whiteSpace: 'nowrap' }}>
-                  {s.sub}
-                </div>
-                <div style={{
-                  fontSize: token.fontSizeLG,
-                  fontWeight: 700,
-                  color: token.colorText,
-                  lineHeight: 1,
-                  marginTop: 2,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}>
-                  {s.value}
-                </div>
-              </>
-            )}
-          </div>
-        </Fragment>
-      ))}
-    </Flex>
-  );
-}
-
-function SectionHeader({
-  label, stats, active, onClick, tooltip,
-}: {
-  label: string;
-  stats: { value: string | number; sub: string; progress?: { pct: number; color?: string } }[];
-  active: boolean;
-  onClick: () => void;
-  tooltip?: string;
-}) {
-  const { token } = theme.useToken();
-  const [hovered, setHovered] = useState(false);
-  const borderColor = active || hovered ? token.colorPrimary : token.colorBorderSecondary;
-  return (
-    <Card
-      size="small"
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      title={
-        <span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>
-          {label}
-          {tooltip && <MetricInfoIcon tooltip={tooltip} />}
-        </span>
-      }
-      extra={
-        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          {!active && (
-            <span style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary }}>
-              Click to switch view
-            </span>
-          )}
-          <span
-            style={{
-              width: 10,
-              height: 10,
-              borderRadius: '50%',
-              border: `1.5px solid ${token.colorPrimary}`,
-              background: active ? token.colorPrimary : 'transparent',
-              transition: 'background-color 0.2s',
-            }}
-          />
-        </span>
-      }
-      style={{
-        cursor: 'pointer',
-        height: '100%',
-        border: `1px solid ${borderColor}`,
-        transition: 'border-color 0.2s, box-shadow 0.18s',
-        boxShadow: !active && hovered ? `0 4px 16px ${token.colorPrimary}22` : undefined,
-      }}
-    >
-      <SectionStats stats={stats} />
-    </Card>
-  );
-}
-
-
-// Builds a URL that carries the active dashboard date range and category filters
-// so the destination page (events/orders) opens pre-filtered to match what the
-// user was looking at on the dashboard. Base string can include existing params
-// (e.g. "?status=Reported") — those keys are preserved and not double-encoded.
 function buildKpiHref(
   base: string,
   dateRange: DateRange | null,
@@ -370,7 +234,6 @@ function DashboardPageContent() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setViewState(searchParams.get('view') === 'orders' ? 'orders' : 'events');
   }, [searchParams]);
-  const [eventsSection, setEventsSection] = useState<EventsSection>('triage');
   const [ordersSection, setOrdersSection] = useState<OrdersSection>('fulfillment');
   const [searchText, setSearchText] = useState('');
 
@@ -490,7 +353,6 @@ function DashboardPageContent() {
 
   const isReported    = (e: QualityEvent) => e.status === 'Reported';
   const isUnderInv    = (e: QualityEvent) => e.status === 'Under Investigation';
-  const isWaiting     = (e: QualityEvent) => awaitingTechReply(e.additionalInfoRequests);
   const isValidated   = (e: QualityEvent) => e.status === 'Validated';
   const isInvalidated = (e: QualityEvent) => e.status === 'Invalidated';
 
@@ -499,8 +361,8 @@ function DashboardPageContent() {
       tooltip: 'Total count of events in the selected time period.', swatch: token.colorText },
     { title: 'Reported',            count: filteredEvents.filter(isReported).length,   prior: prior(isReported),           href: buildKpiHref('/events?status=Reported', dateRange, appliedFilters),
       tooltip: 'Events that have been submitted but have not yet been reviewed or assessed.', swatch: STATUS_COLORS.Reported },
-    { title: 'Awaiting Response', count: filteredEvents.filter(isWaiting).length,    prior: prior(isWaiting),            href: buildKpiHref('/events?flag=additionalInfo', dateRange, appliedFilters),
-      tooltip: 'More information has been requested from the reporting technician. Counts events where the latest request is still awaiting the technician\u2019s reply.', swatch: '#faad14' },
+    // Lifecycle only: the four stages partition Total. Conversation state
+    // (awaiting / replied) lives in the Messages row below, not on this bar.
     { title: 'Under Investigation', count: filteredEvents.filter(isUnderInv).length,    prior: prior(isUnderInv),           href: buildKpiHref('/events?status=Under+Investigation', dateRange, appliedFilters),
       tooltip: 'Events that are actively being reviewed and investigated ahead of a validation decision.', swatch: STATUS_COLORS['Under Investigation'] },
     { title: 'Validated',           count: filteredEvents.filter(isValidated).length,   prior: prior(isValidated),          href: buildKpiHref('/events?status=Validated', dateRange, appliedFilters),
@@ -509,27 +371,7 @@ function DashboardPageContent() {
       tooltip: 'Events that have been invalidated. These events may lack sufficient evidence or may not be true quality events.', deltaTone: 'neutral' as const, swatch: STATUS_COLORS.Invalidated },
   ];
 
-  const intakeStats = useMemo(() => {
-    const topComponent = topEntry(filteredEvents, 'component');
-    const topIssue      = topEntry(filteredEvents, 'issue');
-    return [
-      { value: topComponent, sub: 'most affected component' },
-      { value: topIssue, sub: 'most common issue' },
-    ];
-  }, [filteredEvents]);
 
-  const triageStats = useMemo(() => {
-    const resolved      = filteredEvents.filter(e => e.status === 'Validated' || e.status === 'Invalidated').length;
-    const rate          = filteredEvents.length > 0 ? Math.round((resolved / filteredEvents.length) * 100) : 0;
-    const eventsEdited  = filteredEvents.filter(e => e.editHistory?.some(entry => entry.field !== 'Root Cause')).length;
-    const editedRate    = filteredEvents.length > 0 ? Math.round((eventsEdited / filteredEvents.length) * 100) : 0;
-    return {
-      stats: [
-        { value: `${rate}%`,       sub: 'events resolved', progress: { pct: rate } },
-        { value: `${editedRate}%`, sub: 'events updated' },
-      ],
-    };
-  }, [filteredEvents]);
 
   const priorOrders = useMemo(() => {
     if (!dateRange) return null;
@@ -631,7 +473,7 @@ function DashboardPageContent() {
 
           <div style={{
             display: 'grid',
-            gridTemplateColumns: screens.md === false ? '1fr 1fr' : 'repeat(6, 1fr)',
+            gridTemplateColumns: screens.md === false ? '1fr 1fr' : `repeat(${view === 'events' ? 5 : 6}, 1fr)`,
             gap: token.marginSM,
           }}>
             {(view === 'events' ? kpis : orderKpis).map((k) => (
@@ -656,35 +498,29 @@ function DashboardPageContent() {
                 }}
                 style={{ marginBottom: token.marginSM }}
               />
-              <Segmented
-                block
-                options={
-                  view === 'events'
-                    ? [{ label: 'Intake', value: 'intake' }, { label: 'Triage', value: 'triage' }]
-                    : [{ label: 'Fulfillment', value: 'fulfillment' }, { label: 'Declined', value: 'declined' }]
-                }
-                value={view === 'events' ? eventsSection : ordersSection}
-                onChange={(v) => {
-                  if (view === 'events') setEventsSection(v as EventsSection);
-                  else setOrdersSection(v as OrdersSection);
-                  setCarouselIndex(0);
-                  const el = carouselRef.current;
-                  if (el) el.scrollLeft = 0;
-                }}
-                style={{ marginBottom: token.marginSM }}
-              />
+              {view === 'orders' && (
+                <Segmented
+                  block
+                  options={[{ label: 'Fulfillment', value: 'fulfillment' }, { label: 'Declined', value: 'declined' }]}
+                  value={ordersSection}
+                  onChange={(v) => {
+                    setOrdersSection(v as OrdersSection);
+                    setCarouselIndex(0);
+                    const el = carouselRef.current;
+                    if (el) el.scrollLeft = 0;
+                  }}
+                  style={{ marginBottom: token.marginSM }}
+                />
+              )}
               {(() => {
                 const panels =
-                  view === 'events' ? (
-                    eventsSection === 'intake' ? [
-                      { title: 'Events Over Time',  content: <EventsOverTimeChart events={filteredEvents} dateRange={dateRange} height={200} /> },
-                      { title: 'Events by Branch',  content: <EventsByBranchChart events={filteredEvents} height={200} /> },
-                      { title: 'By Issue',          content: <EventsByIssueChart events={filteredEvents} height={200} /> },
-                    ] : [
+                  view === 'events' ? [
                       { title: 'Awaiting Response',   content: <WaitingOnTechChart events={filteredEvents} /> },
+                      { title: 'Response Received',   content: <ResponseReceivedPreview events={filteredEvents} /> },
+                      { title: 'Events Over Time',  content: <EventsOverTimeChart events={filteredEvents} dateRange={dateRange} height={200} /> },
+                      { title: 'By Issue',          content: <EventsByIssueChart events={filteredEvents} height={200} /> },
                       { title: 'Events Updated by Field Quality', content: <DataQualityChart events={filteredEvents} /> },
-                    ]
-                  ) : (
+                  ] : (
                     ordersSection === 'fulfillment' ? [
                       { title: 'Awaiting Response', content: <PendingCSReviewChart orders={filteredOrders} /> },
                       { title: 'Decision Trend',     content: <DecisionTrendChart orders={filteredOrders} height={200} /> },
@@ -734,33 +570,54 @@ function DashboardPageContent() {
                 );
               })()}
             </div>
-          ) : view === 'events' ? (
-            <Row gutter={token.marginSM} style={{ alignItems: 'stretch' }}>
-              <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column' }}>
-                <SectionHeader
-                  label="Intake"
-                  stats={intakeStats}
-                  active={eventsSection === 'intake'}
-                  onClick={() => setEventsSection('intake')}
-                  tooltip="Intake provides an overview of incoming quality events, including reporting trends, affected components, common issues, and event activity across branches."
-                />
-              </Col>
-              <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column' }}>
-                <SectionHeader
-                  label="Review"
-                  stats={triageStats.stats}
-                  active={eventsSection === 'triage'}
-                  onClick={() => setEventsSection('triage')}
-                  tooltip="Review provides an overview of resolution progress, events awaiting information from the field, and how often event records are being updated across branches."
-                />
-              </Col>
-            </Row>
           ) : null}
 
-          {screens.md !== false && (
+          {screens.md !== false && view === 'events' && (
+            <>
+              {/* Messages: the two conversation lanes of Under Investigation */}
+              <Row gutter={[token.marginSM, token.marginSM]} style={{ alignItems: 'stretch' }}>
+                <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column' }}>
+                  <AwaitingResponseCard events={filteredEvents} viewAllHref={buildKpiHref('/events?flag=additionalInfo', dateRange, {})} />
+                </Col>
+                <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column' }}>
+                  <ResponseReceivedCard events={filteredEvents} viewAllHref={buildKpiHref('/events?flag=responded', dateRange, {})} />
+                </Col>
+              </Row>
+
+              {/* Analysis: trend, breakdown donut, FQ edit quality */}
+              <Row gutter={[token.marginSM, token.marginSM]} style={{ alignItems: 'stretch' }}>
+                <Col xs={24} lg={8} style={{ display: 'flex', flexDirection: 'column' }}>
+                  <Card
+                    size="small"
+                    title={
+                      <span style={{ fontSize: token.fontSizeSM, fontWeight: 500, display: 'inline-flex', alignItems: 'center' }}>
+                        Events Over Time
+                        <MetricInfoIcon tooltip="Events reported per day across the selected period. Click a point to open that day's events in the table." />
+                      </span>
+                    }
+                    style={{ height: '100%' }}
+                    styles={{ body: { minHeight: 320, display: 'flex', flexDirection: 'column' } }}
+                  >
+                    <div style={{ cursor: 'pointer' }}>
+                      <EventsOverTimeChart events={filteredEvents} dateRange={dateRange} height={276} />
+                    </div>
+                    <Typography.Text type="secondary" style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary, textAlign: 'center', marginTop: 'auto', paddingTop: 8 }}>
+                      Click a point to view that day&apos;s events
+                    </Typography.Text>
+                  </Card>
+                </Col>
+                <Col xs={24} lg={8} style={{ display: 'flex', flexDirection: 'column' }}>
+                  <EventsDonutCard events={filteredEvents} />
+                </Col>
+                <Col xs={24} lg={8} style={{ display: 'flex', flexDirection: 'column' }}>
+                  <EventsUpdatedByFqCard events={filteredEvents} viewAllHref={buildKpiHref('/events?flag=edited', dateRange, {})} />
+                </Col>
+              </Row>
+            </>
+          )}
+
+          {screens.md !== false && view === 'orders' && (
             <div>
-              {view === 'events' && eventsSection === 'intake' && <FieldIntake events={filteredEvents} dateRange={dateRange} />}
-              {view === 'events' && eventsSection === 'triage' && <TriageReview events={filteredEvents} waitingViewAllHref={buildKpiHref('/events?flag=additionalInfo', dateRange, {})} dataQualityViewAllHref={buildKpiHref('/events?flag=edited', dateRange, {})} />}
               {view === 'orders' && (
                 <OrderFulfillment
                   orders={filteredOrders}

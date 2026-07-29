@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, Col, Row, Segmented, Typography, theme } from 'antd';
+import { Card, Col, Row, Segmented, Tooltip, Typography, theme } from 'antd';
+import { InfoCircleOutlined } from '@ant-design/icons';
 import { Line, Bar, Pie } from '@ant-design/plots';
 import dayjs from 'dayjs';
 import type { QualityEvent } from '@/data/types';
@@ -134,7 +135,7 @@ export function FieldIntake({
                 height={276}
                 theme={plotTheme}
                 style={{ lineWidth: 1 }}
-                point={{ shapeField: 'square', sizeField: 1 }}
+                point={{ shapeField: 'square', sizeField: 3 }}
                 interaction={{ tooltip: { marker: false } }}
                 axis={{
                   x: { ...axisStyle, labelFormatter: (v: string) => dayjs(v).format('MMM D'), tickCount: 4 },
@@ -142,7 +143,7 @@ export function FieldIntake({
                 }}
                 tooltip={{ title: (d: { date: string }) => dayjs(d.date).format('MMM D, YYYY') }}
                 onEvent={(_chart, event) => {
-                  if (event.type !== 'element:click') return;
+                  if (event.type !== 'click' || !event.data) return;
                   const datum = event.data?.data as { date?: string } | undefined;
                   if (datum?.date) router.push(`/events?from=${datum.date}&to=${datum.date}`);
                 }}
@@ -211,7 +212,7 @@ export function FieldIntake({
                       items: [{ field: 'count', name: 'Events' }],
                     }}
                     onEvent={(_chart, event) => {
-                      if (event.type !== 'element:click') return;
+                      if (event.type !== 'click' || !event.data) return;
                       const datum = event.data?.data as { branch?: string } | undefined;
                       if (datum?.branch) router.push(`/events?branch=${encodeURIComponent(datum.branch)}`);
                     }}
@@ -273,7 +274,7 @@ export function FieldIntake({
                   items: [{ field: 'count', name: 'Events' }],
                 }}
                 onEvent={(_chart, event) => {
-                  if (event.type !== 'element:click') return;
+                  if (event.type !== 'click' || !event.data) return;
                   const datum = event.data?.data as Record<string, string> | undefined;
                   if (!datum) return;
                   if (donutMode === 'issue' && datum.issue) {
@@ -289,6 +290,98 @@ export function FieldIntake({
 
       </Row>
     </div>
+  );
+}
+
+// Standalone Issue/Component donut card for the dashboard's bottom analysis
+// row: same Pie, Segmented toggle, and slice click-throughs as the FieldIntake
+// section's version, packaged as its own Card.
+export function EventsDonutCard({ events }: { events: QualityEvent[] }) {
+  const router = useRouter();
+  const [donutMode, setDonutMode] = useState<'issue' | 'component'>('issue');
+  const { token } = theme.useToken();
+  const isDark = token.colorBgBase === '#000000';
+  const plotTheme = isDark ? 'classicDark' : 'classic';
+
+  const issueData = useMemo(() =>
+    Object.entries(countBy(events, e => e.issue))
+      .map(([issue, count]) => ({ issue, count }))
+      .sort((a, b) => b.count - a.count),
+    [events]);
+  const componentData = useMemo(() =>
+    Object.entries(countBy(events, e => e.component))
+      .map(([component, count]) => ({ component, count }))
+      .sort((a, b) => b.count - a.count),
+    [events]);
+
+  return (
+    <Card
+      size="small"
+      title={
+        <span style={{ fontSize: token.fontSizeSM, fontWeight: 500, display: 'inline-flex', alignItems: 'center' }}>
+          {donutMode === 'issue' ? 'Events by Issue' : 'Events by Component'}
+          <Tooltip title={`Share of events in the period by ${donutMode}. Click a slice to open those events in the table.`}>
+            <InfoCircleOutlined style={{ marginLeft: 6, color: token.colorTextTertiary, fontSize: token.fontSizeSM, cursor: 'help' }} />
+          </Tooltip>
+        </span>
+      }
+      extra={
+        <Segmented
+          size="small"
+          value={donutMode}
+          onChange={(v) => setDonutMode(v as 'issue' | 'component')}
+          options={[
+            { label: 'Issue', value: 'issue' },
+            { label: 'Component', value: 'component' },
+          ]}
+        />
+      }
+      style={{ height: '100%' }}
+      styles={{ body: { minHeight: 320, display: 'flex', flexDirection: 'column' } }}
+    >
+      <div style={{ cursor: 'pointer' }}>
+        <Pie
+          key={plotTheme}
+          data={donutMode === 'issue' ? issueData : componentData}
+          angleField="count"
+          colorField={donutMode === 'issue' ? 'issue' : 'component'}
+          height={276}
+          theme={plotTheme}
+          label={false}
+          animate={{ enter: { type: 'waveIn', duration: 600 } }}
+          interaction={{ elementHighlight: true }}
+          state={{ active: { opacity: 1 }, inactive: { opacity: 0.15 } }}
+          legend={{
+            color: {
+              position: 'bottom',
+              layout: { justifyContent: 'flex-start' },
+              itemLabelFill: token.colorText,
+              itemLabelFontSize: token.fontSizeSM,
+              itemLabelFormatter: (v: string) => v.length > 20 ? v.slice(0, 19) + '…' : v,
+              rows: 8,
+            },
+          }}
+          tooltip={{
+            title: (d: Record<string, string>) =>
+              donutMode === 'issue' ? d.issue : d.component,
+            items: [{ field: 'count', name: 'Events' }],
+          }}
+          onEvent={(_chart, event) => {
+            if (event.type !== 'click' || !event.data) return;
+            const datum = event.data?.data as Record<string, string> | undefined;
+            if (!datum) return;
+            if (donutMode === 'issue' && datum.issue) {
+              router.push(`/events?issue=${encodeURIComponent(datum.issue)}`);
+            } else if (donutMode === 'component' && datum.component) {
+              router.push(`/events?component=${encodeURIComponent(datum.component)}`);
+            }
+          }}
+        />
+      </div>
+      <Text type="secondary" style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary, textAlign: 'center', marginTop: 'auto', paddingTop: 8 }}>
+        Click a slice to view those events
+      </Text>
+    </Card>
   );
 }
 
@@ -362,7 +455,7 @@ export function EventsByBranchChart({
       legend={{ color: { position: 'bottom', itemLabelFill: token.colorText, itemLabelFontSize: token.fontSizeSM } }}
       tooltip={{ title: (d: { branch: string }) => d.branch, items: [{ field: 'count', name: 'Events' }] }}
       onEvent={(_chart, event) => {
-        if (event.type !== 'element:click') return;
+        if (event.type !== 'click' || !event.data) return;
         const datum = event.data?.data as { branch?: string } | undefined;
         if (datum?.branch) router.push(`/events?branch=${encodeURIComponent(datum.branch)}`);
       }}
@@ -416,7 +509,7 @@ export function EventsByIssueChart({
         legend={{ color: { position: 'bottom', itemLabelFill: token.colorText, itemLabelFontSize: token.fontSizeSM, itemLabelFormatter: (v: string) => v.length > 18 ? v.slice(0, 17) + '…' : v, rows: 6 } }}
         tooltip={{ title: (d: Record<string, string>) => donutMode === 'issue' ? d.issue : d.component, items: [{ field: 'count', name: 'Events' }] }}
         onEvent={(_chart, event) => {
-          if (event.type !== 'element:click') return;
+          if (event.type !== 'click' || !event.data) return;
           const datum = event.data?.data as Record<string, string> | undefined;
           if (!datum) return;
           if (donutMode === 'issue' && datum.issue) router.push(`/events?issue=${encodeURIComponent(datum.issue)}`);
@@ -460,7 +553,7 @@ export function EventsOverTimeChart({
       height={height}
       theme={plotTheme}
       style={{ lineWidth: 1 }}
-      point={{ shapeField: 'square', sizeField: 1 }}
+      point={{ shapeField: 'square', sizeField: 3 }}
       interaction={{ tooltip: { marker: false } }}
       axis={{
         x: { ...axisStyle, labelFormatter: (v: string) => dayjs(v).format('MMM D'), tickCount: 4 },
@@ -468,7 +561,7 @@ export function EventsOverTimeChart({
       }}
       tooltip={{ title: (d: { date: string }) => dayjs(d.date).format('MMM D, YYYY') }}
       onEvent={(_chart, event) => {
-        if (event.type !== 'element:click') return;
+        if (event.type !== 'click' || !event.data) return;
         const datum = event.data?.data as { date?: string } | undefined;
         if (datum?.date) router.push(`/events?from=${datum.date}&to=${datum.date}`);
       }}

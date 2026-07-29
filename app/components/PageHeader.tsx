@@ -169,8 +169,7 @@ export function PageHeader({ left, middle, center, right }: Props) {
         open={mobileNavOpen}
         onClose={close}
         placement="left"
-        width="100%"
-        styles={{ body: { padding: 0 }, header: { padding: '16px 20px' } }}
+        styles={{ wrapper: { width: '100%' }, body: { padding: 0 }, header: { padding: '16px 20px' } }}
       >
         <Menu
           mode="inline"

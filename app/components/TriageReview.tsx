@@ -1,8 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Card, Col, Row, Tooltip, Typography, theme } from 'antd';
-import { HourglassFilled, EditOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { Card, Tooltip, Typography, theme } from 'antd';
+import { ArrowRightOutlined, HourglassFilled, EditOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import dayjs from 'dayjs';
@@ -10,7 +10,7 @@ import { now } from '@/lib/appTime';
 import type { QualityEvent } from '@/data/types';
 import { StatusTag } from '@/components/StatusTag';
 import { ExpandToggle, Dot } from './CardControls';
-import { awaitingTechReply } from './TechReplyWarning';
+import { awaitingFqResponse } from './EventMessages';
 
 const { Text, Paragraph } = Typography;
 const TODAY = now();
@@ -88,6 +88,46 @@ function WaitingCard({ event }: { event: QualityEvent }) {
   );
 }
 
+// Clickable bar row with an explicit hover affordance: background tint and a
+// trailing arrow, matching the app's "this navigates" language.
+function ClickableBarRow({ onNavigate, ariaLabel, children }: {
+  onNavigate: () => void; ariaLabel: string; children: React.ReactNode;
+}) {
+  const { token } = theme.useToken();
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onNavigate}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onNavigate(); } }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      aria-label={ariaLabel}
+      style={{
+        cursor: 'pointer',
+        position: 'relative',
+        padding: '4px 6px',
+        margin: '-4px -6px',
+        borderRadius: token.borderRadiusSM,
+        background: hovered ? token.colorFillTertiary : 'transparent',
+        transition: 'background 0.15s',
+      }}
+    >
+      {children}
+      <ArrowRightOutlined style={{
+        position: 'absolute',
+        right: 6,
+        bottom: 3,
+        fontSize: token.fontSizeXS,
+        color: token.colorPrimary,
+        opacity: hovered ? 1 : 0,
+        transition: 'opacity 0.15s',
+      }} />
+    </div>
+  );
+}
+
 function EmptyState({ icon, message }: { icon: React.ReactNode; message: string }) {
   const { token } = theme.useToken();
   return (
@@ -98,20 +138,15 @@ function EmptyState({ icon, message }: { icon: React.ReactNode; message: string 
   );
 }
 
-export function TriageReview({ events, waitingViewAllHref, dataQualityViewAllHref }: { events: QualityEvent[]; waitingViewAllHref?: string; dataQualityViewAllHref?: string }) {
+// Root Cause is set as part of normal resolution, not a correction to a poor submission —
+// exclude it so this card reflects only edits to what the tech originally reported.
+const isPoorSubmissionEdit = (entry: { field: string }) => entry.field !== 'Root Cause';
+
+// Standalone card: post-submission edits by Field Quality, broken down by
+// branch. Lives in the dashboard's bottom analysis row.
+export function EventsUpdatedByFqCard({ events, viewAllHref }: { events: QualityEvent[]; viewAllHref?: string }) {
   const { token } = theme.useToken();
   const router    = useRouter();
-
-  const waitingEvents = useMemo(() =>
-    events
-      .filter(e => awaitingTechReply(e.additionalInfoRequests))
-      .sort((a, b) => ageDays(b.date) - ageDays(a.date)),
-    [events]
-  );
-
-  // Root Cause is set as part of normal resolution, not a correction to a poor submission —
-  // exclude it so this card reflects only edits to what the tech originally reported.
-  const isPoorSubmissionEdit = (entry: { field: string }) => entry.field !== 'Root Cause';
 
   const allEdits = useMemo(() =>
     events.flatMap(e => (e.editHistory ?? []).filter(isPoorSubmissionEdit)),
@@ -149,71 +184,25 @@ export function TriageReview({ events, waitingViewAllHref, dataQualityViewAllHre
   }, [allEdits]);
 
   const [showAllBranches, setShowAllBranches]   = useState(false);
-  const WAITING_PREVIEW = 10;
   const BRANCH_PREVIEW  = 10;
-  const visibleWaiting  = waitingEvents.slice(0, WAITING_PREVIEW);
   const visibleBranches = showAllBranches ? editsByBranch : editsByBranch.slice(0, BRANCH_PREVIEW);
 
-
   return (
-    <div>
-      <Text
-        type="secondary"
-        style={{ display: 'block', marginBottom: 8, fontSize: token.fontSizeSM, fontWeight: 600, letterSpacing: '0.6px', textTransform: 'uppercase' }}
-      >
-        Review
-      </Text>
-
-      <Row gutter={token.marginSM} style={{ alignItems: 'flex-start' }}>
-
-        {/* Pending Information */}
-        <Col xs={24} lg={16}>
-          <Card
-            size="small"
-            title={
-              <span style={{ fontSize: token.fontSizeSM, fontWeight: 500, display: 'flex', alignItems: 'center' }}>
-                Awaiting Response
-                <MetricInfoIcon tooltip="Requests for more information that the technician has not yet answered, oldest first. The request may come from Field Quality or Customer Service." token={token} />
-              </span>
-            }
-            extra={
-              waitingEvents.length === 0
-                ? <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextSecondary }}>All clear</Text>
-                : waitingViewAllHref
-                    ? <Link href={waitingViewAllHref} style={{ fontSize: token.fontSizeSM }}>View in Table ({waitingEvents.length})</Link>
-                    : <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextSecondary }}>View in Table ({waitingEvents.length})</Text>
-            }
-            styles={{ body: { minHeight: 320, padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 8 } }}
-          >
-            {waitingEvents.length === 0 ? (
-              <EmptyState
-                icon={<HourglassFilled />}
-                message="No events awaiting a technician response"
-              />
-            ) : (
-              visibleWaiting.map(e => (
-                <WaitingCard key={e.id} event={e} />
-              ))
-            )}
-          </Card>
-        </Col>
-
-        {/* Poor Submissions by Branch */}
-        <Col xs={24} lg={8}>
           <Card
             size="small"
             title={
               <span style={{ fontSize: token.fontSizeSM, fontWeight: 500, display: 'flex', alignItems: 'center' }}>
                 Events Updated by Field Quality
-                <MetricInfoIcon tooltip="Events whose details were edited by Field Quality after submission, broken down by branch. Frequent edits can point to unclear submissions from the field." token={token} />
+                <MetricInfoIcon tooltip="Events whose details were edited by Field Quality after submission, broken down by branch. Frequent edits can point to unclear submissions from the field. Click a branch to open its edited events in the table." token={token} />
               </span>
             }
+            style={{ height: '100%' }}
             extra={
               allEdits.length === 0
                 ? undefined
                 : <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {dataQualityViewAllHref
-                      ? <Link href={dataQualityViewAllHref} style={{ fontSize: token.fontSizeSM }}>View in Table ({eventsEdited})</Link>
+                    {viewAllHref
+                      ? <Link href={viewAllHref} style={{ fontSize: token.fontSizeSM }}>View in Table ({eventsEdited})</Link>
                       : <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextSecondary }}>View in Table ({eventsEdited})</Text>}
                     {editsByBranch.length > BRANCH_PREVIEW && (
                       <>
@@ -236,13 +225,9 @@ export function TriageReview({ events, waitingViewAllHref, dataQualityViewAllHre
                       const label = `${branch}: ${editedCount} of ${totalCount} events edited (${pct}%)`;
                       return (
                         <Tooltip key={branch} title={label}>
-                          <div
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => router.push(`/events?flag=edited&branch=${encodeURIComponent(branch)}`)}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/events?flag=edited&branch=${encodeURIComponent(branch)}`); } }}
-                            aria-label={label}
-                            style={{ cursor: 'pointer' }}
+                          <ClickableBarRow
+                            onNavigate={() => router.push(`/events?flag=edited&branch=${encodeURIComponent(branch)}`)}
+                            ariaLabel={label}
                           >
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 3 }}>
                               <Text style={{ fontSize: token.fontSizeSM }}>{branch}</Text>
@@ -254,7 +239,7 @@ export function TriageReview({ events, waitingViewAllHref, dataQualityViewAllHre
                             <div style={{ height: 4, borderRadius: 2, background: token.colorFillSecondary, overflow: 'hidden' }}>
                               <div style={{ height: '100%', width: `${pct}%`, background: token.colorWarning, borderRadius: 2, transition: 'width 0.4s' }} />
                             </div>
-                          </div>
+                          </ClickableBarRow>
                         </Tooltip>
                       );
                     })}
@@ -278,17 +263,13 @@ export function TriageReview({ events, waitingViewAllHref, dataQualityViewAllHre
               </>
             )}
           </Card>
-        </Col>
-
-      </Row>
-    </div>
   );
 }
 
 export function WaitingOnTechChart({ events }: { events: QualityEvent[] }) {
   const { token } = theme.useToken();
   const waitingEvents = useMemo(() =>
-    events.filter(e => awaitingTechReply(e.additionalInfoRequests)).sort((a, b) => ageDays(b.date) - ageDays(a.date)),
+    events.filter(awaitingFqResponse).sort((a, b) => ageDays(b.date) - ageDays(a.date)),
     [events]
   );
   const preview = waitingEvents.slice(0, 3);
@@ -348,7 +329,7 @@ export function DataQualityChart({ events }: { events: QualityEvent[] }) {
       <div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {visibleBranches.map(({ branch, count }) => (
-            <div key={branch} role="button" tabIndex={0} onClick={() => router.push(`/events?flag=edited&branch=${encodeURIComponent(branch)}`)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/events?flag=edited&branch=${encodeURIComponent(branch)}`); } }} aria-label={`Filter events by branch: ${branch}`} style={{ cursor: 'pointer' }}>
+            <ClickableBarRow key={branch} onNavigate={() => router.push(`/events?flag=edited&branch=${encodeURIComponent(branch)}`)} ariaLabel={`Filter events by branch: ${branch}`}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
                 <Text style={{ fontSize: token.fontSizeSM }}>{branch}</Text>
                 <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600 }}>{count}</Text>
@@ -356,7 +337,7 @@ export function DataQualityChart({ events }: { events: QualityEvent[] }) {
               <div style={{ height: 4, borderRadius: 2, background: token.colorFillSecondary, overflow: 'hidden' }}>
                 <div style={{ height: '100%', width: `${Math.round((count / maxBranchCount) * 100)}%`, background: token.colorWarning, borderRadius: 2, transition: 'width 0.4s' }} />
               </div>
-            </div>
+            </ClickableBarRow>
           ))}
         </div>
       </div>

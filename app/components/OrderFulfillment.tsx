@@ -257,7 +257,7 @@ export function OrderFulfillment({
                     items: [{ field: 'count', name: (d: { decision: string }) => d.decision }],
                   }}
                   onEvent={(_chart, event) => {
-                    if (event.type !== 'element:click') return;
+                    if (event.type !== 'click' || !event.data) return;
                     const datum = event.data?.data as { decision?: string; weekStart?: string; weekEnd?: string } | undefined;
                     if (!datum?.decision) return;
                     const params = new URLSearchParams({ decision: datum.decision });
@@ -474,7 +474,7 @@ export function DecisionTrendChart({
           items: [{ field: 'count', name: (d: { decision: string }) => d.decision }],
         }}
         onEvent={(_chart, event) => {
-          if (event.type !== 'element:click') return;
+          if (event.type !== 'click' || !event.data) return;
           const datum = event.data?.data as { decision?: string; weekStart?: string; weekEnd?: string } | undefined;
           if (!datum?.decision) return;
           const params = new URLSearchParams({ decision: datum.decision });
@@ -624,7 +624,7 @@ export function DeclinedByBranchChart({ orders, height = 220 }: { orders: Order[
       }}
       tooltip={{ title: (d: { branch: string }) => d.branch, items: [{ field: 'count', name: 'Declined' }] }}
       onEvent={(_chart, event) => {
-        if (event.type !== 'element:click') return;
+        if (event.type !== 'click' || !event.data) return;
         router.push('/orders?decision=Declined');
       }}
     />
