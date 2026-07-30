@@ -50,8 +50,9 @@ export const DARK_SEED_OVERRIDES: ThemeConfig['token'] = {
 //   - Saturated chromatic fills = RECORD LIFECYCLE ONLY.
 //       Events:  Reported blue, Under Investigation orange, Validated green,
 //                Invalidated gray.
-//       Orders:  Pending blue, Approved green (light #95de64 while open,
-//                solid #389e0d once closed), Declined red. Orange is
+//       Orders:  Pending blue, Approved green (light #95de64 while open;
+//                solid #389e0d once closed, labeled "Fulfilled" after the
+//                backend's order:fulfill action), Declined red. Orange is
 //                Events-only.
 //     Nothing else may use these hues as fills; KPI swatches carry them.
 //   - ROLES/IDENTITY are monochromatic (FQ/CS tags, thread avatars): the

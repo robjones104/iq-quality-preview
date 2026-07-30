@@ -22,10 +22,11 @@ function parseOrderDate(lastUpdated: string): dayjs.Dayjs {
   return dayjs(`${yyyy}-${mm}-${dd}`);
 }
 
-// The four chart segments in stack order, named by decision. Approved is
-// split by status with two shades of one green: light while open, solid once
-// closed. Open work sits at the bottom of every bar; finished work on top.
-const STAGES = ['Pending Decision', 'Approved · Open', 'Approved · Closed', 'Declined'] as const;
+// The four chart segments in stack order. Fulfilled = approved then closed
+// (the backend's order:fulfill action); it shares the Approved green family,
+// light while open, solid once fulfilled. Open work sits at the bottom of
+// every bar; finished work on top.
+const STAGES = ['Pending Decision', 'Approved', 'Fulfilled', 'Declined'] as const;
 
 const TODAY = now();
 
@@ -148,7 +149,7 @@ export function PendingCSReviewChart({ orders }: { orders: Order[] }) {
 
 
 // Raw G2 grouped-stacked columns: per week, an Open bar (Pending Decision +
-// Approved · Open) beside a Closed bar (Approved · Closed + Declined). The
+// Approved) beside a Closed bar (Fulfilled + Declined). The
 // @ant-design/plots wrapper cannot express stack-within-dodge in this
 // version, so this chart uses the G2 engine directly.
 function GroupedStackTrend({ data, stages, colors, plotTheme, onSegmentClick }: {
@@ -223,7 +224,7 @@ export function DecisionTrendChart({
     const stageOf = (o: Order): typeof STAGES[number] | null => {
       if (o.consolidated) return null;
       if (o.declined) return 'Declined';
-      if (o.approved) return o.orderStatus === 'Closed' ? 'Approved · Closed' : 'Approved · Open';
+      if (o.approved) return o.orderStatus === 'Closed' ? 'Fulfilled' : 'Approved';
       return o.orderStatus === 'Open' ? 'Pending Decision' : null;
     };
     const weekMap: Record<string, { counts: Record<string, number>; sortKey: number }> = {};
@@ -245,7 +246,7 @@ export function DecisionTrendChart({
         const weekEnd   = ws.add(6, 'day').format('YYYY-MM-DD');
         return STAGES.map(stage => ({
           week, weekStart, weekEnd, stage,
-          status: stage === 'Pending Decision' || stage === 'Approved · Open' ? 'Open' : 'Closed',
+          status: stage === 'Pending Decision' || stage === 'Approved' ? 'Open' : 'Closed',
           count: counts[stage] ?? 0,
         }));
       });
@@ -269,8 +270,8 @@ export function DecisionTrendChart({
           if (!datum?.stage) return;
           const params = new URLSearchParams();
           if (datum.stage === 'Pending Decision') { params.set('orderStatus', 'Open'); params.set('decision', 'Pending'); }
-          else if (datum.stage === 'Approved · Open') { params.set('orderStatus', 'Open'); params.set('decision', 'Approved'); }
-          else if (datum.stage === 'Approved · Closed') { params.set('orderStatus', 'Closed'); params.set('decision', 'Approved'); }
+          else if (datum.stage === 'Approved') { params.set('orderStatus', 'Open'); params.set('decision', 'Approved'); }
+          else if (datum.stage === 'Fulfilled') { params.set('orderStatus', 'Closed'); params.set('decision', 'Approved'); }
           else { params.set('decision', 'Declined'); }
           if (datum.weekStart && datum.weekEnd) { params.set('from', datum.weekStart); params.set('to', datum.weekEnd); }
           router.push('/orders?' + params.toString());

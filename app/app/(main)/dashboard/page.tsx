@@ -501,13 +501,13 @@ function DashboardPageContent() {
     { label: 'Approved', count: liveOrders.filter(isApprovedOpen).length, prior: priorLiveN(isApprovedOpen), deltaTone: 'neutral',
       swatch: '#95de64',
       href: buildKpiHref('/orders?orderStatus=Open&decision=Approved', dateRange, {}),
-      tooltip: `Open · Approved. Still being worked: ${approvedWithCs} with Customer Service, ${approvedWithPro} with Procurement. Light green = approved and open; solid green = approved and closed.` },
+      tooltip: `Open · Approved. Still being worked: ${approvedWithCs} with Customer Service, ${approvedWithPro} with Procurement. Light green = approved and open; solid green = fulfilled (approved and closed).` },
   ];
 
   const closedLanes: [KpiLane, KpiLane] = [
-    { label: 'Approved', count: liveOrders.filter(isFulfilled).length, prior: priorLiveN(isFulfilled), deltaTone: 'neutral', swatch: STATUS_COLORS.Validated,
+    { label: 'Fulfilled', count: liveOrders.filter(isFulfilled).length, prior: priorLiveN(isFulfilled), deltaTone: 'neutral', swatch: STATUS_COLORS.Validated,
       href: buildKpiHref('/orders?orderStatus=Closed&decision=Approved', dateRange, {}),
-      tooltip: 'Closed · Approved. The replacement order was placed and the order closed out.' },
+      tooltip: 'Fulfilled = approved, then closed. The replacement order was placed and the order closed out. Same green family as Approved: light while open, solid once fulfilled.' },
     { label: 'Declined', count: liveOrders.filter(isDeclinedOrder).length, prior: priorLiveN(isDeclinedOrder), swatch: '#cf1322',
       href: buildKpiHref('/orders?decision=Declined', dateRange, {}),
       tooltip: 'Closed · Declined. Closed without fulfillment: duplicates, incorrect configurations, or orders that otherwise did not qualify. Reopening returns one to Open with no decision.' },
