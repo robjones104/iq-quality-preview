@@ -45,6 +45,24 @@ export const DARK_SEED_OVERRIDES: ThemeConfig['token'] = {
 };
 
 // ---------------------------------------------------------------------------
+// COLOR CONSTITUTION (2026-07-29, Rob's rulings)
+// Hue meaning is allocated by semantic layer, app-wide:
+//   - Saturated chromatic fills = RECORD LIFECYCLE ONLY.
+//       Events:  Reported blue, Under Investigation orange, Validated green,
+//                Invalidated gray.
+//       Orders:  Pending blue, Approved green (light #95de64 while open,
+//                solid #389e0d once closed), Declined red. Orange is
+//                Events-only.
+//     Nothing else may use these hues as fills; KPI swatches carry them.
+//   - ROLES/IDENTITY are monochromatic (FQ/CS tags, thread avatars): the
+//     letters carry the meaning, never a hue.
+//   - PURPLE = Procurement (location), exclusively.
+//   - GOLD (the brand accent, #FFD20B dark / gold family light) = accents and
+//     attention flags (awaiting, stale age, manual entry, direct ship),
+//     always paired with an icon or text, never a category color.
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
 // BRAND CONSTANTS
 // Design decisions that don't map to AntD tokens.
 // Import from here — never hardcode these values in components.

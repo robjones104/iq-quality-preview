@@ -62,13 +62,14 @@ function Empty({ icon, message }: { icon: React.ReactNode; message: string }) {
   );
 }
 
-// Sender-identity colors match the message thread's avatars in
-// InfoRequestThread: Field Quality blue, Customer Service purple. Tooltip copy
-// is supplied per card, because the same tag means "chase them" on the
-// awaiting lane and "check their answer" on the responded lane.
-const OWNER_TAG: Record<'Field Quality' | 'Customer Service', { label: string; color: string }> = {
-  'Field Quality':    { label: 'FQ', color: 'blue' },
-  'Customer Service': { label: 'CS', color: 'purple' },
+// Role identity is monochromatic by design decision: chromatic fills are
+// reserved for record lifecycle (statuses/decisions), gold for accents. The
+// two letters carry the meaning; tooltip copy is supplied per card, because
+// the same tag means "chase them" on the awaiting lane and "check their
+// answer" on the responded lane.
+const OWNER_TAG: Record<'Field Quality' | 'Customer Service', { label: string }> = {
+  'Field Quality':    { label: 'FQ' },
+  'Customer Service': { label: 'CS' },
 };
 
 function LaneRow({ orderId, eventId, meta, snippet, ageDays, hotWhenStale, owner, ownerTooltip }: {
@@ -95,7 +96,7 @@ function LaneRow({ orderId, eventId, meta, snippet, ageDays, hotWhenStale, owner
           </Link>
           {ownerMeta && (
             <Tooltip title={ownerTooltip}>
-              <Tag color={ownerMeta.color} style={{ fontSize: token.fontSizeXS, lineHeight: '16px', padding: '0 5px', margin: 0 }}>
+              <Tag style={{ fontSize: token.fontSizeXS, lineHeight: '16px', padding: '0 5px', margin: 0 }}>
                 {ownerMeta.label}
               </Tag>
             </Tooltip>

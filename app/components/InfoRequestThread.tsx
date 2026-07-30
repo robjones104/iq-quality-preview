@@ -9,8 +9,10 @@ import type { AdditionalInfoRequest, EventStatus, QualityEvent } from '@/data/ty
 const { Text } = Typography;
 
 const SENDER_META: Record<NonNullable<AdditionalInfoRequest['sentBy']>, { tagColor: string; avatarBg: string; initial: string }> = {
-  'Field Quality': { tagColor: 'blue', avatarBg: '#1677ff', initial: 'FQ' },
-  'Customer Service': { tagColor: 'purple', avatarBg: '#722ed1', initial: 'CS' },
+  // Role identity is monochromatic (chromatic fills are reserved for record
+  // lifecycle; gold for accents). Two gray steps keep the parties distinct.
+  'Field Quality': { tagColor: 'default', avatarBg: '#434343', initial: 'FQ' },
+  'Customer Service': { tagColor: 'default', avatarBg: '#8c8c8c', initial: 'CS' },
   Tech: { tagColor: 'gold', avatarBg: '#d48806', initial: 'T' },
 };
 

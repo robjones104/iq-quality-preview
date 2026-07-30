@@ -59,43 +59,136 @@ function matchesOrderFilters(o: Order, applied: Record<string, string[]>): boole
 
 
 
-// Holder split for the Approved card: two quiet clickable lines on the right
-// side of the card body, so the card stays the same height as its neighbors.
-// Dotted underline = the app's quiet-clickable convention.
-function HolderSplitAside({ withCs, withProcurement, hrefCs, hrefProcurement }: {
-  withCs: number; withProcurement: number; hrefCs: string; hrefProcurement: string;
-}) {
+// A status card holding two equal stage lanes (Open: Pending Decision +
+// Approved; Closed: Fulfilled + Declined). Lane = metric with its label
+// below, own link, own tooltip; hairline divider between lanes.
+type KpiLane = { label: string; count: number; href: string; tooltip: string; swatch: string; prior: number | null; deltaTone?: 'inverse' | 'neutral' };
+
+function SplitKpiCard({ title, tooltip, lanes, dateRange }: { title: string; tooltip?: string; lanes: [KpiLane, KpiLane]; dateRange?: DateRange | null }) {
   const { token } = theme.useToken();
   const router = useRouter();
-  const go = (href: string) => (e: React.MouseEvent | React.KeyboardEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    router.push(href);
-  };
-  const line = (count: number, text: string, href: string) => (
-    <span
+  const [hovered, setHovered] = useState<number | null>(null);
+  // The state-grammar tooltip targets only the number + label block, so it
+  // and the delta's own tooltip can never be open at the same time.
+  const lane = (l: KpiLane, i: number) => (
+    <div
+      key={l.label}
       role="button"
       tabIndex={0}
-      onClick={go(href)}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') go(href)(e); }}
+      onClick={() => router.push(l.href)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(l.href); } }}
+      onMouseEnter={() => setHovered(i)}
+      onMouseLeave={() => setHovered(null)}
+      aria-label={`${l.label}: ${l.count}`}
       style={{
-        fontSize: token.fontSizeXS,
-        color: token.colorTextSecondary,
+        flex: 1,
+        minWidth: 0,
         cursor: 'pointer',
-        whiteSpace: 'nowrap',
-        textDecoration: 'underline',
-        textDecorationStyle: 'dotted',
-        textDecorationColor: token.colorTextTertiary,
-        textUnderlineOffset: 3,
+        borderRadius: token.borderRadiusSM,
+        padding: '2px 8px',
+        margin: '-2px 0',
+        background: hovered === i ? token.colorFillTertiary : 'transparent',
+        transition: 'background 0.15s',
       }}
     >
-      <span style={{ fontWeight: 700, color: token.colorText }}>{count}</span> {text}
-    </span>
+      <Tooltip title={l.tooltip} mouseLeaveDelay={0}>
+        <div>
+          <div style={{ fontSize: token.fontSizeHeading3, fontWeight: 700, color: token.colorText, lineHeight: 1.2 }}>
+            {l.count.toLocaleString()}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, minHeight: 16 }}>
+            <span aria-hidden style={{ width: 8, height: 8, borderRadius: 2, background: l.swatch, flexShrink: 0 }} />
+            <span style={{ fontSize: token.fontSizeSM, color: token.colorTextSecondary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {l.label}
+            </span>
+          </div>
+        </div>
+      </Tooltip>
+      <KpiDelta count={l.count} prior={l.prior} deltaTone={l.deltaTone} dateRange={dateRange} />
+    </div>
   );
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-end', gap: 5, minWidth: 0 }}>
-      {line(withCs, 'with Customer Service', hrefCs)}
-      {line(withProcurement, 'with Procurement', hrefProcurement)}
+    <Card
+      size="small"
+      title={
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: token.fontSizeSM, fontWeight: 500 }}>
+          {title}
+          {tooltip && <MetricInfoIcon tooltip={tooltip} />}
+        </span>
+      }
+      style={{ gridColumn: 'span 2', height: '100%' }}
+      styles={{
+        header: { padding: '0 16px', minHeight: 32 },
+        body: { padding: '8px 16px' },
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'stretch', gap: 12 }}>
+        {lane(lanes[0], 0)}
+        <div style={{ width: 1, background: token.colorBorderSecondary, alignSelf: 'stretch', flexShrink: 0 }} />
+        {lane(lanes[1], 1)}
+      </div>
+    </Card>
+  );
+}
+
+// The delta line shared by every KPI surface: plain cards and split-card
+// lanes render the identical comparison UI.
+function KpiDelta({ count, prior, deltaTone = 'inverse', dateRange }: {
+  count: number; prior: number | null; deltaTone?: 'inverse' | 'neutral'; dateRange?: DateRange | null;
+}) {
+  const { token } = theme.useToken();
+  const screens = Grid.useBreakpoint();
+  const isMobile = screens.md === false;
+  const diff = prior !== null ? count - prior : null;
+  const up   = diff !== null && diff > 0;
+  const deltaColor = diff === null || diff === 0 || deltaTone === 'neutral'
+    ? token.colorTextTertiary
+    : up ? token.colorError : token.colorSuccess;
+  const range = dateRange ?? null;
+  const rangeName = range
+    ? rangeLabelFor(range) ?? `${range[0].format('M/D/YY')} – ${range[1].format('M/D/YY')}`
+    : null;
+  const fmtWindow = (start: dayjs.Dayjs, end: dayjs.Dayjs) =>
+    start.isSame(end, 'day')
+      ? end.format('MMM D, YYYY')
+      : `${start.format('MMM D')} – ${end.format('MMM D, YYYY')}`;
+  const deltaTooltip = (() => {
+    if (!range || diff === null) return null;
+    const duration = range[1].diff(range[0], 'day') + 1;
+    const priorStart = range[0].subtract(duration, 'day');
+    const priorEnd = range[0].subtract(1, 'day');
+    return `Compares ${fmtWindow(range[0], range[1])} against ${fmtWindow(priorStart, priorEnd)} (the preceding ${duration === 1 ? 'day' : `${duration} days`}).`;
+  })();
+  const deltaLine = diff === null ? (
+    <span style={{ color: token.colorTextTertiary }}>
+      {isMobile ? 'Set date range' : 'Set a date range to compare'}
+    </span>
+  ) : (
+    <>
+      <span style={{ color: deltaColor, fontWeight: 500 }}>
+        {diff === 0 ? 'No change' : `${up ? '↑' : '↓'} ${Math.abs(diff).toLocaleString()}`}
+      </span>
+      {!isMobile && rangeName && (
+        <span style={{ color: token.colorTextTertiary }}>
+          {diff === 0 ? ' · ' : ' '}{rangeName} vs. prior period
+        </span>
+      )}
+    </>
+  );
+  return (
+    <div style={{
+      fontSize: token.fontSizeSM,
+      marginTop: 2,
+      minHeight: 16,
+      whiteSpace: 'nowrap',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+    }}>
+      {deltaTooltip ? (
+        <Tooltip title={deltaTooltip}>
+          <span style={{ cursor: 'help' }}>{deltaLine}</span>
+        </Tooltip>
+      ) : deltaLine}
     </div>
   );
 }
@@ -113,7 +206,7 @@ function MetricInfoIcon({ tooltip }: { tooltip: string }) {
 }
 
 function KpiCard({
-  title, count, prior, href, tooltip, deltaTone = 'inverse', swatch, dateRange, aside,
+  title, count, prior, href, tooltip, deltaTone = 'inverse', swatch, dateRange,
 }: {
   title: string; count: number; prior: number | null; href?: string;
   tooltip?: string;
@@ -123,56 +216,9 @@ function KpiCard({
   deltaTone?: 'inverse' | 'neutral';
   swatch?: string;
   dateRange?: DateRange | null;
-  // Optional right-side slot beside the stat (e.g. the Approved card's holder
-  // split). Keeps card height uniform; interactive children must
-  // stopPropagation + preventDefault (the card is wrapped in a link).
-  aside?: React.ReactNode;
 }) {
   const { token } = theme.useToken();
-  const screens = Grid.useBreakpoint();
-  const isMobile = screens.md === false;
   const [hovered, setHovered] = useState(false);
-  const diff = prior !== null ? count - prior : null;
-  const up   = diff !== null && diff > 0;
-
-  const deltaColor = diff === null || diff === 0 || deltaTone === 'neutral'
-    ? token.colorTextTertiary
-    : up ? token.colorError : token.colorSuccess;
-
-  const range = dateRange ?? null;
-  const rangeName = range
-    ? rangeLabelFor(range) ?? `${range[0].format('M/D/YY')} – ${range[1].format('M/D/YY')}`
-    : null;
-
-  const fmtWindow = (start: dayjs.Dayjs, end: dayjs.Dayjs) =>
-    start.isSame(end, 'day')
-      ? end.format('MMM D, YYYY')
-      : `${start.format('MMM D')} – ${end.format('MMM D, YYYY')}`;
-
-  const deltaTooltip = (() => {
-    if (!range || diff === null) return null;
-    const duration = range[1].diff(range[0], 'day') + 1;
-    const priorStart = range[0].subtract(duration, 'day');
-    const priorEnd = range[0].subtract(1, 'day');
-    return `Compares ${fmtWindow(range[0], range[1])} against ${fmtWindow(priorStart, priorEnd)} (the preceding ${duration === 1 ? 'day' : `${duration} days`}).`;
-  })();
-
-  const deltaLine = diff === null ? (
-    <span style={{ color: token.colorTextTertiary }}>
-      {isMobile ? 'Set date range' : 'Set a date range to compare'}
-    </span>
-  ) : (
-    <>
-      <span style={{ color: deltaColor, fontWeight: 500 }}>
-        {diff === 0 ? 'No change' : `${up ? '↑' : '↓'} ${Math.abs(diff).toLocaleString()}`}
-      </span>
-      {!isMobile && rangeName && (
-        <span style={{ color: token.colorTextTertiary }}>
-          {diff === 0 ? ' · ' : ' '}{rangeName} vs. prior period
-        </span>
-      )}
-    </>
-  );
 
   const card = (
     <Card
@@ -188,44 +234,35 @@ function KpiCard({
       onMouseLeave={() => setHovered(false)}
       style={{
         cursor: href ? 'pointer' : 'default',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
         transition: 'transform 0.18s, box-shadow 0.18s',
         transform: href && hovered ? 'translateY(-2px)' : 'translateY(0)',
         boxShadow: href && hovered ? `0 8px 24px ${token.colorPrimary}33` : undefined,
       }}
       styles={{
         header: { padding: '0 16px', minHeight: 32 },
-        body: { padding: '8px 16px' },
+        body: { padding: '8px 16px', flex: 1, display: 'flex', flexDirection: 'column' },
       }}
     >
-      <div style={{ minWidth: 0, display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-        <div style={{ minWidth: 0 }}>
-          <Statistic
-            value={count}
-            styles={{ content: { fontSize: token.fontSizeHeading3, fontWeight: 700, color: token.colorText, lineHeight: 1.2 } }}
-          />
-          <div style={{
-            fontSize: token.fontSizeSM,
-            marginTop: 2,
-            minHeight: 16,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}>
-            {deltaTooltip ? (
-              <Tooltip title={deltaTooltip}>
-                <span style={{ cursor: 'help' }}>{deltaLine}</span>
-              </Tooltip>
-            ) : deltaLine}
-          </div>
+      <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <Statistic
+          value={count}
+          styles={{ content: { fontSize: token.fontSizeHeading3, fontWeight: 700, color: token.colorText, lineHeight: 1.2 } }}
+        />
+        {/* Spare space stays open (future sparkline home); delta pins to the
+            bottom, aligned with the split lanes' delta lines. */}
+        <div style={{ marginTop: 'auto' }}>
+          <KpiDelta count={count} prior={prior} deltaTone={deltaTone} dateRange={dateRange} />
         </div>
-        {aside}
       </div>
     </Card>
   );
 
   return href
-    ? <Link href={href} style={{ textDecoration: 'none', display: 'block', minWidth: 0 }}>{card}</Link>
-    : <div style={{ minWidth: 0 }}>{card}</div>;
+    ? <Link href={href} style={{ textDecoration: 'none', display: 'block', minWidth: 0, height: '100%' }}>{card}</Link>
+    : <div style={{ minWidth: 0, height: '100%' }}>{card}</div>;
 }
 
 function buildKpiHref(
@@ -433,10 +470,11 @@ function DashboardPageContent() {
     });
   }, [effectiveOrders, dateRange, orderFilters]);
 
-  // The pipeline bar: five stage cards partitioning live demand, mirroring
-  // the Events bar. Approved (open) carries its holder split as a footer:
-  // on CS's desk vs handed to Procurement. Orders consolidated into another
-  // order are excluded; the surviving order carries their demand.
+  // The pipeline bar: Total, then the STATUS axis as two split cards whose
+  // lanes are the stages. Open = Pending Decision + Approved; Closed =
+  // Fulfilled + Declined. Lanes partition live demand (consolidated sources
+  // excluded; the surviving order carries their demand). Grid: 1 + 2 + 2
+  // columns, so each lane is exactly one Events-card wide.
   const liveOrders  = useMemo(() => filteredOrders.filter(o => !o.consolidated), [filteredOrders]);
   const priorLive   = priorOrders ? priorOrders.filter(o => !o.consolidated) : null;
   const priorLiveN  = (fn: (o: Order) => boolean) => priorLive ? priorLive.filter(fn).length : null;
@@ -447,18 +485,32 @@ function DashboardPageContent() {
   const approvedWithCs    = liveOrders.filter(o => isApprovedOpen(o) && !o.assignedToProcurement).length;
   const approvedWithPro   = liveOrders.filter(o => isApprovedOpen(o) && o.assignedToProcurement).length;
 
-  const orderKpis = [
-    { title: 'Total Order Count', count: liveOrders.length,                           prior: priorLive?.length ?? null,     href: buildKpiHref('/orders', dateRange, {}),
-      tooltip: 'Total count of orders in the selected time period. Excludes orders consolidated into other orders; the surviving order carries their demand.', swatch: token.colorText },
-    { title: 'Pending Decision',  count: liveOrders.filter(isPendingDecision).length, prior: priorLiveN(isPendingDecision), href: buildKpiHref('/orders?orderStatus=Open&decision=Pending', dateRange, {}),
-      tooltip: 'Orders that have not yet received an approve or decline decision, at any age.', swatch: STATUS_COLORS.Reported },
-    { title: 'Approved',          count: liveOrders.filter(isApprovedOpen).length,    prior: priorLiveN(isApprovedOpen),    href: buildKpiHref('/orders?orderStatus=Open&decision=Approved', dateRange, {}),
-      tooltip: 'Approved orders still being worked. The split shows whose desk each order is on: Customer Service closing it out, or Procurement sourcing the part.', swatch: STATUS_COLORS['Under Investigation'],
-      aside: <HolderSplitAside withCs={approvedWithCs} withProcurement={approvedWithPro} hrefCs={buildKpiHref('/orders?orderStatus=Open&decision=Approved&flag=withCS', dateRange, {})} hrefProcurement={buildKpiHref('/orders?orderStatus=Open&flag=procurement', dateRange, {})} /> },
-    { title: 'Fulfilled',         count: liveOrders.filter(isFulfilled).length,       prior: priorLiveN(isFulfilled),       href: buildKpiHref('/orders?orderStatus=Closed&decision=Approved', dateRange, {}),
-      tooltip: 'Approved orders that have been closed with a replacement order placed.', deltaTone: 'neutral' as const, swatch: STATUS_COLORS.Validated },
-    { title: 'Declined',          count: liveOrders.filter(isDeclinedOrder).length,   prior: priorLiveN(isDeclinedOrder),   href: buildKpiHref('/orders?decision=Declined', dateRange, {}),
-      tooltip: 'Orders that were declined and closed without fulfillment. These orders may be duplicates, incorrectly configured, or otherwise not qualify. A declined order can be reopened if circumstances change.', swatch: '#cf1322' },
+  const orderTotalKpi = {
+    title: 'Total Order Count',
+    count: liveOrders.length,
+    prior: priorLive?.length ?? null,
+    href: buildKpiHref('/orders', dateRange, {}),
+    tooltip: 'Total count of orders in the selected time period. Excludes orders consolidated into other orders; the surviving order carries their demand.',
+    swatch: token.colorText,
+  };
+
+  const openLanes: [KpiLane, KpiLane] = [
+    { label: 'Pending Decision', count: liveOrders.filter(isPendingDecision).length, prior: priorLiveN(isPendingDecision), swatch: STATUS_COLORS.Reported,
+      href: buildKpiHref('/orders?orderStatus=Open&decision=Pending', dateRange, {}),
+      tooltip: 'Open · No Decision. Orders that have not yet received an approve or decline decision, at any age.' },
+    { label: 'Approved', count: liveOrders.filter(isApprovedOpen).length, prior: priorLiveN(isApprovedOpen), deltaTone: 'neutral',
+      swatch: '#95de64',
+      href: buildKpiHref('/orders?orderStatus=Open&decision=Approved', dateRange, {}),
+      tooltip: `Open · Approved. Still being worked: ${approvedWithCs} with Customer Service, ${approvedWithPro} with Procurement. Light green = approved and open; solid green = approved and closed.` },
+  ];
+
+  const closedLanes: [KpiLane, KpiLane] = [
+    { label: 'Approved', count: liveOrders.filter(isFulfilled).length, prior: priorLiveN(isFulfilled), deltaTone: 'neutral', swatch: STATUS_COLORS.Validated,
+      href: buildKpiHref('/orders?orderStatus=Closed&decision=Approved', dateRange, {}),
+      tooltip: 'Closed · Approved. The replacement order was placed and the order closed out.' },
+    { label: 'Declined', count: liveOrders.filter(isDeclinedOrder).length, prior: priorLiveN(isDeclinedOrder), swatch: '#cf1322',
+      href: buildKpiHref('/orders?decision=Declined', dateRange, {}),
+      tooltip: 'Closed · Declined. Closed without fulfillment: duplicates, incorrect configurations, or orders that otherwise did not qualify. Reopening returns one to Open with no decision.' },
   ];
 
   const carouselRef = useRef<HTMLDivElement>(null);
@@ -526,9 +578,25 @@ function DashboardPageContent() {
             gridTemplateColumns: screens.md === false ? '1fr 1fr' : 'repeat(5, 1fr)',
             gap: token.marginSM,
           }}>
-            {(view === 'events' ? kpis : orderKpis).map((k) => (
-              <KpiCard key={k.title} {...k} dateRange={dateRange} />
-            ))}
+            {view === 'events'
+              ? kpis.map((k) => <KpiCard key={k.title} {...k} dateRange={dateRange} />)
+              : (
+                <>
+                  <KpiCard {...orderTotalKpi} dateRange={dateRange} />
+                  <SplitKpiCard
+                    title="Open"
+                    tooltip="Orders still in progress: awaiting a decision or approved and being worked."
+                    lanes={openLanes}
+                    dateRange={dateRange}
+                  />
+                  <SplitKpiCard
+                    title="Closed"
+                    tooltip="Orders that reached an outcome: fulfilled with a replacement, or declined."
+                    lanes={closedLanes}
+                    dateRange={dateRange}
+                  />
+                </>
+              )}
           </div>
 
           {screens.md === false ? (
@@ -670,13 +738,13 @@ function DashboardPageContent() {
                     title={
                       <span style={{ fontSize: token.fontSizeSM, fontWeight: 500, display: 'inline-flex', alignItems: 'center' }}>
                         Decision Trend
-                        <MetricInfoIcon tooltip="Approved and declined counts per week across the selected period." />
+                        <MetricInfoIcon tooltip="Orders per week by decision: Pending (blue), Approved (light green while open, solid green once closed), Declined (red). Click a segment to open those orders." />
                       </span>
                     }
-                    style={{ height: '100%' }}
-                    styles={{ body: { minHeight: 300 } }}
+                    style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+                    styles={{ body: { minHeight: 300, flex: 1, display: 'flex', flexDirection: 'column' } }}
                   >
-                    <DecisionTrendChart orders={liveOrders} height={260} />
+                    <DecisionTrendChart orders={liveOrders} fill />
                   </Card>
                 </Col>
                 <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column' }}>

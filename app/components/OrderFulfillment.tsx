@@ -1,29 +1,31 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button, Card, Col, Row, Tag, Tooltip, Typography, theme } from 'antd';
-import { Column } from '@ant-design/plots';
-import { ExportOutlined, InfoCircleOutlined, ShoppingCartOutlined } from '@ant-design/icons';
+import { Button, Tag, Typography, theme } from 'antd';
+
+import { Chart as G2Chart } from '@antv/g2';
+import { ExportOutlined, ShoppingCartOutlined } from '@ant-design/icons';
 import Link from 'next/link';
 import dayjs from 'dayjs';
 import { now } from '@/lib/appTime';
 import type { Order } from '@/data/orders';
 import type { QualityEvent } from '@/data/types';
 import { useEffectiveEventMap } from '@/lib/effectiveEvents';
-import { Dot } from './CardControls';
 
 const { Text, Paragraph } = Typography;
-const CARD_H = 320;
 const STALE_DAYS = 3;
-const QUEUE_PREVIEW = 9;
-const DECLINED_PREVIEW = 4;
 
 
 function parseOrderDate(lastUpdated: string): dayjs.Dayjs {
   const [mm, dd, yyyy] = lastUpdated.slice(0, 10).split('-');
   return dayjs(`${yyyy}-${mm}-${dd}`);
 }
+
+// The four chart segments in stack order, named by decision. Approved is
+// split by status with two shades of one green: light while open, solid once
+// closed. Open work sits at the bottom of every bar; finished work on top.
+const STAGES = ['Pending Decision', 'Approved · Open', 'Approved · Closed', 'Declined'] as const;
 
 const TODAY = now();
 
@@ -49,16 +51,6 @@ function exportToCsv(filename: string, headers: string[], rows: (string | number
   URL.revokeObjectURL(url);
 }
 
-function MetricInfoIcon({ tooltip, token }: { tooltip: string; token: ReturnType<typeof theme.useToken>['token'] }) {
-  return (
-    <Tooltip title={tooltip}>
-      <InfoCircleOutlined
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-        style={{ marginLeft: 6, color: token.colorTextTertiary, fontSize: token.fontSizeSM, cursor: 'help' }}
-      />
-    </Tooltip>
-  );
-}
 
 function PendingRow({ item, token }: { item: PendingItem; token: ReturnType<typeof theme.useToken>['token'] }) {
   return (
@@ -118,250 +110,6 @@ function PendingRow({ item, token }: { item: PendingItem; token: ReturnType<type
   );
 }
 
-export function OrderFulfillment({
-  orders,
-  fulfillmentHref = '/orders?orderStatus=Open',
-  declinedHref = '/orders?decision=Declined',
-}: {
-  orders: Order[];
-  fulfillmentHref?: string;
-  declinedHref?: string;
-}) {
-  const router = useRouter();
-  const eventMap = useEffectiveEventMap();
-  const { token } = theme.useToken();
-
-  const isDark = token.colorBgBase === '#000000';
-  const plotTheme = isDark ? 'classicDark' : 'classic';
-  const axisStyle = {
-    labelFill:      token.colorText,
-    labelFontSize:  token.fontSizeSM,
-    gridStroke:     token.colorBorderSecondary,
-    gridLineWidth:  1,
-    lineStroke:     token.colorBorderSecondary,
-    lineLineWidth:  1,
-    tickStroke:     token.colorBorderSecondary,
-    tickLineWidth:  1,
-  };
-
-  // Pending Information — ALL open orders with info requests attached to them
-  // (the event's message thread), regardless of decision state. Mirrors the
-  // Events view's Pending Information card on the order side.
-  const pendingItems = useMemo((): PendingItem[] =>
-    orders
-      .filter(o => o.orderStatus === 'Open')
-      .map(o => {
-        const ev = eventMap.get(o.eventId);
-        const thread = ev?.additionalInfoRequests ?? [];
-        const last = thread[thread.length - 1];
-        return {
-          id: o.id,
-          eventId: o.eventId,
-          jobNo: o.jobNo,
-          branch: ev?.branch ?? '—',
-          component: ev?.component ?? '—',
-          partsCount: o.parts.length,
-          ageDays: TODAY.diff(parseOrderDate(o.lastUpdated), 'day'),
-          commentCount: thread.length,
-          latestComment: last?.text ?? null,
-          techReplied: last?.sentBy === 'Tech',
-        };
-      })
-      .filter(item => item.commentCount > 0 && !item.techReplied)
-      .sort((a, b) => b.ageDays - a.ageDays),
-    [orders, eventMap],
-  );
-
-  const visiblePending = pendingItems.slice(0, QUEUE_PREVIEW);
-
-  const declinedItems = useMemo(() => buildDeclinedItems(orders, eventMap), [orders, eventMap]);
-  const visibleDeclined = declinedItems.slice(0, DECLINED_PREVIEW);
-
-  const handleExportDeclined = () => {
-    exportToCsv(
-      `declined-orders-export-${new Date().toISOString().slice(0, 10)}.csv`,
-      ['Order ID', 'Job No.', 'Branch', 'Reason for Decline', 'Date Declined', 'Age (days)'],
-      declinedItems.map(d => [d.id, d.jobNo, d.branch, d.reason, d.dateDeclined, d.ageDays]),
-    );
-  };
-
-  // Approval Trend — weekly approved / declined counts
-  const trendData = useMemo(() => {
-    const weekMap: Record<string, { approved: number; declined: number; sortKey: number }> = {};
-    for (const order of orders) {
-      if (!order.approved && !order.declined) continue;
-      const d = parseOrderDate(order.lastUpdated);
-      const dow = d.day();
-      const weekStart = d.subtract(dow === 0 ? 6 : dow - 1, 'day');
-      const key = weekStart.format('MMM D');
-      if (!weekMap[key]) weekMap[key] = { approved: 0, declined: 0, sortKey: weekStart.valueOf() };
-      if (order.approved) weekMap[key].approved++;
-      else weekMap[key].declined++;
-    }
-    return Object.entries(weekMap)
-      .sort(([, a], [, b]) => a.sortKey - b.sortKey)
-      .flatMap(([week, { approved, declined, sortKey }]) => {
-        const ws = dayjs(sortKey);
-        const weekStart = ws.format('YYYY-MM-DD');
-        const weekEnd   = ws.add(6, 'day').format('YYYY-MM-DD');
-        return [
-          { week, weekStart, weekEnd, decision: 'Approved', count: approved },
-          { week, weekStart, weekEnd, decision: 'Declined', count: declined },
-        ];
-      });
-  }, [orders]);
-
-  return (
-    <div>
-      {/* Decision Trend — full width */}
-      <Row style={{ marginBottom: token.marginSM }}>
-        <Col span={24}>
-          <Card
-            size="small"
-            title={
-              <span style={{ fontSize: token.fontSizeSM, fontWeight: 500, display: 'flex', alignItems: 'center' }}>
-                Decision Trend
-                <MetricInfoIcon tooltip="Orders approved vs. declined, grouped by calendar week (Mon–Sun)." token={token} />
-              </span>
-            }
-            style={{ marginBottom: 0 }}
-            styles={{ body: { minHeight: CARD_H } }}
-          >
-            {trendData.length === 0 ? (
-              <div style={{ height: CARD_H, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No decision data</Text>
-              </div>
-            ) : (
-              <div style={{ cursor: 'pointer' }}>
-                <Column
-                  key={plotTheme}
-                  data={trendData}
-                  xField="week"
-                  yField="count"
-                  colorField="decision"
-                  group={true}
-                  height={276}
-                  theme={plotTheme}
-                  scale={{ color: { domain: ['Approved', 'Declined'], range: [token.colorSuccess, token.colorError] } }}
-                  label={false}
-                  animate={{ enter: { type: 'growInY', duration: 400 } }}
-                  interaction={{ elementHighlight: true }}
-                  state={{ active: { opacity: 1 }, inactive: { opacity: 0.15 } }}
-                  axis={{
-                    x: { ...axisStyle },
-                    y: { ...axisStyle, tickCount: 4 },
-                  }}
-                  legend={{ color: { position: 'bottom', itemLabelFill: token.colorText, itemLabelFontSize: token.fontSizeSM } }}
-                  tooltip={{
-                    title: (d: { week: string }) => d.week,
-                    items: [{ field: 'count', name: (d: { decision: string }) => d.decision }],
-                  }}
-                  onEvent={(_chart, event) => {
-                    if (event.type !== 'click' || !event.data) return;
-                    const datum = event.data?.data as { decision?: string; weekStart?: string; weekEnd?: string } | undefined;
-                    if (!datum?.decision) return;
-                    const params = new URLSearchParams({ decision: datum.decision });
-                    if (datum.weekStart && datum.weekEnd) {
-                      params.set('from', datum.weekStart);
-                      params.set('to', datum.weekEnd);
-                    }
-                    router.push('/orders?' + params.toString());
-                  }}
-                />
-              </div>
-            )}
-          </Card>
-        </Col>
-      </Row>
-
-      {/* Pending Review + Declined Orders — split evenly */}
-      <Row gutter={token.marginSM} style={{ alignItems: 'stretch' }}>
-
-        <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column' }}>
-          <Card
-            size="small"
-            title={
-              <span style={{ fontSize: token.fontSizeSM, fontWeight: 500, display: 'flex', alignItems: 'center' }}>
-                Awaiting Response
-                <MetricInfoIcon tooltip="Requests for more information on open orders that the technician has not yet answered. The request may come from Field Quality or Customer Service." token={token} />
-              </span>
-            }
-            extra={
-              pendingItems.length === 0
-                ? <Tag color="green" style={{ fontSize: token.fontSizeXS, lineHeight: '16px', padding: '0 5px' }}>All clear</Tag>
-                : <Link href={fulfillmentHref} style={{ fontSize: token.fontSizeSM }}>View in Table ({pendingItems.length})</Link>
-            }
-            style={{ marginBottom: 0, flex: 1, display: 'flex', flexDirection: 'column' }}
-            styles={{ body: {
-              flex: 1,
-              padding: '8px 12px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 8,
-              overflow: 'auto',
-            } }}
-          >
-            {pendingItems.length === 0 ? (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: token.colorTextTertiary }}>
-                <ShoppingCartOutlined style={{ fontSize: token.fontSizeHeading3 }} />
-                <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No open orders awaiting a technician response</Text>
-              </div>
-            ) : (
-              visiblePending.map(item => (
-                <PendingRow key={item.id} item={item} token={token} />
-              ))
-            )}
-          </Card>
-        </Col>
-
-        <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column' }}>
-          <Card
-            size="small"
-            title={
-              <span style={{ fontSize: token.fontSizeSM, fontWeight: 500, display: 'flex', alignItems: 'center' }}>
-                Declined Orders
-                <MetricInfoIcon tooltip="Orders declined for fulfillment in this period, with the reason given." token={token} />
-              </span>
-            }
-            extra={
-              declinedItems.length === 0
-                ? undefined
-                : <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Link href={declinedHref} style={{ fontSize: token.fontSizeSM }}>View in Table ({declinedItems.length})</Link>
-                    <Dot />
-                    <Tooltip title="Export to CSV">
-                      <Button size="small" icon={<ExportOutlined />} onClick={handleExportDeclined} />
-                    </Tooltip>
-                  </div>
-            }
-            style={{ marginBottom: 0, flex: 1, display: 'flex', flexDirection: 'column' }}
-            styles={{ body: {
-              flex: 1,
-              padding: '8px 12px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 8,
-              overflow: 'auto',
-            } }}
-          >
-            {declinedItems.length === 0 ? (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: token.colorTextTertiary }}>
-                <ShoppingCartOutlined style={{ fontSize: token.fontSizeHeading3 }} />
-                <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No declined orders in this period</Text>
-              </div>
-            ) : (
-              visibleDeclined.map(item => (
-                <DeclinedRow key={item.id} item={item} token={token} />
-              ))
-            )}
-          </Card>
-        </Col>
-
-      </Row>
-    </div>
-  );
-}
-
 export function PendingCSReviewChart({ orders }: { orders: Order[] }) {
   const { token } = theme.useToken();
   const eventMap = useEffectiveEventMap();
@@ -398,49 +146,108 @@ export function PendingCSReviewChart({ orders }: { orders: Order[] }) {
   );
 }
 
+
+// Raw G2 grouped-stacked columns: per week, an Open bar (Pending Decision +
+// Approved · Open) beside a Closed bar (Approved · Closed + Declined). The
+// @ant-design/plots wrapper cannot express stack-within-dodge in this
+// version, so this chart uses the G2 engine directly.
+function GroupedStackTrend({ data, stages, colors, plotTheme, onSegmentClick }: {
+  data: Record<string, string | number>[];
+  stages: readonly string[];
+  colors: string[];
+  plotTheme: string;
+  onSegmentClick: (datum: { stage?: string; weekStart?: string; weekEnd?: string }) => void;
+}) {
+  const { token } = theme.useToken();
+  const container = useRef<HTMLDivElement>(null);
+  const clickRef = useRef(onSegmentClick);
+  useEffect(() => {
+    clickRef.current = onSegmentClick;
+  }, [onSegmentClick]);
+
+  useEffect(() => {
+    if (!container.current) return;
+    const chart = new G2Chart({ container: container.current, autoFit: true });
+    chart.options({
+      type: 'interval',
+      data,
+      encode: { x: 'week', y: 'count', color: 'stage', series: 'status' },
+      transform: [{ type: 'stackY', groupBy: ['x', 'series'] }, { type: 'dodgeX' }],
+      scale: { color: { domain: [...stages], range: colors } },
+      theme: plotTheme,
+      animate: false,
+      axis: {
+        x: { labelFill: token.colorText, labelFontSize: token.fontSizeSM, line: false, tickStroke: token.colorBorderSecondary },
+        y: { labelFill: token.colorText, labelFontSize: token.fontSizeSM, gridStroke: token.colorBorderSecondary, gridLineWidth: 1, tickCount: 4 },
+      },
+      legend: { color: { position: 'bottom', itemLabelFill: token.colorText, itemLabelFontSize: token.fontSizeSM } },
+      tooltip: {
+        title: (d: Record<string, string>) => `${d.week} \u00b7 ${d.status}`,
+        items: [(d: Record<string, string | number>) => ({ name: String(d.stage), value: String(d.count) })],
+      },
+      state: { active: { opacity: 1 }, inactive: { opacity: 0.15 } },
+      interaction: { elementHighlight: true },
+    });
+    chart.render();
+    chart.on('element:click', (ev: { data?: { data?: Record<string, string> } }) => {
+      const datum = ev.data?.data;
+      if (datum) clickRef.current(datum);
+    });
+    return () => { chart.destroy(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, plotTheme, token.colorText, token.colorBorderSecondary]);
+
+  return <div ref={container} style={{ width: '100%', height: '100%', cursor: 'pointer' }} />;
+}
+
 export function DecisionTrendChart({
   orders,
   height = 240,
+  fill = false,
 }: {
   orders: Order[];
   height?: number;
+  // Fill the parent container's height (parent must have a concrete height,
+  // e.g. a flex-stretched card body) instead of a fixed pixel height.
+  fill?: boolean;
 }) {
   const { token } = theme.useToken();
   const router = useRouter();
   const isDark = token.colorBgBase === '#000000';
   const plotTheme = isDark ? 'classicDark' : 'classic';
-  const axisStyle = {
-    labelFill:     token.colorText,
-    labelFontSize: token.fontSizeSM,
-    gridStroke:    token.colorBorderSecondary,
-    gridLineWidth: 1,
-    lineStroke:    token.colorBorderSecondary,
-    lineLineWidth: 1,
-    tickStroke:    token.colorBorderSecondary,
-    tickLineWidth: 1,
-  };
+  // Weekly cohorts by current stage: each week renders an Open column
+  // (Pending Decision + Approved stacked) beside a Closed column (Fulfilled +
+  // Declined stacked). Old cohorts read almost entirely Closed; recent weeks
+  // carry tall Open columns — the gap is the backlog aging.
   const trendData = useMemo(() => {
-    const weekMap: Record<string, { approved: number; declined: number; sortKey: number }> = {};
+    const stageOf = (o: Order): typeof STAGES[number] | null => {
+      if (o.consolidated) return null;
+      if (o.declined) return 'Declined';
+      if (o.approved) return o.orderStatus === 'Closed' ? 'Approved · Closed' : 'Approved · Open';
+      return o.orderStatus === 'Open' ? 'Pending Decision' : null;
+    };
+    const weekMap: Record<string, { counts: Record<string, number>; sortKey: number }> = {};
     for (const order of orders) {
-      if (!order.approved && !order.declined) continue;
+      const stage = stageOf(order);
+      if (!stage) continue;
       const d = parseOrderDate(order.lastUpdated);
       const dow = d.day();
       const weekStart = d.subtract(dow === 0 ? 6 : dow - 1, 'day');
       const key = weekStart.format('MMM D');
-      if (!weekMap[key]) weekMap[key] = { approved: 0, declined: 0, sortKey: weekStart.valueOf() };
-      if (order.approved) weekMap[key].approved++;
-      else weekMap[key].declined++;
+      if (!weekMap[key]) weekMap[key] = { counts: {}, sortKey: weekStart.valueOf() };
+      weekMap[key].counts[stage] = (weekMap[key].counts[stage] ?? 0) + 1;
     }
     return Object.entries(weekMap)
       .sort(([, a], [, b]) => a.sortKey - b.sortKey)
-      .flatMap(([week, { approved, declined, sortKey }]) => {
+      .flatMap(([week, { counts, sortKey }]) => {
         const ws = dayjs(sortKey);
         const weekStart = ws.format('YYYY-MM-DD');
         const weekEnd   = ws.add(6, 'day').format('YYYY-MM-DD');
-        return [
-          { week, weekStart, weekEnd, decision: 'Approved', count: approved },
-          { week, weekStart, weekEnd, decision: 'Declined', count: declined },
-        ];
+        return STAGES.map(stage => ({
+          week, weekStart, weekEnd, stage,
+          status: stage === 'Pending Decision' || stage === 'Approved · Open' ? 'Open' : 'Closed',
+          count: counts[stage] ?? 0,
+        }));
       });
   }, [orders]);
 
@@ -452,37 +259,24 @@ export function DecisionTrendChart({
     );
   }
   return (
-    <>
-      <Column
-        key={plotTheme}
+    <div style={fill ? { flex: 1, minHeight: 0, height: '100%' } : { height }}>
+      <GroupedStackTrend
         data={trendData}
-        xField="week"
-        yField="count"
-        colorField="decision"
-        group={true}
-        height={height}
-        theme={plotTheme}
-        scale={{ color: { domain: ['Approved', 'Declined'], range: [token.colorSuccess, token.colorError] } }}
-        label={false}
-        animate={{ enter: { type: 'growInY', duration: 400 } }}
-        interaction={{ elementHighlight: true }}
-        state={{ active: { opacity: 1 }, inactive: { opacity: 0.15 } }}
-        axis={{ x: { ...axisStyle }, y: { ...axisStyle, tickCount: 4 } }}
-        legend={{ color: { position: 'bottom', itemLabelFill: token.colorText, itemLabelFontSize: token.fontSizeSM } }}
-        tooltip={{
-          title: (d: { week: string }) => d.week,
-          items: [{ field: 'count', name: (d: { decision: string }) => d.decision }],
-        }}
-        onEvent={(_chart, event) => {
-          if (event.type !== 'click' || !event.data) return;
-          const datum = event.data?.data as { decision?: string; weekStart?: string; weekEnd?: string } | undefined;
-          if (!datum?.decision) return;
-          const params = new URLSearchParams({ decision: datum.decision });
+        stages={STAGES}
+        colors={['#1677ff', '#95de64', '#389e0d', '#cf1322']}
+        plotTheme={plotTheme}
+        onSegmentClick={(datum) => {
+          if (!datum?.stage) return;
+          const params = new URLSearchParams();
+          if (datum.stage === 'Pending Decision') { params.set('orderStatus', 'Open'); params.set('decision', 'Pending'); }
+          else if (datum.stage === 'Approved · Open') { params.set('orderStatus', 'Open'); params.set('decision', 'Approved'); }
+          else if (datum.stage === 'Approved · Closed') { params.set('orderStatus', 'Closed'); params.set('decision', 'Approved'); }
+          else { params.set('decision', 'Declined'); }
           if (datum.weekStart && datum.weekEnd) { params.set('from', datum.weekStart); params.set('to', datum.weekEnd); }
           router.push('/orders?' + params.toString());
         }}
       />
-    </>
+    </div>
   );
 }
 
@@ -496,54 +290,6 @@ type DeclinedItem = {
   ageDays: number;
   sortTs: number;
 };
-
-function DeclinedRow({ item, token }: { item: DeclinedItem; token: ReturnType<typeof theme.useToken>['token'] }) {
-  return (
-    <div style={{
-      background: token.colorFillQuaternary,
-      border: `1px solid ${token.colorBorderSecondary}`,
-      borderRadius: token.borderRadiusSM,
-      padding: '8px 10px',
-      display: 'flex',
-      gap: 10,
-    }}>
-      {/* Left: ID + branch */}
-      <div style={{ flexShrink: 0 }}>
-        <Link href={`/orders/${item.id}`} style={{ display: 'block', fontSize: token.fontSizeSM, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap', marginBottom: 3 }}>
-          {item.eventId}
-        </Link>
-        <Text type="secondary" style={{ fontSize: token.fontSizeXS, whiteSpace: 'nowrap' }}>
-          {item.branch}
-        </Text>
-      </div>
-
-      {/* Right: decline reason + date + age, top-aligned */}
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-        <Paragraph
-          ellipsis={{ rows: 2 }}
-          style={{
-            flex: 1,
-            minWidth: 0,
-            marginBottom: 0,
-            fontSize: token.fontSizeSM,
-            color: token.colorTextSecondary,
-            overflowWrap: 'anywhere',
-          }}
-        >
-          {item.reason}
-        </Paragraph>
-        <div style={{ flexShrink: 0, marginLeft: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
-          <Text style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary, whiteSpace: 'nowrap' }}>
-            {item.dateDeclined}
-          </Text>
-          <Text style={{ fontSize: token.fontSizeXS, fontWeight: 600, color: token.colorTextTertiary, lineHeight: '16px' }}>
-            {item.ageDays}d
-          </Text>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function buildDeclinedItems(orders: Order[], eventMap: Map<string, QualityEvent>): DeclinedItem[] {
   return orders
