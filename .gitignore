@@ -15,3 +15,11 @@ app/dev-server.log
 
 # Research artifacts (local only)
 BACKLOG.md
+AUDIT.md
+CLAUDE.md
+DASHBOARD-RESEARCH.md
+DASHBOARD-SPEC.md
+FILTER_SPEC.md
+PERSONAS.md
+STORIES.md
+dashboard-mockup.html
