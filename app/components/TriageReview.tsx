@@ -9,7 +9,7 @@ import dayjs from 'dayjs';
 import { now } from '@/lib/appTime';
 import type { QualityEvent } from '@/data/types';
 import { StatusTag } from '@/components/StatusTag';
-import { ExpandToggle, Dot } from './CardControls';
+import { ExpandToggle } from './CardControls';
 import { awaitingFqResponse } from './EventMessages';
 
 const { Text, Paragraph } = Typography;
@@ -144,17 +144,12 @@ const isPoorSubmissionEdit = (entry: { field: string }) => entry.field !== 'Root
 
 // Standalone card: post-submission edits by Field Quality, broken down by
 // branch. Lives in the dashboard's bottom analysis row.
-export function EventsUpdatedByFqCard({ events, viewAllHref }: { events: QualityEvent[]; viewAllHref?: string }) {
+export function EventsUpdatedByFqCard({ events }: { events: QualityEvent[] }) {
   const { token } = theme.useToken();
   const router    = useRouter();
 
   const allEdits = useMemo(() =>
     events.flatMap(e => (e.editHistory ?? []).filter(isPoorSubmissionEdit)),
-    [events]
-  );
-
-  const eventsEdited = useMemo(() =>
-    events.filter(e => e.editHistory?.some(isPoorSubmissionEdit)).length,
     [events]
   );
 
@@ -198,19 +193,9 @@ export function EventsUpdatedByFqCard({ events, viewAllHref }: { events: Quality
             }
             style={{ height: '100%' }}
             extra={
-              allEdits.length === 0
-                ? undefined
-                : <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {viewAllHref
-                      ? <Link href={viewAllHref} style={{ fontSize: token.fontSizeSM }}>View in Table ({eventsEdited})</Link>
-                      : <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextSecondary }}>View in Table ({eventsEdited})</Text>}
-                    {editsByBranch.length > BRANCH_PREVIEW && (
-                      <>
-                        <Dot />
-                        <ExpandToggle expanded={showAllBranches} onToggle={() => setShowAllBranches(v => !v)} />
-                      </>
-                    )}
-                  </div>
+              editsByBranch.length > BRANCH_PREVIEW
+                ? <ExpandToggle expanded={showAllBranches} onToggle={() => setShowAllBranches(v => !v)} />
+                : undefined
             }
             styles={{ body: { minHeight: 320, padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 16 } }}
           >

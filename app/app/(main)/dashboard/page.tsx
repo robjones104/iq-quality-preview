@@ -712,7 +712,7 @@ function DashboardPageContent() {
                   <EventsDonutCard events={filteredEvents} />
                 </Col>
                 <Col xs={24} lg={8} style={{ display: 'flex', flexDirection: 'column' }}>
-                  <EventsUpdatedByFqCard events={filteredEvents} viewAllHref={buildKpiHref('/events?flag=edited', dateRange, {})} />
+                  <EventsUpdatedByFqCard events={filteredEvents} />
                 </Col>
               </Row>
             </>
