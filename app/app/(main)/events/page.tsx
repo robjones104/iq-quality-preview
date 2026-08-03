@@ -12,6 +12,7 @@ import { useEffectiveEvents } from '@/lib/effectiveEvents';
 import { useScopedEvents } from '@/lib/useScopedData';
 import { orders } from '@/data/orders';
 import { awaitingFqResponse, respondedNeedsReview } from '@/components/EventMessages';
+import { awaitingTechReply, hasTechReply } from '@/components/TechReplyWarning';
 import { StatusTag } from '@/components/StatusTag';
 import { EventCard } from '@/components/EventCard';
 
@@ -290,13 +291,20 @@ function EventsPageContent() {
       filters: colFilters('status'),
       filteredValue: appliedFilters.status ?? null,
       width: 160,
-      render: (_: EventStatus, record) => (
-        <StatusTag
-          status={record.status}
-          hasOrder={eventOrderIds.has(record.id)}
-          additionalInfoRequested={record.additionalInfoRequested}
-        />
-      ),
+      render: (_: EventStatus, record) => {
+        // Thread state derives from the live thread, not the static
+        // additionalInfoRequested flag (which stays true after a reply).
+        // Terminal statuses stay quiet: the conversation no longer gates anything.
+        const active = record.status === 'Reported' || record.status === 'Under Investigation';
+        return (
+          <StatusTag
+            status={record.status}
+            hasOrder={eventOrderIds.has(record.id)}
+            additionalInfoRequested={active && awaitingTechReply(record.additionalInfoRequests)}
+            responseReceived={active && hasTechReply(record.additionalInfoRequests)}
+          />
+        );
+      },
     },
   ];
 

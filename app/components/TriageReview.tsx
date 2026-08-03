@@ -11,6 +11,7 @@ import type { QualityEvent } from '@/data/types';
 import { StatusTag } from '@/components/StatusTag';
 import { ExpandToggle } from './CardControls';
 import { awaitingFqResponse } from './EventMessages';
+import { awaitingTechReply, hasTechReply } from './TechReplyWarning';
 
 const { Text, Paragraph } = Typography;
 const TODAY = now();
@@ -50,7 +51,11 @@ function WaitingCard({ event }: { event: QualityEvent }) {
           <Link href={`/events/${event.id}`} style={{ fontSize: token.fontSizeSM, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap' }}>
             {event.id}
           </Link>
-          <StatusTag status={event.status} additionalInfoRequested={!!event.additionalInfoRequested} />
+          <StatusTag
+            status={event.status}
+            additionalInfoRequested={awaitingTechReply(event.additionalInfoRequests)}
+            responseReceived={hasTechReply(event.additionalInfoRequests)}
+          />
         </div>
         <Text type="secondary" style={{ fontSize: token.fontSizeXS, whiteSpace: 'nowrap' }}>
           {event.reportedBy} · {event.branch}

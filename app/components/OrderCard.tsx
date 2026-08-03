@@ -6,7 +6,7 @@ import { Button, Card, Dropdown, Tag, Tooltip, theme } from 'antd';
 import { MoreOutlined } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { JobNoValue } from './JobNoValue';
-import { eventStatusTagProps } from './StatusTag';
+import { eventStatusTagProps, ThreadStateIcons } from './StatusTag';
 import type { EventStatus } from '@/data/types';
 import type { OrderStatus } from '@/data/orders';
 
@@ -25,11 +25,13 @@ interface OrderCardProps {
   row: OrderCardRow;
   status: OrderStatus;
   eventStatus: EventStatus;
+  awaitingResponse?: boolean;
+  responseReceived?: boolean;
   menuItems: MenuProps['items'];
   onAction: (key: string) => void;
 }
 
-export function OrderCard({ row, status, eventStatus, menuItems, onAction }: OrderCardProps) {
+export function OrderCard({ row, status, eventStatus, awaitingResponse, responseReceived, menuItems, onAction }: OrderCardProps) {
   const { token } = theme.useToken();
   const isDark = token.colorBgContainer !== '#ffffff';
   const router = useRouter();
@@ -54,7 +56,10 @@ export function OrderCard({ row, status, eventStatus, menuItems, onAction }: Ord
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
           <Tooltip title={`Event: ${eventStatus}`}>
-            <Tag {...eventStatusTagProps(eventStatus, isDark)}>{status}</Tag>
+            <Tag {...eventStatusTagProps(eventStatus, isDark)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              {status}
+              <ThreadStateIcons awaiting={awaitingResponse} responded={responseReceived} />
+            </Tag>
           </Tooltip>
           {menuItems && menuItems.length > 0 && (
             <Dropdown

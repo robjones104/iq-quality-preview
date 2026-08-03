@@ -13,7 +13,7 @@ import {
   SearchOutlined,
 } from '@ant-design/icons';
 import { JobNoValue } from '@/components/JobNoValue';
-import { TechReplyWarning, awaitingTechReply, replyReviewParty } from '@/components/TechReplyWarning';
+import { TechReplyWarning, awaitingTechReply, hasTechReply, replyReviewParty } from '@/components/TechReplyWarning';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { orders } from '@/data/orders';
@@ -28,7 +28,7 @@ import { EVENT_FILTER_CATEGORIES, ORDER_FILTER_CATEGORIES } from '@/data/filterO
 import { useFilterStore } from '@/store/filterStore';
 import { useOrderStore } from '@/store/orderStore';
 import { OrderCard } from '@/components/OrderCard';
-import { eventStatusTagProps } from '@/components/StatusTag';
+import { eventStatusTagProps, ThreadStateIcons } from '@/components/StatusTag';
 import type { Order, OrderStatus } from '@/data/orders';
 import type { QualityEvent } from '@/data/types';
 type OrderRow = Order & Pick<QualityEvent, 'issue' | 'component' | 'door' | 'branch' | 'plant' | 'reportedBy' | 'status' | 'jobNoManualEntry'>;
@@ -436,13 +436,23 @@ function OrdersPageContent() {
       filters: [{ text: 'Open', value: 'Open' }, { text: 'Closed', value: 'Closed' }],
       filteredValue: appliedFiltersLocal.orderStatus ?? null,
       width: 120,
-      render: (_, record) => (
-        <Tooltip title={`Event: ${record.status}`}>
-          <Tag {...eventStatusTagProps(record.status, isDark)}>
-            {effectiveStatus(record)}
-          </Tag>
-        </Tooltip>
-      ),
+      render: (_, record) => {
+        // Thread icons only while the order is open: the conversation gates
+        // the decision, and a closed order owes nobody anything.
+        const open = effectiveStatus(record) === 'Open';
+        const thread = eventMap.get(record.eventId)?.additionalInfoRequests;
+        return (
+          <Tooltip title={`Event: ${record.status}`}>
+            <Tag {...eventStatusTagProps(record.status, isDark)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              {effectiveStatus(record)}
+              <ThreadStateIcons
+                awaiting={open && awaitingTechReply(thread)}
+                responded={open && hasTechReply(thread)}
+              />
+            </Tag>
+          </Tooltip>
+        );
+      },
     },
   ];
 
@@ -690,16 +700,22 @@ function OrdersPageContent() {
                 gridTemplateColumns: screens.md !== false ? 'repeat(2, 1fr)' : '1fr',
                 gap: 12,
               }}>
-                {cardItems.map(row => (
-                  <OrderCard
-                    key={row.id}
-                    row={row}
-                    status={effectiveStatus(row)}
-                    eventStatus={row.status}
-                    menuItems={getMenuItems(row)}
-                    onAction={key => openRowAction(key, row)}
-                  />
-                ))}
+                {cardItems.map(row => {
+                  const open = effectiveStatus(row) === 'Open';
+                  const thread = eventMap.get(row.eventId)?.additionalInfoRequests;
+                  return (
+                    <OrderCard
+                      key={row.id}
+                      row={row}
+                      status={effectiveStatus(row)}
+                      eventStatus={row.status}
+                      awaitingResponse={open && awaitingTechReply(thread)}
+                      responseReceived={open && hasTechReply(thread)}
+                      menuItems={getMenuItems(row)}
+                      onAction={key => openRowAction(key, row)}
+                    />
+                  );
+                })}
               </div>
               {filtered.length > CARD_PAGE_SIZE && (
                 <Pagination

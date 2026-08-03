@@ -7,7 +7,7 @@ import { StatusTag } from '@/components/StatusTag';
 import { JobNoValue } from '@/components/JobNoValue';
 import { ShipToLine } from '@/components/ShipToLine';
 import { InfoRequestThreadPanel, useInfoRequestThread } from '@/components/InfoRequestThread';
-import { awaitingTechReply, awaitingParty } from '@/components/TechReplyWarning';
+import { awaitingTechReply, hasTechReply, awaitingParty } from '@/components/TechReplyWarning';
 import { useEventStore } from '@/store/eventStore';
 import { nowStampIso } from '@/lib/appTime';
 import type { AdditionalInfoRequest, QualityEvent } from '@/data/types';
@@ -89,7 +89,13 @@ export function EventSummaryDrawer({
       title={
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Text style={{ fontFamily: 'monospace', fontSize: token.fontSizeLG }}>{event.id}</Text>
-          <StatusTag status={event.status} additionalInfoRequested={awaiting} />
+          <StatusTag
+            status={event.status}
+            additionalInfoRequested={awaiting}
+            responseReceived={
+              event.status !== 'Validated' && event.status !== 'Invalidated' && hasTechReply(effectiveThread)
+            }
+          />
         </div>
       }
     >

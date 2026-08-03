@@ -1,5 +1,5 @@
 import { Tag, Tooltip, theme } from 'antd';
-import { ShoppingCartOutlined, InfoCircleFilled } from '@ant-design/icons';
+import { ShoppingCartOutlined, InfoCircleFilled, MessageFilled } from '@ant-design/icons';
 import type { CSSProperties } from 'react';
 import type { EventStatus } from '@/data/types';
 
@@ -35,13 +35,38 @@ export function eventStatusTagProps(status: EventStatus, isDark: boolean): { col
   return textOverride ? { color, style: { color: textOverride } } : { color };
 }
 
+// The two thread states, shape-differentiated (color stays lifecycle-only):
+// info circle = a question is out, the reporter side owes an answer;
+// message bubble = the answer came back, the office owes the next move.
+// The two are mutually exclusive (both key off the thread's latest message).
+// Callers gate both to records still in play (active events / open orders) so
+// terminal rows stay quiet. Inherits the surrounding tag's text color.
+export function ThreadStateIcons({ awaiting, responded }: { awaiting?: boolean; responded?: boolean }) {
+  const { token } = theme.useToken();
+  return (
+    <>
+      {awaiting && (
+        <Tooltip title="Information requested, response pending">
+          <InfoCircleFilled style={{ fontSize: token.fontSizeSM }} />
+        </Tooltip>
+      )}
+      {responded && (
+        <Tooltip title="Response received">
+          <MessageFilled style={{ fontSize: token.fontSizeSM }} />
+        </Tooltip>
+      )}
+    </>
+  );
+}
+
 type Props = {
   status: EventStatus;
   hasOrder?: boolean;
   additionalInfoRequested?: boolean;
+  responseReceived?: boolean;
 };
 
-export function StatusTag({ status, hasOrder, additionalInfoRequested }: Props) {
+export function StatusTag({ status, hasOrder, additionalInfoRequested, responseReceived }: Props) {
   const { token } = theme.useToken();
   const isDark = token.colorBgContainer !== '#ffffff';
   const textOverride = !isDark ? LIGHT_MODE_TEXT[status] : undefined;
@@ -62,11 +87,7 @@ export function StatusTag({ status, hasOrder, additionalInfoRequested }: Props) 
           <ShoppingCartOutlined style={{ fontSize: token.fontSizeSM }} />
         </Tooltip>
       )}
-      {additionalInfoRequested && (
-        <Tooltip title="Additional info requested from tech">
-          <InfoCircleFilled style={{ fontSize: token.fontSizeSM }} />
-        </Tooltip>
-      )}
+      <ThreadStateIcons awaiting={additionalInfoRequested} responded={responseReceived} />
     </Tag>
   );
 }

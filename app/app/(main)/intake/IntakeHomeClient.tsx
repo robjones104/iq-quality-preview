@@ -8,7 +8,7 @@ import { PlusOutlined, MessageFilled, RightOutlined } from '@ant-design/icons';
 import { PageHeader } from '@/components/PageHeader';
 import { StatusTag } from '@/components/StatusTag';
 import { JobNoValue } from '@/components/JobNoValue';
-import { awaitingTechReply, awaitingParty } from '@/components/TechReplyWarning';
+import { awaitingTechReply, hasTechReply, awaitingParty } from '@/components/TechReplyWarning';
 import { useEffectiveEvents } from '@/lib/effectiveEvents';
 import { useScopedEvents } from '@/lib/useScopedData';
 import { useCapabilities } from '@/store/roleStore';
@@ -85,9 +85,16 @@ export function IntakeHomeClient() {
       dataIndex: 'status',
       key: 'status',
       width: 170,
-      render: (_: string, row) => (
-        <StatusTag status={row.status} additionalInfoRequested={awaitingTechReply(row.additionalInfoRequests)} />
-      ),
+      render: (_: string, row) => {
+        const active = row.status === 'Reported' || row.status === 'Under Investigation';
+        return (
+          <StatusTag
+            status={row.status}
+            additionalInfoRequested={active && awaitingTechReply(row.additionalInfoRequests)}
+            responseReceived={active && hasTechReply(row.additionalInfoRequests)}
+          />
+        );
+      },
     },
     {
       key: 'chevron',
