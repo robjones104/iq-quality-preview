@@ -1,5 +1,5 @@
 import { Tag, Tooltip, theme } from 'antd';
-import { ShoppingCartOutlined, InfoCircleFilled, MessageFilled } from '@ant-design/icons';
+import { ShoppingCartOutlined, InfoCircleOutlined, MessageOutlined } from '@ant-design/icons';
 import type { CSSProperties } from 'react';
 import type { EventStatus } from '@/data/types';
 
@@ -47,12 +47,12 @@ export function ThreadStateIcons({ awaiting, responded }: { awaiting?: boolean; 
     <>
       {awaiting && (
         <Tooltip title="Information requested, response pending">
-          <InfoCircleFilled style={{ fontSize: token.fontSizeSM }} />
+          <InfoCircleOutlined style={{ fontSize: token.fontSizeSM }} />
         </Tooltip>
       )}
       {responded && (
         <Tooltip title="Response received">
-          <MessageFilled style={{ fontSize: token.fontSizeSM }} />
+          <MessageOutlined style={{ fontSize: token.fontSizeSM }} />
         </Tooltip>
       )}
     </>
