@@ -6,6 +6,7 @@ import { HourglassFilled, InfoCircleOutlined, MessageFilled } from '@ant-design/
 import Link from 'next/link';
 import dayjs from 'dayjs';
 import { now } from '@/lib/appTime';
+import { capabilitiesFor } from '@/lib/roles';
 import type { Order } from '@/data/orders';
 import { useEffectiveEventMap } from '@/lib/effectiveEvents';
 import { awaitingTechReply, awaitingParty, replyReviewParty } from '@/components/TechReplyWarning';
@@ -62,16 +63,11 @@ function Empty({ icon, message }: { icon: React.ReactNode; message: string }) {
   );
 }
 
-// Role identity is monochromatic by design decision: chromatic fills are
-// reserved for record lifecycle (statuses/decisions), gold for accents. The
-// two letters carry the meaning; tooltip copy is supplied per card, because
-// the same tag means "chase them" on the awaiting lane and "check their
-// answer" on the responded lane.
-const OWNER_TAG: Record<'Field Quality' | 'Customer Service', { label: string }> = {
-  'Field Quality':    { label: 'FQ' },
-  'Customer Service': { label: 'CS' },
-};
-
+// The owner tag names the person, not the role (Rob's ruling 2026-08-03):
+// office parties map to their demo personas. Monochromatic by design decision:
+// chromatic fills are reserved for record lifecycle, gold for accents. Tooltip
+// copy is supplied per card, because the same tag means "chase them" on the
+// awaiting lane and "check their answer" on the responded lane.
 function LaneRow({ orderId, eventId, meta, snippet, ageDays, hotWhenStale, owner, ownerTooltip }: {
   orderId: string; eventId: string; meta: string; snippet?: string; ageDays: number; hotWhenStale: boolean;
   owner?: 'Field Quality' | 'Customer Service' | null;
@@ -79,7 +75,7 @@ function LaneRow({ orderId, eventId, meta, snippet, ageDays, hotWhenStale, owner
 }) {
   const { token } = theme.useToken();
   const hot = hotWhenStale && ageDays >= STALE_MIN;
-  const ownerMeta = owner ? OWNER_TAG[owner] : null;
+  const ownerName = owner ? capabilitiesFor(owner).displayName : null;
   return (
     <div style={{
       background: token.colorFillQuaternary,
@@ -94,10 +90,10 @@ function LaneRow({ orderId, eventId, meta, snippet, ageDays, hotWhenStale, owner
           <Link href={`/orders/${orderId}`} style={{ fontSize: token.fontSizeSM, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap' }}>
             {eventId}
           </Link>
-          {ownerMeta && (
+          {ownerName && (
             <Tooltip title={ownerTooltip}>
               <Tag style={{ fontSize: token.fontSizeXS, lineHeight: '16px', padding: '0 5px', margin: 0 }}>
-                {ownerMeta.label}
+                {ownerName}
               </Tag>
             </Tooltip>
           )}

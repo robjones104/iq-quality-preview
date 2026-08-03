@@ -9,6 +9,7 @@ import { ShipToLine } from '@/components/ShipToLine';
 import { InfoRequestThreadPanel, useInfoRequestThread } from '@/components/InfoRequestThread';
 import { awaitingTechReply, hasTechReply, awaitingParty } from '@/components/TechReplyWarning';
 import { useEventStore } from '@/store/eventStore';
+import { capabilitiesFor } from '@/lib/roles';
 import { nowStampIso } from '@/lib/appTime';
 import type { AdditionalInfoRequest, QualityEvent } from '@/data/types';
 
@@ -52,7 +53,10 @@ export function EventSummaryDrawer({
   })();
 
   const awaiting = awaitingTechReply(effectiveThread);
-  const asking = awaitingParty(effectiveThread);
+  // Surfaces name the person asking, not their role (office parties map to
+  // their demo personas).
+  const askingParty = awaitingParty(effectiveThread);
+  const asking = askingParty ? capabilitiesFor(askingParty).displayName : null;
   const latestRoot = thread.infoThreads
     .slice()
     .sort((a, b) => a.sentAt.localeCompare(b.sentAt))
@@ -78,7 +82,7 @@ export function EventSummaryDrawer({
       ],
     });
     setReplyText('');
-    notification.success({ message: `Response sent to ${asking ?? 'Field Quality'}.` });
+    notification.success({ message: `Response sent to ${asking ?? capabilitiesFor('Field Quality').displayName}.` });
   };
 
   return (
@@ -163,7 +167,7 @@ export function EventSummaryDrawer({
       {awaiting && latestRoot && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
           <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
-            {asking ?? 'Field Quality'} is waiting on a response to the question above.
+            {asking ?? capabilitiesFor('Field Quality').displayName} is waiting on a response to the question above.
           </Text>
           <Input.TextArea
             rows={3}

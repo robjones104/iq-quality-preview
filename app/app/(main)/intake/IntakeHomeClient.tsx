@@ -12,6 +12,7 @@ import { awaitingTechReply, hasTechReply, awaitingParty } from '@/components/Tec
 import { useEffectiveEvents } from '@/lib/effectiveEvents';
 import { useScopedEvents } from '@/lib/useScopedData';
 import { useCapabilities } from '@/store/roleStore';
+import { capabilitiesFor } from '@/lib/roles';
 import { EventSummaryDrawer } from './EventSummaryDrawer';
 import type { QualityEvent } from '@/data/types';
 
@@ -143,7 +144,9 @@ export function IntakeHomeClient() {
               {needsResponse.slice(0, 6).map((e, i) => {
                 const thread = e.additionalInfoRequests ?? [];
                 const last = thread[thread.length - 1];
-                const asking = awaitingParty(thread) ?? 'Field Quality';
+                // The tag names the person asking, not their role (Rob's
+                // ruling 2026-08-03): office parties map to their personas.
+                const asking = capabilitiesFor(awaitingParty(thread) ?? 'Field Quality').displayName;
                 return (
                   <div
                     key={e.id}

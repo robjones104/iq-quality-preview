@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { App, Avatar, Button, Input, Tag, Typography, theme } from 'antd';
+import { App, Avatar, Button, Input, Typography, theme } from 'antd';
 import { MessageFilled, RedoOutlined } from '@ant-design/icons';
 import { useEventStore } from '@/store/eventStore';
 import { capabilitiesFor } from '@/lib/roles';
@@ -9,15 +9,25 @@ import { nowStampIso } from '@/lib/appTime';
 import type { AdditionalInfoRequest, EventStatus, QualityEvent } from '@/data/types';
 const { Text } = Typography;
 
-const SENDER_META: Record<NonNullable<AdditionalInfoRequest['sentBy']>, { tagColor: string; avatarBg: string; initial: string }> = {
-  // Role identity is monochromatic (chromatic fills are reserved for record
-  // lifecycle; gold for accents). Two gray steps keep the parties distinct.
-  // Reporter side (Tech, Intake) shares the gold family: two steps apart.
-  'Field Quality': { tagColor: 'default', avatarBg: '#434343', initial: 'FQ' },
-  'Customer Service': { tagColor: 'default', avatarBg: '#8c8c8c', initial: 'CS' },
-  Tech: { tagColor: 'gold', avatarBg: '#d48806', initial: 'T' },
-  Intake: { tagColor: 'gold', avatarBg: '#ad6800', initial: 'IN' },
+// Messages identify the person, not the role (Rob's ruling 2026-08-03): the
+// name comes from the party's demo persona (office roles) or the event's
+// reporter (Tech). Avatars keep side-coded colors so the two sides of the
+// conversation stay scannable without role labels: office = gray steps,
+// reporter side (Tech, Intake) = gold family.
+const SENDER_META: Record<NonNullable<AdditionalInfoRequest['sentBy']>, { avatarBg: string }> = {
+  'Field Quality': { avatarBg: '#434343' },
+  'Customer Service': { avatarBg: '#8c8c8c' },
+  Tech: { avatarBg: '#d48806' },
+  Intake: { avatarBg: '#ad6800' },
 };
+
+/** "Theron K. Aldwick" -> "TA" */
+function nameInitials(name: string): string {
+  const words = name.split(' ').filter(w => w.length > 1 || !w.endsWith('.'));
+  const first = words[0]?.[0] ?? '';
+  const last = words[words.length - 1]?.[0] ?? '';
+  return (first + last).toUpperCase();
+}
 
 type SenderRole = 'Field Quality' | 'Customer Service';
 
@@ -98,12 +108,11 @@ export function InfoRequestThreadPanel({
   const { token } = theme.useToken();
   const { notification } = App.useApp();
 
-  // Tech renders as the event's reporter; Intake renders as the intake persona
-  // (Intake may answer on a tech-reported event, so reportedBy would be wrong).
+  // Tech renders as the event's reporter; every other party renders as its
+  // demo persona (Intake may answer on a tech-reported event, so reportedBy
+  // would be wrong there; office parties store no person on the message).
   const senderName = (sentBy: AdditionalInfoRequest['sentBy']) =>
-    sentBy === 'Tech' ? reportedBy
-    : sentBy === 'Intake' ? capabilitiesFor('Intake').displayName
-    : sentBy ?? 'Field Quality';
+    sentBy === 'Tech' ? reportedBy : capabilitiesFor(sentBy ?? 'Field Quality').displayName;
 
   const sortedThreads = infoThreads.slice().sort((a, b) => a.sentAt.localeCompare(b.sentAt));
   const latestThread = sortedThreads[sortedThreads.length - 1];
@@ -141,22 +150,18 @@ export function InfoRequestThreadPanel({
                   );
                 }
                 const meta = SENDER_META[m.sentBy ?? 'Field Quality'];
+                const name = senderName(m.sentBy);
                 return (
                   <div key={m.id} style={{ padding: '10px 0' }}>
                     <div style={{ display: 'flex', gap: 10, width: '100%' }}>
                       <Avatar size="small" style={{ background: meta.avatarBg, fontSize: token.fontSizeSM, flexShrink: 0, marginTop: 2 }}>
-                        {meta.initial}
+                        {nameInitials(name)}
                       </Avatar>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                            <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600, whiteSpace: 'nowrap' }}>
-                              {senderName(m.sentBy)}
-                            </Text>
-                            <Tag color={meta.tagColor} style={{ marginInlineStart: 0, flexShrink: 0, width: 'fit-content' }}>
-                              {m.sentBy ?? 'Field Quality'}
-                            </Tag>
-                          </div>
+                        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
+                          <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                            {name}
+                          </Text>
                           <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary, whiteSpace: 'nowrap' }}>
                             {m.sentAt}
                           </Text>
