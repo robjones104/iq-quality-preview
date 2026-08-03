@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useRoleStore } from '@/store/roleStore';
 import { capabilitiesFor, type RoleCapabilities } from '@/lib/roles';
@@ -14,6 +14,7 @@ function requiredCapability(pathname: string): keyof RoleCapabilities | null {
   if (pathname.startsWith('/escalations'))  return 'escalations';
   if (pathname.startsWith('/procurement'))  return 'procurementQueue';
   if (pathname.startsWith('/manage'))       return 'categories';
+  if (pathname.startsWith('/intake'))       return 'intake';
   return null;
 }
 
@@ -27,13 +28,22 @@ export function RoleGuard({ children }: { children: React.ReactNode }) {
   const role = useRoleStore((s) => s.role);
   const caps = capabilitiesFor(role);
 
+  // The persisted role rehydrates after first render; until then the store
+  // holds the default role. Enforcing early misroutes roles whose access the
+  // default role lacks (a hard load of /intake redirected to /dashboard), so
+  // enforcement waits one tick for the real role.
+  const [hydrated, setHydrated] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { setHydrated(true); }, []);
+
   const required = requiredCapability(pathname);
   const allowed = required === null || Boolean(caps[required]);
 
   useEffect(() => {
-    if (!allowed) router.replace(caps.landing);
-  }, [allowed, caps.landing, router]);
+    if (hydrated && !allowed) router.replace(caps.landing);
+  }, [hydrated, allowed, caps.landing, router]);
 
+  if (!hydrated) return null;
   if (!allowed) return null;
   return <>{children}</>;
 }

@@ -59,11 +59,13 @@ export function PageHeader({ left, middle, center, right }: Props) {
     if (pathname.startsWith('/orders'))       return '/orders';
     if (pathname.startsWith('/escalations'))  return '/escalations';
     if (pathname.startsWith('/procurement'))  return '/procurement';
+    if (pathname.startsWith('/intake'))       return '/intake';
     if (pathname.startsWith('/account'))      return 'edit-password';
     return '';
   })();
 
   const menuItems = [
+    ...(caps.intake           ? [{ key: '/intake',             icon: <HomeFilled />,      label: <Link href="/intake"             onClick={close}>Home</Link> }] : []),
     ...(caps.dashboard        ? [{ key: '/dashboard',          icon: <HomeFilled />,      label: <Link href="/dashboard"          onClick={close}>Home</Link> }] : []),
     ...(caps.events           ? [{ key: '/events',             icon: <CalendarFilled />,  label: <Link href={navHref('/events')}  onClick={close}>Events</Link> }] : []),
     ...(caps.orders           ? [{ key: '/orders',             icon: <ShoppingFilled />,  label: <Link href={navHref('/orders')}  onClick={close}>Orders</Link> }] : []),

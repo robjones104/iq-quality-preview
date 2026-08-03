@@ -43,10 +43,10 @@ Every state mutation in the app goes through one of these named actions. No comp
 
 | Action | Semantics | Suggested endpoint |
 |---|---|---|
-| `patchEvent(eventId, patch)` | Field-level edit: status, issue, component, door, root cause, tags, escalation link, parts request, ship-to (`shipTo`/`shipToAddress`), photos | `PATCH /events/:id` |
+| `createEvent(event)` | Event created from the portal intake form (Intake role; INTAKE-SPEC.md). Parts request on the submission also fires `createOrder` | `POST /events` |
+| `patchEvent(eventId, patch)` | Field-level edit: status, issue, component, door, root cause, tags, escalation link, parts request, ship-to (`shipTo`/`shipToAddress`), photos. Also carries thread messages: senders write the FULL `additionalInfoRequests` array (the overlay replaces the static thread, so appends must include the existing conversation) | `PATCH /events/:id`; thread appends become `POST /events/:id/info-requests` |
 | `pushActivityLog(eventId, entry)` | Append to the event activity log | server-side effect of the mutation that caused it |
 | `pushEditHistory(eventId, entry)` | Append to the edit-history audit trail | server-side effect of `PATCH /events/:id` |
-| `pushAdditionalInfoRequest(eventId, entry)` | New message in the FQ/CS <-> tech thread | `POST /events/:id/info-requests` |
 | `updateAdditionalInfoRequest(eventId, id, patch)` | Mark replied / bump resend count | `PATCH /events/:id/info-requests/:requestId` |
 
 `pushActivityLog` and `pushEditHistory` exist because the client must simulate what a backend would derive. When real mutations land server-side, generate log/audit entries there and drop these two actions.

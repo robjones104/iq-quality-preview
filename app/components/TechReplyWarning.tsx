@@ -4,17 +4,23 @@ import type { CSSProperties } from 'react';
 import { Alert } from 'antd';
 import type { AdditionalInfoRequest } from '@/data/types';
 
+// The reporter side of a thread: the field tech (mobile app) or the branch's
+// Intake user (portal). Either one's reply satisfies an awaiting thread.
+export function isReporterSide(sentBy: AdditionalInfoRequest['sentBy']): boolean {
+  return sentBy === 'Tech' || sentBy === 'Intake';
+}
+
 // The two conversation states of an info-request thread, both keyed off the
-// latest message. Awaiting: the tech owes a reply. Replied: the tech answered
-// and the office owes the next move.
+// latest message. Awaiting: the reporter side owes a reply. Replied: the
+// reporter side answered and the office owes the next move.
 export function awaitingTechReply(thread?: AdditionalInfoRequest[]): boolean {
   if (!thread?.length) return false;
-  return thread[thread.length - 1]?.sentBy !== 'Tech';
+  return !isReporterSide(thread[thread.length - 1]?.sentBy);
 }
 
 export function hasTechReply(thread?: AdditionalInfoRequest[]): boolean {
   if (!thread?.length) return false;
-  return thread[thread.length - 1]?.sentBy === 'Tech';
+  return isReporterSide(thread[thread.length - 1]?.sentBy);
 }
 
 type OfficeParty = 'Field Quality' | 'Customer Service';
@@ -31,12 +37,12 @@ export function awaitingParty(thread?: AdditionalInfoRequest[]): OfficeParty | n
   return (last.sentBy as OfficeParty | undefined) ?? 'Field Quality';
 }
 
-/** When the tech has replied: the office party whose question was answered and who owes the next move. */
+/** When the reporter side has replied: the office party whose question was answered and who owes the next move. */
 export function replyReviewParty(thread?: AdditionalInfoRequest[]): OfficeParty | null {
   if (!hasTechReply(thread)) return null;
   for (let i = thread!.length - 2; i >= 0; i--) {
     const m = thread![i];
-    if (m.sentBy !== 'Tech') return (m.sentBy as OfficeParty | undefined) ?? 'Field Quality';
+    if (!isReporterSide(m.sentBy)) return (m.sentBy as OfficeParty | undefined) ?? 'Field Quality';
   }
   return 'Field Quality';
 }

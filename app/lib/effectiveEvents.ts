@@ -43,12 +43,17 @@ export function mergeEvent(e: QualityEvent, m?: EventMutations): QualityEvent {
   };
 }
 
-// The full event set with runtime mutations applied. Every list/dashboard
-// surface should read events through this hook (not '@/data/events') so
-// detail-screen actions are reflected everywhere.
+// The full event set with runtime mutations applied, including events created
+// at runtime (portal intake submissions). Every list/dashboard surface should
+// read events through this hook (not '@/data/events') so detail-screen actions
+// and intake submissions are reflected everywhere.
 export function useEffectiveEvents(): QualityEvent[] {
   const mutations = useEventStore(s => s.mutations);
-  return useMemo(() => staticEvents.map(e => mergeEvent(e, mutations[e.id])), [mutations]);
+  const createdEvents = useEventStore(s => s.createdEvents);
+  return useMemo(
+    () => [...staticEvents, ...Object.values(createdEvents)].map(e => mergeEvent(e, mutations[e.id])),
+    [mutations, createdEvents]
+  );
 }
 
 export function useEffectiveEventMap(): Map<string, QualityEvent> {

@@ -35,7 +35,10 @@ export interface AdditionalInfoRequest {
   kind: AdditionalInfoRequestKind;
   relatesTo?: string;
   resendCount?: number;
-  sentBy?: 'Field Quality' | 'Customer Service' | 'Tech';
+  // Office side: Field Quality / Customer Service (absent = Field Quality).
+  // Reporter side: Tech (mobile app) or Intake (branch office via the portal
+  // intake surface, INTAKE-SPEC.md) — both satisfy an awaiting thread.
+  sentBy?: 'Field Quality' | 'Customer Service' | 'Tech' | 'Intake';
 }
 
 export interface QualityEvent {

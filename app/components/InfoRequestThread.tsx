@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { App, Avatar, Button, Input, Tag, Typography, theme } from 'antd';
 import { MessageFilled, RedoOutlined } from '@ant-design/icons';
 import { useEventStore } from '@/store/eventStore';
+import { capabilitiesFor } from '@/lib/roles';
 import { nowStampIso } from '@/lib/appTime';
 import type { AdditionalInfoRequest, EventStatus, QualityEvent } from '@/data/types';
 const { Text } = Typography;
@@ -11,9 +12,11 @@ const { Text } = Typography;
 const SENDER_META: Record<NonNullable<AdditionalInfoRequest['sentBy']>, { tagColor: string; avatarBg: string; initial: string }> = {
   // Role identity is monochromatic (chromatic fills are reserved for record
   // lifecycle; gold for accents). Two gray steps keep the parties distinct.
+  // Reporter side (Tech, Intake) shares the gold family: two steps apart.
   'Field Quality': { tagColor: 'default', avatarBg: '#434343', initial: 'FQ' },
   'Customer Service': { tagColor: 'default', avatarBg: '#8c8c8c', initial: 'CS' },
   Tech: { tagColor: 'gold', avatarBg: '#d48806', initial: 'T' },
+  Intake: { tagColor: 'gold', avatarBg: '#ad6800', initial: 'IN' },
 };
 
 type SenderRole = 'Field Quality' | 'Customer Service';
@@ -27,7 +30,7 @@ export function useInfoRequestThread(
   senderRole: SenderRole,
   opts: UseInfoRequestThreadOpts = {}
 ) {
-  const { mutations, pushAdditionalInfoRequest, updateAdditionalInfoRequest } = useEventStore();
+  const { mutations, patchEvent, updateAdditionalInfoRequest } = useEventStore();
   const { notification } = App.useApp();
   const evtStored = mutations[event.id] ?? {};
 
@@ -40,9 +43,16 @@ export function useInfoRequestThread(
 
   const nowTs = () => nowStampIso();
 
+  // The store overlay REPLACES the static thread once present (mergeEvent
+  // semantics), so every write must carry the full thread: seeding the overlay
+  // with only the new entry would erase the seeded conversation app-wide.
+  const appendToThread = (entry: AdditionalInfoRequest) => {
+    patchEvent(event.id, { additionalInfoRequests: [...infoRequests, entry] });
+  };
+
   const sendInfoRequest = (text: string, kind: 'initial' | 'new', forStatus?: EventStatus) => {
     const entry: AdditionalInfoRequest = { id: `air_${Date.now()}`, text, sentAt: nowTs(), kind, sentBy: senderRole };
-    pushAdditionalInfoRequest(event.id, entry);
+    appendToThread(entry);
     opts.onActivity?.(
       kind === 'new'
         ? `Additional information requested from ${event.reportedBy} (new request).`
@@ -57,7 +67,7 @@ export function useInfoRequestThread(
     const followup: AdditionalInfoRequest = {
       id: `air_${Date.now()}`, text: root.text, sentAt: nowTs(), kind: 'followup', relatesTo: id, sentBy: senderRole,
     };
-    pushAdditionalInfoRequest(event.id, followup);
+    appendToThread(followup);
     updateAdditionalInfoRequest(event.id, id, { resendCount: (root.resendCount ?? 0) + 1 });
     opts.onActivity?.(`Follow-up reminder sent to ${event.reportedBy}.`);
     notification.success({ message: 'Follow-up reminder sent.' });
@@ -88,7 +98,12 @@ export function InfoRequestThreadPanel({
   const { token } = theme.useToken();
   const { notification } = App.useApp();
 
-  const senderName = (sentBy: AdditionalInfoRequest['sentBy']) => (sentBy === 'Tech' ? reportedBy : sentBy ?? 'Field Quality');
+  // Tech renders as the event's reporter; Intake renders as the intake persona
+  // (Intake may answer on a tech-reported event, so reportedBy would be wrong).
+  const senderName = (sentBy: AdditionalInfoRequest['sentBy']) =>
+    sentBy === 'Tech' ? reportedBy
+    : sentBy === 'Intake' ? capabilitiesFor('Intake').displayName
+    : sentBy ?? 'Field Quality';
 
   const sortedThreads = infoThreads.slice().sort((a, b) => a.sentAt.localeCompare(b.sentAt));
   const latestThread = sortedThreads[sortedThreads.length - 1];

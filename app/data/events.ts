@@ -548,7 +548,9 @@ const MESSAGE_THREAD_SEEDS: QualityEvent[] = [
   {
     id: 'QE_2687', date: '2026-06-05', jobNo: 'SO110028902', dfo: 3, elLine: 1,
     status: 'Under Investigation', rootCause: null,
-    branch: 'Orlando', plant: 'FAR (Farmington)', component: 'Panel',
+    // Atlanta so the Intake home's Needs Your Response card demos a CS-owned
+    // question next to QE_2234's FQ-owned one (INTAKE-SPEC.md).
+    branch: 'Atlanta', plant: 'FAR (Farmington)', component: 'Panel',
     issue: 'Freight Damage', door: 'Procare 8500',
     issueDescription: 'Lower panel dented on arrival. Replacement requested; packaging photos captured at delivery.',
     assignee: 'Callum V. Blackswood', reportedBy: 'Oswald M. Fenwick', reportedAt: '2026-06-05T14:25:00',

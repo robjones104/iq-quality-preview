@@ -11,6 +11,7 @@ import dayjs from 'dayjs';
 import { now } from '@/lib/appTime';
 import type { Order } from '@/data/orders';
 import type { QualityEvent } from '@/data/types';
+import { isReporterSide } from '@/components/TechReplyWarning';
 import { useEffectiveEventMap } from '@/lib/effectiveEvents';
 
 const { Text, Paragraph } = Typography;
@@ -121,7 +122,7 @@ export function PendingCSReviewChart({ orders }: { orders: Order[] }) {
         const ev = eventMap.get(o.eventId);
         const thread = ev?.additionalInfoRequests ?? [];
         const last = thread[thread.length - 1];
-        return { id: o.id, eventId: o.eventId, jobNo: o.jobNo, branch: ev?.branch ?? '—', component: ev?.component ?? '—', partsCount: o.parts.length, ageDays: TODAY.diff(parseOrderDate(o.lastUpdated), 'day'), commentCount: thread.length, latestComment: last?.text ?? null, techReplied: last?.sentBy === 'Tech' };
+        return { id: o.id, eventId: o.eventId, jobNo: o.jobNo, branch: ev?.branch ?? '—', component: ev?.component ?? '—', partsCount: o.parts.length, ageDays: TODAY.diff(parseOrderDate(o.lastUpdated), 'day'), commentCount: thread.length, latestComment: last?.text ?? null, techReplied: isReporterSide(last?.sentBy) };
       })
       .filter(item => item.commentCount > 0 && !item.techReplied)
       .sort((a, b) => b.ageDays - a.ageDays),

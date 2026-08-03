@@ -8,12 +8,18 @@
 // Procurement (and Customer Service); the feature matrix marks App Manager, which
 // reads as a typo since App Manager has no operational access. The prototype
 // follows the prose — Procurement + CS close orders.
+//
+// Intake (2026-08-03, DRM team ask; INTAKE-SPEC.md) is a seventh, post-PERSONAS
+// role: branch office staff (Branch Managers / Install Coordinators) who report
+// quality events from the portal and answer info requests. Its world is /intake
+// only; event creation is exclusive to it.
 
 export const ROLES = [
   'Full Access',
   'Field Quality',
   'Customer Service',
   'Procurement',
+  'Intake',
   'Global (View-Only)',
   'Branch (View-Only)',
 ] as const;
@@ -34,6 +40,7 @@ export interface RoleCapabilities {
   escalations: boolean;      // can view the escalations list + detail
   procurementQueue: boolean; // can see the /procurement screen
   categories: boolean;       // can see the Categories (manage) screen
+  intake: boolean;           // can see /intake: report events + answer info requests
   // Actions
   editEvents: boolean;       // validate / invalidate / edit / tag / root cause / escalate / message
   decideOrders: boolean;     // approve / decline
@@ -52,42 +59,49 @@ export interface RoleCapabilities {
 
 const CAPS: Record<Role, RoleCapabilities> = {
   'Full Access': {
-    dashboard: true, events: true, orders: true, escalations: true, procurementQueue: true, categories: true,
+    dashboard: true, events: true, orders: true, escalations: true, procurementQueue: true, categories: true, intake: false,
     editEvents: true, decideOrders: true, closeOrders: true, manageLists: true,
     branchScoped: false,
     landing: '/dashboard',
     displayName: 'Sophronia T. Aldwick', email: 'sophronia.aldwick@allegion.com',
   },
   'Field Quality': {
-    dashboard: true, events: true, orders: true, escalations: true, procurementQueue: true, categories: true,
+    dashboard: true, events: true, orders: true, escalations: true, procurementQueue: true, categories: true, intake: false,
     editEvents: true, decideOrders: false, closeOrders: false, manageLists: true,
     branchScoped: false,
     landing: '/dashboard',
     displayName: 'Callum V. Blackswood', email: 'callum.blackswood@allegion.com',
   },
   'Customer Service': {
-    dashboard: true, events: true, orders: true, escalations: false, procurementQueue: true, categories: false,
+    dashboard: true, events: true, orders: true, escalations: false, procurementQueue: true, categories: false, intake: false,
     editEvents: false, decideOrders: true, closeOrders: true, manageLists: false,
     branchScoped: false,
     landing: '/dashboard?view=orders',
     displayName: 'Theron K. Aldwick', email: 'theron.aldwick@allegion.com',
   },
   'Procurement': {
-    dashboard: true, events: false, orders: true, escalations: false, procurementQueue: true, categories: false,
+    dashboard: true, events: false, orders: true, escalations: false, procurementQueue: true, categories: false, intake: false,
     editEvents: false, decideOrders: false, closeOrders: true, manageLists: false,
     branchScoped: false,
     landing: '/procurement',
     displayName: 'Ptolemy R. Dunholm', email: 'ptolemy.dunholm@allegion.com',
   },
+  'Intake': {
+    dashboard: false, events: false, orders: false, escalations: false, procurementQueue: false, categories: false, intake: true,
+    editEvents: false, decideOrders: false, closeOrders: false, manageLists: false,
+    branchScoped: true, assignedBranch: ASSIGNED_BRANCH,
+    landing: '/intake',
+    displayName: 'Beatrix L. Hollowell', email: 'beatrix.hollowell@allegion.com',
+  },
   'Global (View-Only)': {
-    dashboard: true, events: true, orders: true, escalations: true, procurementQueue: false, categories: false,
+    dashboard: true, events: true, orders: true, escalations: true, procurementQueue: false, categories: false, intake: false,
     editEvents: false, decideOrders: false, closeOrders: false, manageLists: false,
     branchScoped: false,
     landing: '/dashboard',
     displayName: 'Marchmont R. Fenwick', email: 'marchmont.fenwick@allegion.com',
   },
   'Branch (View-Only)': {
-    dashboard: true, events: true, orders: true, escalations: false, procurementQueue: false, categories: false,
+    dashboard: true, events: true, orders: true, escalations: false, procurementQueue: false, categories: false, intake: false,
     editEvents: false, decideOrders: false, closeOrders: false, manageLists: false,
     branchScoped: true, assignedBranch: ASSIGNED_BRANCH,
     landing: '/dashboard',
@@ -107,6 +121,7 @@ export const ROLE_BLURB: Record<Role, string> = {
   'Field Quality': 'Validates, categorizes, and routes events',
   'Customer Service': 'Approves, declines, and closes orders',
   'Procurement': 'Sources parts and closes assigned orders',
+  'Intake': `Reports quality events, ${ASSIGNED_BRANCH} branch`,
   'Global (View-Only)': 'Read-only oversight, all branches',
   'Branch (View-Only)': `Read-only, ${ASSIGNED_BRANCH} branch only`,
 };

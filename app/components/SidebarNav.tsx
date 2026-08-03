@@ -51,8 +51,10 @@ export function SidebarNav() {
   const caps = capabilitiesFor(role);
   const signOut = useSignOut();
 
-  // Nav items visible to the current role, in order.
+  // Nav items visible to the current role, in order. Intake's Home is its own
+  // world (/intake); the role has no other operational surfaces.
   const visibleNav: { href: string; label: string }[] = [
+    ...(caps.intake ? [{ href: '/intake', label: 'Home' }] : []),
     ...(caps.dashboard ? [{ href: '/dashboard', label: 'Home' }] : []),
     ...(caps.events ? [{ href: '/events', label: 'Events' }] : []),
     ...(caps.orders ? [{ href: '/orders', label: 'Orders' }] : []),
