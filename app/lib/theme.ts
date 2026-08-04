@@ -133,6 +133,19 @@ export const DARK_COMPONENT_TOKENS: ThemeConfig['components'] = {
   Table: {
     cellPaddingBlockSM: 16,
     cellPaddingInlineSM: 12,
+    // Active sort carets / applied-filter funnels pop in the brand teal
+    // (Rob, 2026-08-03) instead of inheriting the gold primary. algorithm:true
+    // re-derives the component's own hover/bg states from the teal seed.
+    colorPrimary: '#319FC8',
+    algorithm: true,
+  },
+  // The dark calendar's in-range highlight derived a murky olive from the gold
+  // primary (Rob: "throw up yellow"). Selection inside the picker is teal-
+  // seeded instead: endpoints solid teal (dark text 6.08:1), in-range fill a
+  // derived dark teal. Gold stays outside the panel as the CTA color.
+  DatePicker: {
+    colorPrimary: '#319FC8',
+    algorithm: true,
   },
   Button: {
     fontWeight: 600,
@@ -171,6 +184,10 @@ export const LIGHT_COMPONENT_TOKENS: ThemeConfig['components'] = {
     headerBg: '#FFFBE6',
     headerSortHoverBg: '#FAF3CD',
     headerSortActiveBg: '#F5ECBB',
+    // Active sort carets / applied-filter funnels in the brand teal so they
+    // pop against the gold header tint (Rob, 2026-08-03).
+    colorPrimary: '#319FC8',
+    algorithm: true,
   },
   // Primary buttons carry the brand gold in light mode too (Rob, 2026-08-03:
   // "brand the light theme better" — light chrome was all navy). Scoped to
