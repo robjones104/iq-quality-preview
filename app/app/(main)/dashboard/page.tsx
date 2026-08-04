@@ -18,6 +18,7 @@ import { orders as allOrders } from '@/data/orders';
 import { useFilterStore } from '@/store/filterStore';
 import { useOrderStore } from '@/store/orderStore';
 import { useScopedEvents, useScopedOrders } from '@/lib/useScopedData';
+import { useCapabilities } from '@/store/roleStore';
 import { AiSummary } from '@/components/AiSummary';
 import { EventsOverTimeChart, EventsByIssueChart, EventsDonutCard } from '@/components/FieldIntake';
 import { DataQualityChart, EventsUpdatedByFqCard } from '@/components/TriageReview';
@@ -303,6 +304,11 @@ function DashboardPageContent() {
   // Branch (View-Only) roles see only their branch's data; everyone else sees all.
   const events = useScopedEvents(useEffectiveEvents());
   const orders = useScopedOrders(allOrders);
+  // Branch-scoped viewers lose the Events Updated by FQ card (a by-branch
+  // breakdown is meaningless inside one branch); the two remaining analysis
+  // cards widen to fill the row.
+  const caps = useCapabilities();
+  const branchScoped = caps.branchScoped;
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -622,7 +628,7 @@ function DashboardPageContent() {
                   view === 'events' ? [                      { title: 'Response Received',   content: <ResponseReceivedPreview events={filteredEvents} /> },
                       { title: 'Events Over Time',  content: <EventsOverTimeChart events={filteredEvents} dateRange={dateRange} height={200} /> },
                       { title: 'By Issue',          content: <EventsByIssueChart events={filteredEvents} height={200} /> },
-                      { title: 'Events Updated by Field Quality', content: <DataQualityChart events={filteredEvents} /> },
+                      ...(branchScoped ? [] : [{ title: 'Events Updated by Field Quality', content: <DataQualityChart events={filteredEvents} /> }]),
                   ] : [                      { title: 'Response Received',  content: <OrderResponseReceivedPreview orders={liveOrders} /> },
                       { title: 'Decision Trend',     content: <DecisionTrendChart orders={liveOrders} height={200} /> },
                       { title: 'Declined Orders',    content: <DeclinedOrdersPreview orders={liveOrders} /> },
@@ -681,9 +687,12 @@ function DashboardPageContent() {
                 </Col>
               </Row>
 
-              {/* Analysis: trend, breakdown donut, FQ edit quality */}
+              {/* Analysis: trend, breakdown donut, FQ edit quality. Branch-
+                  scoped viewers lose the Events Updated card (a by-branch
+                  breakdown says nothing inside one branch) and the two
+                  remaining cards widen to fill the row. */}
               <Row gutter={[token.marginSM, token.marginSM]} style={{ alignItems: 'stretch' }}>
-                <Col xs={24} lg={8} style={{ display: 'flex', flexDirection: 'column' }}>
+                <Col xs={24} lg={branchScoped ? 12 : 8} style={{ display: 'flex', flexDirection: 'column' }}>
                   <Card
                     size="small"
                     title={
@@ -703,12 +712,14 @@ function DashboardPageContent() {
                     </Typography.Text>
                   </Card>
                 </Col>
-                <Col xs={24} lg={8} style={{ display: 'flex', flexDirection: 'column' }}>
+                <Col xs={24} lg={branchScoped ? 12 : 8} style={{ display: 'flex', flexDirection: 'column' }}>
                   <EventsDonutCard events={filteredEvents} />
                 </Col>
-                <Col xs={24} lg={8} style={{ display: 'flex', flexDirection: 'column' }}>
-                  <EventsUpdatedByFqCard events={filteredEvents} />
-                </Col>
+                {!branchScoped && (
+                  <Col xs={24} lg={8} style={{ display: 'flex', flexDirection: 'column' }}>
+                    <EventsUpdatedByFqCard events={filteredEvents} />
+                  </Col>
+                )}
               </Row>
             </>
           )}
