@@ -42,29 +42,21 @@ export function EscalationsClient() {
 
   const columns: ColumnsType<Escalation> = [
     {
-      title: 'ID',
-      dataIndex: 'id',
-      key: 'id',
-      width: 96,
-      render: (id: string) => (
-        <Link
-          href={`/escalations/${id}`}
-          style={{ fontFamily: 'monospace', fontSize: token.fontSizeSM, color: token.colorLink }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {id}
-        </Link>
-      ),
-    },
-    {
+      // The ID column was cut (Rob, 2026-08-03): the reference number lives in
+      // the title for reference-type escalations, and rows navigate on click.
+      // Title is the drill-in link.
       title: 'Title',
       dataIndex: 'title',
       key: 'title',
       ellipsis: true,
-      render: (title: string) => (
-        <Text style={{ fontSize: token.fontSize }} ellipsis>
+      render: (title: string, row) => (
+        <Link
+          href={`/escalations/${row.id}`}
+          style={{ fontSize: token.fontSize, fontWeight: 600, color: token.colorLink, textDecoration: 'none' }}
+          onClick={(e) => e.stopPropagation()}
+        >
           {title}
-        </Text>
+        </Link>
       ),
     },
     {

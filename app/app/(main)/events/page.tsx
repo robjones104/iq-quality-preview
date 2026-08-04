@@ -193,7 +193,7 @@ function EventsPageContent() {
       dataIndex: 'id',
       key: 'id',
       sorter: (a, b) => a.id.localeCompare(b.id),
-      render: (id: string) => <Link href={`/events/${id}`}>{id}</Link>,
+      render: (id: string) => <Link href={`/events/${id}`} style={{ fontWeight: 600 }}>{id}</Link>,
       width: 92,
     },
     {

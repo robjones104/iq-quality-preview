@@ -346,7 +346,7 @@ function OrdersPageContent() {
       key: 'id',
       sorter: (a, b) => a.id.localeCompare(b.id),
       render: (id: string, record) => (
-        <Link href={`/orders/${id}`} style={{ fontWeight: 500, textDecoration: 'none' }}>
+        <Link href={`/orders/${id}`} style={{ fontWeight: 600, textDecoration: 'none' }}>
           {record.eventId}
         </Link>
       ),
