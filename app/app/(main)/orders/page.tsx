@@ -441,9 +441,12 @@ function OrdersPageContent() {
         // the decision, and a closed order owes nobody anything.
         const open = effectiveStatus(record) === 'Open';
         const thread = eventMap.get(record.eventId)?.additionalInfoRequests;
+        // Spread the status style INTO the layout style: a separate style prop
+        // after the spread would clobber the event-lifecycle coloring.
+        const tagProps = eventStatusTagProps(record.status, isDark);
         return (
           <Tooltip title={`Event: ${record.status}`}>
-            <Tag {...eventStatusTagProps(record.status, isDark)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <Tag color={tagProps.color} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, ...tagProps.style }}>
               {effectiveStatus(record)}
               <ThreadStateIcons
                 awaiting={open && awaitingTechReply(thread)}

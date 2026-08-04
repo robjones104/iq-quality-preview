@@ -56,7 +56,12 @@ export function OrderCard({ row, status, eventStatus, awaitingResponse, response
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
           <Tooltip title={`Event: ${eventStatus}`}>
-            <Tag {...eventStatusTagProps(eventStatus, isDark)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            {/* Status style spreads INTO the layout style: a separate style
+                prop after the spread clobbers the event-lifecycle coloring. */}
+            <Tag
+              color={eventStatusTagProps(eventStatus, isDark).color}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, ...eventStatusTagProps(eventStatus, isDark).style }}
+            >
               {status}
               <ThreadStateIcons awaiting={awaitingResponse} responded={responseReceived} />
             </Tag>
