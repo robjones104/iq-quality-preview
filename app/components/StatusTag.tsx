@@ -11,7 +11,7 @@ export const STATUS_COLORS: Record<EventStatus, string> = {
   Invalidated:           '#595959',
 };
 
-// Ant Design preset color names — respects dark-mode theme changes
+// Ant Design preset color names — dark mode keeps antd's derived dark tints.
 const STATUS_PRESETS: Record<EventStatus, string> = {
   Reported:              'blue',
   'Under Investigation': 'orange',
@@ -19,20 +19,30 @@ const STATUS_PRESETS: Record<EventStatus, string> = {
   Invalidated:           'default',
 };
 
-// WCAG AA: orange and green preset tags fail in light mode at 14px (normal text needs 4.5:1).
-// AntD orange-8 (#873800) on orange-1 (#FFF7E6) = 7.59:1; AntD green-8 (#237804) on green-1 (#F6FFED) = 5.42:1.
-// Dark mode uses different palette values that already pass — override light mode only.
-const LIGHT_MODE_TEXT: Partial<Record<EventStatus, string>> = {
-  'Under Investigation': '#873800',
+// Light mode inverts the badge (Rob, 2026-08-03): solid dark fill, white text,
+// instead of antd's pastel tint + colored text. Fills are the AA-passing dark
+// step of each lifecycle hue — the raw STATUS_COLORS fail 4.5:1 under white
+// text (blue 4.10:1, orange 3.56:1, green 3.55:1). White text ratios:
+// #0958D9 6.15:1, #AD4E00 5.43:1, #237804 5.59:1, #595959 7.00:1.
+const LIGHT_INVERSE_BG: Record<EventStatus, string> = {
+  Reported:              '#0958D9',
+  'Under Investigation': '#AD4E00',
   Validated:             '#237804',
+  Invalidated:           '#595959',
 };
+
+const lightInverseStyle = (status: EventStatus): CSSProperties => ({
+  background: LIGHT_INVERSE_BG[status],
+  color: '#FFFFFF',
+  borderColor: 'transparent',
+});
 
 // Reusable by any tag that needs to be colored by an event's status while showing its own label
 // (e.g. Orders/Procurement "Open"/"Closed" badges colored by the linked event's status).
-export function eventStatusTagProps(status: EventStatus, isDark: boolean): { color: string; style?: CSSProperties } {
-  const color = STATUS_PRESETS[status];
-  const textOverride = !isDark ? LIGHT_MODE_TEXT[status] : undefined;
-  return textOverride ? { color, style: { color: textOverride } } : { color };
+export function eventStatusTagProps(status: EventStatus, isDark: boolean): { color?: string; style?: CSSProperties } {
+  return isDark
+    ? { color: STATUS_PRESETS[status] }
+    : { style: lightInverseStyle(status) };
 }
 
 // The two thread states, shape-differentiated (color stays lifecycle-only):
@@ -69,16 +79,15 @@ type Props = {
 export function StatusTag({ status, hasOrder, additionalInfoRequested, responseReceived }: Props) {
   const { token } = theme.useToken();
   const isDark = token.colorBgContainer !== '#ffffff';
-  const textOverride = !isDark ? LIGHT_MODE_TEXT[status] : undefined;
 
   return (
     <Tag
-      color={STATUS_PRESETS[status]}
+      color={isDark ? STATUS_PRESETS[status] : undefined}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
         gap: 4,
-        ...(textOverride ? { color: textOverride } : {}),
+        ...(isDark ? {} : lightInverseStyle(status)),
       }}
     >
       {status}
