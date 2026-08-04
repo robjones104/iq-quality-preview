@@ -20,16 +20,15 @@ export const SEED_TOKENS: ThemeConfig['token'] = {
   colorWarning:       '#946200',
   colorSuccess:       '#008738',
   colorInfo:          '#006BB2',
-  // Brand link teal, raw, both themes (Rob, 2026-08-03).
-  // DOCUMENTED AA EXCEPTION — Rob's explicit call after seeing the compliant
-  // alternative: #319FC8 on white = 3.03:1, which fails AA for normal text
-  // (passes the 3:1 large-text/UI bar only). The AA-passing twin (#17789F,
-  // 4.97:1) was built first and rejected as reading navy, not teal. Interaction
-  // states DARKEN toward compliance instead of lightening away from it:
-  // hover #2589AF 3.98:1, active #17789F 4.97:1.
-  colorLink:          '#319FC8',
-  colorLinkHover:     '#2589AF',
-  colorLinkActive:    '#17789F',
+  // Brand link teal, light mode (Rob, 2026-08-04): the LIGHTEST shade of the
+  // #319FC8 hue/saturation that clears AA — "hit the standard perfectly, not
+  // above." Computed by holding H+S and lowering lightness until >= 4.5:1:
+  // base #277FA0 4.54:1, hover #216C88 5.89:1, active #1B586F 7.86:1 (states
+  // darken toward more contrast). Dark mode runs the raw hex (passes there).
+  // Supersedes the 08-03 AA exception (raw teal measured 3.03:1 on white).
+  colorLink:          '#277FA0',
+  colorLinkHover:     '#216C88',
+  colorLinkActive:    '#1B586F',
   // WCAG AA: Ant Design derives colorTextTertiary ≈ #8C8C8C on white = 3.36:1 (fails). #6B6B6B = 5.33:1 ✅
   colorTextTertiary:  '#6B6B6B',
 };
