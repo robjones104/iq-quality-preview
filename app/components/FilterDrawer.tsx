@@ -57,7 +57,7 @@ export function FilterDrawer({ open, onClose, categories, selected, onChange, on
           <Space size={8}>
             <Text strong style={{ fontSize: token.fontSize }}>{cat.label}</Text>
             {selCount > 0 && (
-              <Badge count={selCount} size="small" color={token.colorPrimary} />
+              <Badge count={selCount} size="small" color={token.colorLink} />
             )}
           </Space>
           <Text

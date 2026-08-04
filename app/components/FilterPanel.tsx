@@ -90,7 +90,7 @@ export function FilterPanel({ categories, applied, onApply }: Props) {
   if (isMobile) {
     return (
       <>
-        <Badge count={totalApplied} size="small" color={token.colorPrimary}>
+        <Badge count={totalApplied} size="small" color={token.colorLink}>
           <Button type="primary" icon={<FilterFilled />} onClick={handleOpen} aria-label="Open filters" />
         </Badge>
 
@@ -129,7 +129,7 @@ export function FilterPanel({ categories, applied, onApply }: Props) {
                 label: count > 0 ? (
                   <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                     {cat.label}
-                    <Badge count={count} size="small" color={token.colorPrimary} />
+                    <Badge count={count} size="small" color={token.colorLink} />
                   </span>
                 ) : cat.label,
               };
@@ -212,12 +212,12 @@ export function FilterPanel({ categories, applied, onApply }: Props) {
                 fontSize: token.fontSize,
                 fontWeight: isActive ? 600 : 400,
                 color: isActive ? token.colorText : token.colorTextSecondary,
-                borderLeft: isActive ? `2px solid ${token.colorPrimary}` : '2px solid transparent',
+                borderLeft: isActive ? `2px solid ${token.colorLink}` : '2px solid transparent', // teal = selection accent
                 transition: 'background 0.1s',
               }}
             >
               <span>{cat.label}</span>
-              {count > 0 && <Badge count={count} size="small" color={token.colorPrimary} />}
+              {count > 0 && <Badge count={count} size="small" color={token.colorLink} />}
             </div>
           );
         })}
