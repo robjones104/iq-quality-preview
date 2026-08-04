@@ -30,6 +30,16 @@ type OfficeParty = 'Field Quality' | 'Customer Service';
 // sentBy on early messages means Field Quality (same convention as the thread
 // UI in InfoRequestThread).
 
+// Ownership-split display helpers (Rob's ruling 2026-08-04): the order chip
+// carries CS-owned conversation state, the event badge carries FQ-owned state.
+// The thread is linear, so at most one of the four is ever true per row.
+export function partyAwaiting(thread: AdditionalInfoRequest[] | undefined, party: 'Field Quality' | 'Customer Service'): boolean {
+  return awaitingParty(thread) === party;
+}
+export function partyResponded(thread: AdditionalInfoRequest[] | undefined, party: 'Field Quality' | 'Customer Service'): boolean {
+  return replyReviewParty(thread) === party;
+}
+
 /** The office party whose unanswered question the thread is waiting on. */
 export function awaitingParty(thread?: AdditionalInfoRequest[]): OfficeParty | null {
   if (!awaitingTechReply(thread)) return null;

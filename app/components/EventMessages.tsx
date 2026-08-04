@@ -46,8 +46,8 @@ function CardShell({ title, tooltip, count, viewAllHref, children }: {
     <Card
       size="small"
       title={
-        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <MessageFilled style={{ color: token.colorWarning }} />
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: token.fontSizeSM, fontWeight: 500 }}>
+          <MessageFilled style={{ color: token.colorWarning, fontSize: token.fontSizeSM }} />
           <span>{title}</span>
           {count > 0 && <Tag color="gold">{count}</Tag>}
           <Tooltip title={tooltip}>

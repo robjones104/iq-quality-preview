@@ -6,7 +6,7 @@ import { Button, Card, Dropdown, Tag, Tooltip, theme } from 'antd';
 import { MoreOutlined } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { JobNoValue } from './JobNoValue';
-import { eventStatusTagProps, ThreadStateIcons } from './StatusTag';
+import { StatusTag, ThreadStateIcons } from './StatusTag';
 import type { EventStatus } from '@/data/types';
 import type { OrderStatus } from '@/data/orders';
 
@@ -27,13 +27,14 @@ interface OrderCardProps {
   eventStatus: EventStatus;
   awaitingResponse?: boolean;
   responseReceived?: boolean;
+  eventAwaiting?: boolean;
+  eventResponded?: boolean;
   menuItems: MenuProps['items'];
   onAction: (key: string) => void;
 }
 
-export function OrderCard({ row, status, eventStatus, awaitingResponse, responseReceived, menuItems, onAction }: OrderCardProps) {
+export function OrderCard({ row, status, eventStatus, awaitingResponse, responseReceived, eventAwaiting, eventResponded, menuItems, onAction }: OrderCardProps) {
   const { token } = theme.useToken();
-  const isDark = token.colorBgContainer !== '#ffffff';
   const router = useRouter();
 
   return (
@@ -55,17 +56,13 @@ export function OrderCard({ row, status, eventStatus, awaitingResponse, response
           {row.eventId}
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-          <Tooltip title={`Event: ${eventStatus}`}>
-            {/* Status style spreads INTO the layout style: a separate style
-                prop after the spread clobbers the event-lifecycle coloring. */}
-            <Tag
-              color={eventStatusTagProps(eventStatus, isDark).color}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, ...eventStatusTagProps(eventStatus, isDark).style }}
-            >
-              {status}
-              <ThreadStateIcons awaiting={awaitingResponse} responded={responseReceived} />
-            </Tag>
-          </Tooltip>
+          {/* Ownership split (Rob, 2026-08-04): neutral order chip carries
+              CS-owned conversation state; the event badge below carries
+              FQ-owned state. */}
+          <Tag style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginInlineEnd: 0 }}>
+            {status}
+            <ThreadStateIcons awaiting={awaitingResponse} responded={responseReceived} />
+          </Tag>
           {menuItems && menuItems.length > 0 && (
             <Dropdown
               menu={{ items: menuItems, onClick: ({ key }) => onAction(key) }}
@@ -84,8 +81,9 @@ export function OrderCard({ row, status, eventStatus, awaitingResponse, response
         </div>
       </div>
 
-      <div onClick={e => e.stopPropagation()}>
+      <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <JobNoValue jobNo={row.jobNo} manualEntry={row.jobNoManualEntry} />
+        <StatusTag status={eventStatus} additionalInfoRequested={eventAwaiting} responseReceived={eventResponded} />
       </div>
 
       <div style={{ fontSize: token.fontSizeSM, color: token.colorTextSecondary, lineHeight: 1.4, marginTop: 'auto' }}>

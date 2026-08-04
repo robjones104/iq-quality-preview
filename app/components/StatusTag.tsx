@@ -48,31 +48,28 @@ export function orderStatusTagProps(status: 'Open' | 'Closed', isDark: boolean):
     : { style: { background: status === 'Open' ? '#0958D9' : '#237804', color: '#FFFFFF', borderColor: 'transparent' } };
 }
 
-// Reusable by any tag that needs to be colored by an event's status while showing its own label
-// (e.g. Orders/Procurement "Open"/"Closed" badges colored by the linked event's status).
-export function eventStatusTagProps(status: EventStatus, isDark: boolean): { color?: string; style?: CSSProperties } {
-  return isDark
-    ? { color: STATUS_PRESETS[status] }
-    : { style: lightInverseStyle(status) };
-}
-
 // The two thread states, shape-differentiated (color stays lifecycle-only):
 // info circle = a question is out, the reporter side owes an answer;
 // message bubble = the answer came back, the office owes the next move.
 // The two are mutually exclusive (both key off the thread's latest message).
 // Callers gate both to records still in play (active events / open orders) so
 // terminal rows stay quiet. Inherits the surrounding tag's text color.
-export function ThreadStateIcons({ awaiting, responded }: { awaiting?: boolean; responded?: boolean }) {
+export function ThreadStateIcons({ awaiting, responded, awaitingTooltip, respondedTooltip }: {
+  awaiting?: boolean;
+  responded?: boolean;
+  awaitingTooltip?: string;
+  respondedTooltip?: string;
+}) {
   const { token } = theme.useToken();
   return (
     <>
       {awaiting && (
-        <Tooltip title="Information requested, response pending">
+        <Tooltip title={awaitingTooltip ?? 'Information requested, response pending'}>
           <InfoCircleOutlined style={{ fontSize: token.fontSizeSM }} />
         </Tooltip>
       )}
       {responded && (
-        <Tooltip title="Response received">
+        <Tooltip title={respondedTooltip ?? 'Response received'}>
           <MessageOutlined style={{ fontSize: token.fontSizeSM }} />
         </Tooltip>
       )}
@@ -85,9 +82,11 @@ type Props = {
   hasOrder?: boolean;
   additionalInfoRequested?: boolean;
   responseReceived?: boolean;
+  awaitingTooltip?: string;
+  respondedTooltip?: string;
 };
 
-export function StatusTag({ status, hasOrder, additionalInfoRequested, responseReceived }: Props) {
+export function StatusTag({ status, hasOrder, additionalInfoRequested, responseReceived, awaitingTooltip, respondedTooltip }: Props) {
   const { token } = theme.useToken();
   const isDark = token.colorBgContainer !== '#ffffff';
 
@@ -107,7 +106,7 @@ export function StatusTag({ status, hasOrder, additionalInfoRequested, responseR
           <ShoppingCartOutlined style={{ fontSize: token.fontSizeSM }} />
         </Tooltip>
       )}
-      <ThreadStateIcons awaiting={additionalInfoRequested} responded={responseReceived} />
+      <ThreadStateIcons awaiting={additionalInfoRequested} responded={responseReceived} awaitingTooltip={awaitingTooltip} respondedTooltip={respondedTooltip} />
     </Tag>
   );
 }

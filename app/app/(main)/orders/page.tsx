@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, Suspense } from 'react';
 import dayjs from 'dayjs';
 import {
   AutoComplete, Form, Input, Modal, Pagination, Select,
-  Switch, Table, Button, Tag, Tooltip, Typography, theme, Grid,
+  Switch, Table, Button, Tag, Typography, theme, Grid,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { MenuProps } from 'antd';
@@ -13,7 +13,7 @@ import {
   SearchOutlined,
 } from '@ant-design/icons';
 import { JobNoValue } from '@/components/JobNoValue';
-import { TechReplyWarning, awaitingTechReply, hasTechReply, replyReviewParty } from '@/components/TechReplyWarning';
+import { TechReplyWarning, awaitingTechReply, partyAwaiting, partyResponded, replyReviewParty } from '@/components/TechReplyWarning';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { orders } from '@/data/orders';
@@ -21,6 +21,7 @@ import { useEffectiveEventMap } from '@/lib/effectiveEvents';
 import { useEventStore } from '@/store/eventStore';
 import { nowStampUs } from '@/lib/appTime';
 import { useCapabilities } from '@/store/roleStore';
+import { capabilitiesFor } from '@/lib/roles';
 import { FilterPanel } from '@/components/FilterPanel';
 import { PageHeader } from '@/components/PageHeader';
 import { DateRangeFilter, type DateRange } from '@/components/DateRangeFilter';
@@ -28,7 +29,7 @@ import { EVENT_FILTER_CATEGORIES, ORDER_FILTER_CATEGORIES } from '@/data/filterO
 import { useFilterStore } from '@/store/filterStore';
 import { useOrderStore } from '@/store/orderStore';
 import { OrderCard } from '@/components/OrderCard';
-import { eventStatusTagProps, ThreadStateIcons } from '@/components/StatusTag';
+import { StatusTag, ThreadStateIcons } from '@/components/StatusTag';
 import type { Order, OrderStatus } from '@/data/orders';
 import type { QualityEvent } from '@/data/types';
 type OrderRow = Order & Pick<QualityEvent, 'issue' | 'component' | 'door' | 'branch' | 'plant' | 'reportedBy' | 'status' | 'jobNoManualEntry'>;
@@ -116,7 +117,6 @@ function OrdersPageContent() {
   const setAppliedFilters = (f: Record<string, string[]>) => { setAppliedFiltersLocal(f); setOrdersFilters(f); };
 
   const { token } = theme.useToken();
-  const isDark = token.colorBgContainer !== '#ffffff';
 
   const router = useRouter();
   const [searchText, setSearchText] = useState('');
@@ -437,23 +437,43 @@ function OrdersPageContent() {
       filteredValue: appliedFiltersLocal.orderStatus ?? null,
       width: 120,
       render: (_, record) => {
-        // Thread icons only while the order is open: the conversation gates
-        // the decision, and a closed order owes nobody anything.
+        // Ownership split (Rob, 2026-08-04): the ORDER chip is neutral and
+        // carries only CS-owned conversation state (their question pending /
+        // the answer waiting on them). FQ-owned state lives on the Event
+        // Status badge. The thread is linear, so at most one icon per row.
         const open = effectiveStatus(record) === 'Open';
         const thread = eventMap.get(record.eventId)?.additionalInfoRequests;
-        // Spread the status style INTO the layout style: a separate style prop
-        // after the spread would clobber the event-lifecycle coloring.
-        const tagProps = eventStatusTagProps(record.status, isDark);
+        const cs = capabilitiesFor('Customer Service').displayName;
         return (
-          <Tooltip title={`Event: ${record.status}`}>
-            <Tag color={tagProps.color} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, ...tagProps.style }}>
-              {effectiveStatus(record)}
-              <ThreadStateIcons
-                awaiting={open && awaitingTechReply(thread)}
-                responded={open && hasTechReply(thread)}
-              />
-            </Tag>
-          </Tooltip>
+          <Tag style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            {effectiveStatus(record)}
+            <ThreadStateIcons
+              awaiting={open && partyAwaiting(thread, 'Customer Service')}
+              responded={open && partyResponded(thread, 'Customer Service')}
+              awaitingTooltip={`${cs} asked. Response pending.`}
+              respondedTooltip={`The technician replied to ${cs}'s question.`}
+            />
+          </Tag>
+        );
+      },
+    },
+    {
+      title: 'Event Status',
+      key: 'eventStatus',
+      sorter: (a, b) => a.status.localeCompare(b.status),
+      width: 170,
+      render: (_, record) => {
+        const active = record.status === 'Reported' || record.status === 'Under Investigation';
+        const thread = eventMap.get(record.eventId)?.additionalInfoRequests;
+        const fq = capabilitiesFor('Field Quality').displayName;
+        return (
+          <StatusTag
+            status={record.status}
+            additionalInfoRequested={active && partyAwaiting(thread, 'Field Quality')}
+            responseReceived={active && partyResponded(thread, 'Field Quality')}
+            awaitingTooltip={`${fq} asked. Response pending.`}
+            respondedTooltip={`${record.reportedBy} replied. Review the answer.`}
+          />
         );
       },
     },
@@ -705,6 +725,7 @@ function OrdersPageContent() {
               }}>
                 {cardItems.map(row => {
                   const open = effectiveStatus(row) === 'Open';
+                  const active = row.status === 'Reported' || row.status === 'Under Investigation';
                   const thread = eventMap.get(row.eventId)?.additionalInfoRequests;
                   return (
                     <OrderCard
@@ -712,8 +733,10 @@ function OrdersPageContent() {
                       row={row}
                       status={effectiveStatus(row)}
                       eventStatus={row.status}
-                      awaitingResponse={open && awaitingTechReply(thread)}
-                      responseReceived={open && hasTechReply(thread)}
+                      awaitingResponse={open && partyAwaiting(thread, 'Customer Service')}
+                      responseReceived={open && partyResponded(thread, 'Customer Service')}
+                      eventAwaiting={active && partyAwaiting(thread, 'Field Quality')}
+                      eventResponded={active && partyResponded(thread, 'Field Quality')}
                       menuItems={getMenuItems(row)}
                       onAction={key => openRowAction(key, row)}
                     />

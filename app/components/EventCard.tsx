@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Card, theme } from 'antd';
 import { StatusTag } from './StatusTag';
-import { awaitingTechReply, hasTechReply } from './TechReplyWarning';
+import { partyAwaiting, partyResponded } from './TechReplyWarning';
 import type { QualityEvent } from '@/data/types';
 
 interface EventCardProps {
@@ -13,7 +13,8 @@ interface EventCardProps {
 
 export function EventCard({ event, hasOrder }: EventCardProps) {
   const { token } = theme.useToken();
-  // Live thread state; terminal statuses stay quiet (see events table).
+  // FQ-owned thread state only (ownership split, Rob 2026-08-04); terminal
+  // statuses stay quiet (see events table).
   const active = event.status === 'Reported' || event.status === 'Under Investigation';
 
   return (
@@ -33,8 +34,8 @@ export function EventCard({ event, hasOrder }: EventCardProps) {
           <StatusTag
             status={event.status}
             hasOrder={hasOrder}
-            additionalInfoRequested={active && awaitingTechReply(event.additionalInfoRequests)}
-            responseReceived={active && hasTechReply(event.additionalInfoRequests)}
+            additionalInfoRequested={active && partyAwaiting(event.additionalInfoRequests, 'Field Quality')}
+            responseReceived={active && partyResponded(event.additionalInfoRequests, 'Field Quality')}
           />
         </div>
 

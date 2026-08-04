@@ -10,9 +10,10 @@ import { CopyableValue } from '@/components/CopyableValue';
 import Link from 'next/link';
 import { useEffectiveEvents } from '@/lib/effectiveEvents';
 import { useScopedEvents } from '@/lib/useScopedData';
+import { capabilitiesFor } from '@/lib/roles';
 import { orders } from '@/data/orders';
 import { awaitingFqResponse, respondedNeedsReview } from '@/components/EventMessages';
-import { awaitingTechReply, hasTechReply } from '@/components/TechReplyWarning';
+import { partyAwaiting, partyResponded } from '@/components/TechReplyWarning';
 import { StatusTag } from '@/components/StatusTag';
 import { EventCard } from '@/components/EventCard';
 
@@ -292,16 +293,19 @@ function EventsPageContent() {
       filteredValue: appliedFilters.status ?? null,
       width: 160,
       render: (_: EventStatus, record) => {
-        // Thread state derives from the live thread, not the static
-        // additionalInfoRequested flag (which stays true after a reply).
-        // Terminal statuses stay quiet: the conversation no longer gates anything.
+        // Ownership split (Rob, 2026-08-04): the event badge carries FQ-owned
+        // conversation state only; CS-owned state lives on the order chip on
+        // the Orders surfaces. Terminal statuses stay quiet.
         const active = record.status === 'Reported' || record.status === 'Under Investigation';
+        const fq = capabilitiesFor('Field Quality').displayName;
         return (
           <StatusTag
             status={record.status}
             hasOrder={eventOrderIds.has(record.id)}
-            additionalInfoRequested={active && awaitingTechReply(record.additionalInfoRequests)}
-            responseReceived={active && hasTechReply(record.additionalInfoRequests)}
+            additionalInfoRequested={active && partyAwaiting(record.additionalInfoRequests, 'Field Quality')}
+            responseReceived={active && partyResponded(record.additionalInfoRequests, 'Field Quality')}
+            awaitingTooltip={`${fq} asked. Response pending.`}
+            respondedTooltip={`${record.reportedBy} replied. Review the answer.`}
           />
         );
       },

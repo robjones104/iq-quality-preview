@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import dayjs from 'dayjs';
 import {
-  Button, Card, Table, Tag, Tooltip, Typography, theme,
+  Button, Card, Table, Tag, Typography, theme,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { JobNoValue } from '@/components/JobNoValue';
@@ -13,7 +13,7 @@ import { useEffectiveEventMap } from '@/lib/effectiveEvents';
 import { PageHeader } from '@/components/PageHeader';
 import { DateRangeFilter, type DateRange } from '@/components/DateRangeFilter';
 import { useOrderStore } from '@/store/orderStore';
-import { eventStatusTagProps } from '@/components/StatusTag';
+import { StatusTag } from '@/components/StatusTag';
 import type { Order, OrderStatus } from '@/data/orders';
 import type { QualityEvent } from '@/data/types';
 
@@ -36,7 +36,6 @@ const buildOrderRow = (o: Order, eventMap: Map<string, QualityEvent>): OrderRow 
 
 export default function ProcurementPage() {
   const { token } = theme.useToken();
-  const isDark = token.colorBgContainer !== '#ffffff';
 
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
   const [showClosed, setShowClosed] = useState(false);
@@ -129,13 +128,15 @@ export default function ProcurementPage() {
       key: 'orderStatus',
       sorter: (a, b) => effectiveStatus(a).localeCompare(effectiveStatus(b)),
       width: 120,
-      render: (_, record) => (
-        <Tooltip title={`Event: ${record.status}`}>
-          <Tag {...eventStatusTagProps(record.status, isDark)}>
-            {effectiveStatus(record)}
-          </Tag>
-        </Tooltip>
-      ),
+      // Neutral chip; the event lifecycle has its own labeled column.
+      render: (_, record) => <Tag>{effectiveStatus(record)}</Tag>,
+    },
+    {
+      title: 'Event Status',
+      key: 'eventStatus',
+      sorter: (a, b) => a.status.localeCompare(b.status),
+      width: 170,
+      render: (_, record) => <StatusTag status={record.status} />,
     },
   ];
 
