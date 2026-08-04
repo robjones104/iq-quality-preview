@@ -164,7 +164,13 @@ export const LIGHT_COMPONENT_TOKENS: ThemeConfig['components'] = {
   ...SHARED_COMPONENT_TOKENS,
   Table: {
     ...SHARED_COMPONENT_TOKENS.Table,
-    headerBg: '#fafafa',
+    // Brand-family header tint (Rob, 2026-08-03): a very light opaque yellow.
+    // Opaque on purpose — alpha yellows blend muddy over row stripes. Sort
+    // hover/active states are pinned to deeper steps of the same tint so
+    // antd's gray fills don't sit on top of the yellow.
+    headerBg: '#FFFBE6',
+    headerSortHoverBg: '#FAF3CD',
+    headerSortActiveBg: '#F5ECBB',
   },
   // Primary buttons carry the brand gold in light mode too (Rob, 2026-08-03:
   // "brand the light theme better" — light chrome was all navy). Scoped to
