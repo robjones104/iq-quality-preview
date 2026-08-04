@@ -552,6 +552,11 @@ export function EventsOverTimeChart({
       yField="count"
       height={height}
       theme={plotTheme}
+      // Breathing room so edge markers are not halved by the plot boundary
+      // (A3: rightmost/topmost points clipped at the card edge).
+      insetLeft={6}
+      insetRight={10}
+      insetTop={8}
       style={{ lineWidth: 1 }}
       point={{ shapeField: 'square', sizeField: 3 }}
       interaction={{ tooltip: { marker: false } }}

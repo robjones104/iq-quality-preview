@@ -63,6 +63,9 @@ function GroupedStackTrend({ data, stages, colors, plotTheme, onSegmentClick }: 
       transform: [{ type: 'stackY', groupBy: ['x', 'series'] }, { type: 'dodgeX' }],
       scale: { color: { domain: [...stages], range: colors } },
       theme: plotTheme,
+      // Reserve right-edge room so the final week's bars/label are not
+      // clipped by the canvas edge (A3).
+      paddingRight: 24,
       animate: false,
       axis: {
         x: { labelFill: token.colorText, labelFontSize: token.fontSizeSM, line: false, tickStroke: token.colorBorderSecondary },
