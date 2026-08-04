@@ -20,9 +20,16 @@ export const SEED_TOKENS: ThemeConfig['token'] = {
   colorWarning:       '#946200',
   colorSuccess:       '#008738',
   colorInfo:          '#006BB2',
-  // WCAG AA: colorLink base 10.55:1, colorLinkHover 5.71:1, colorLinkActive 14.40:1 — all pass.
-  // #0958D9 passed as a base link color but its derived hover state failed at 2.80:1.
-  colorLink:          '#003D82',
+  // Brand link teal (Rob, 2026-08-03: #319FC8 for links in both themes).
+  // Raw #319FC8 on white = 3.03:1 — fails AA for text, so light mode runs the
+  // nearest passing shade of the same hue; dark mode uses the raw hex (6.08:1
+  // on #141414, passes). All three states verified:
+  // #17789F 4.97:1, hover #1B7EA6 4.59:1, active #0F5E80 7.16:1.
+  // Hover/active are explicit because the derived hover would lighten past AA
+  // (same failure mode that disqualified #0958D9, hover 2.80:1).
+  colorLink:          '#17789F',
+  colorLinkHover:     '#1B7EA6',
+  colorLinkActive:    '#0F5E80',
   // WCAG AA: Ant Design derives colorTextTertiary ≈ #8C8C8C on white = 3.36:1 (fails). #6B6B6B = 5.33:1 ✅
   colorTextTertiary:  '#6B6B6B',
 };
@@ -32,8 +39,11 @@ export const SEED_TOKENS: ThemeConfig['token'] = {
 export const DARK_SEED_OVERRIDES: ThemeConfig['token'] = {
   colorPrimary:         '#FFD20B',
   colorTextLightSolid:  '#141414',
-  colorLink:            '#4096ff',
-  colorLinkHover:       '#69b1ff',
+  // Brand link teal, raw (Rob, 2026-08-03). WCAG AA on #141414: base 6.08:1,
+  // hover #5BB8DA 8.17:1, active #2589AF 4.63:1 — all pass.
+  colorLink:            '#319FC8',
+  colorLinkHover:       '#5BB8DA',
+  colorLinkActive:      '#2589AF',
   colorError:           '#ff4d4f',
   colorSuccess:         '#52c41a',
   colorWarning:         '#faad14',
@@ -155,6 +165,20 @@ export const LIGHT_COMPONENT_TOKENS: ThemeConfig['components'] = {
   Table: {
     ...SHARED_COMPONENT_TOKENS.Table,
     headerBg: '#fafafa',
+  },
+  // Primary buttons carry the brand gold in light mode too (Rob, 2026-08-03:
+  // "brand the light theme better" — light chrome was all navy). Scoped to
+  // Button only: gold as a GLOBAL colorPrimary would derive illegible gold
+  // text/border states on white. Label contrast: #141414 on #FFD20B 13.8:1,
+  // on hover #E9C300 ~12:1, on active #D4B200 8.9:1 — all pass. Known trade:
+  // the gold fill's boundary against white is ~1.4:1 (yellow CTAs always are);
+  // the label carries the contrast.
+  Button: {
+    fontWeight: 600,
+    colorPrimary: '#FFD20B',
+    colorPrimaryHover: '#E9C300',
+    colorPrimaryActive: '#D4B200',
+    primaryColor: '#141414',
   },
   Tabs: {
     inkBarColor: '#141414',

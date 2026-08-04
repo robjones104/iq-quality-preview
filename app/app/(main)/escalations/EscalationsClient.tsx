@@ -49,7 +49,7 @@ export function EscalationsClient() {
       render: (id: string) => (
         <Link
           href={`/escalations/${id}`}
-          style={{ fontFamily: 'monospace', fontSize: token.fontSizeSM, color: token.colorPrimary }}
+          style={{ fontFamily: 'monospace', fontSize: token.fontSizeSM, color: token.colorLink }}
           onClick={(e) => e.stopPropagation()}
         >
           {id}

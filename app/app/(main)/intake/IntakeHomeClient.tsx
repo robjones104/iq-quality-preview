@@ -59,7 +59,7 @@ export function IntakeHomeClient() {
       key: 'id',
       width: 100,
       render: (id: string) => (
-        <Text style={{ fontFamily: 'monospace', fontSize: token.fontSizeSM, color: token.colorPrimary }}>{id}</Text>
+        <Text style={{ fontFamily: 'monospace', fontSize: token.fontSizeSM, color: token.colorLink }}>{id}</Text>
       ),
     },
     {
@@ -160,7 +160,7 @@ export function IntakeHomeClient() {
                       borderTop: i > 0 ? `1px solid ${token.colorBorderSecondary}` : undefined,
                     }}
                   >
-                    <Text style={{ fontFamily: 'monospace', fontSize: token.fontSizeSM, color: token.colorPrimary, flexShrink: 0 }}>
+                    <Text style={{ fontFamily: 'monospace', fontSize: token.fontSizeSM, color: token.colorLink, flexShrink: 0 }}>
                       {e.id}
                     </Text>
                     <Tag style={{ flexShrink: 0, marginInlineEnd: 0 }}>{asking}</Tag>

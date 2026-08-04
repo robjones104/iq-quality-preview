@@ -125,7 +125,7 @@ function ClickableBarRow({ onNavigate, ariaLabel, children }: {
         right: 6,
         bottom: 3,
         fontSize: token.fontSizeXS,
-        color: token.colorPrimary,
+        color: token.colorLink,
         opacity: hovered ? 1 : 0,
         transition: 'opacity 0.15s',
       }} />

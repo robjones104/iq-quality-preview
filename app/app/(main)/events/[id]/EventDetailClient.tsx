@@ -1388,7 +1388,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                         style={{ borderRadius: token.borderRadiusSM }}
                       >
                         <p style={{ margin: 0, paddingBottom: 4 }}><InboxOutlined style={{ fontSize: 24, color: token.colorPrimary }} /></p>
-                        <p style={{ margin: 0, fontSize: token.fontSizeSM, color: token.colorText }}>Drag files here or <span style={{ color: token.colorPrimary }}>click to upload</span></p>
+                        <p style={{ margin: 0, fontSize: token.fontSizeSM, color: token.colorText }}>Drag files here or <span style={{ color: token.colorLink }}>click to upload</span></p>
                         <p style={{ margin: '4px 0 0', fontSize: token.fontSizeXS, color: token.colorTextTertiary }}>
                           PDF · Excel · CSV · Images
                         </p>
@@ -1412,7 +1412,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                           >
                             {fileIcon(att.name)}
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <Text style={{ fontSize: token.fontSizeSM, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: token.colorPrimary }}>{att.name}</Text>
+                              <Text style={{ fontSize: token.fontSizeSM, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: token.colorLink }}>{att.name}</Text>
                               <Text style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary }}>{fmtSize(att.size)} · {att.date}</Text>
                             </div>
                             {editable && (
