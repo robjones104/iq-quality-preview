@@ -625,11 +625,11 @@ function DashboardPageContent() {
 
               {(() => {
                 const panels =
-                  view === 'events' ? [                      { title: 'Response Received',   content: <ResponseReceivedPreview events={filteredEvents} /> },
+                  view === 'events' ? [                      { title: 'Needs Your Response',   content: <ResponseReceivedPreview events={filteredEvents} /> },
                       { title: 'Events Over Time',  content: <EventsOverTimeChart events={filteredEvents} dateRange={dateRange} height={200} /> },
                       { title: 'By Issue',          content: <EventsByIssueChart events={filteredEvents} height={200} /> },
                       ...(branchScoped ? [] : [{ title: 'Events Updated by Field Quality', content: <DataQualityChart events={filteredEvents} /> }]),
-                  ] : [                      { title: 'Response Received',  content: <OrderResponseReceivedPreview orders={liveOrders} /> },
+                  ] : [                      { title: 'Needs Your Response',  content: <OrderResponseReceivedPreview orders={liveOrders} /> },
                       { title: 'Decision Trend',     content: <DecisionTrendChart orders={liveOrders} height={200} /> },
                       { title: 'Declined Orders',    content: <DeclinedOrdersPreview orders={liveOrders} /> },
                   ];

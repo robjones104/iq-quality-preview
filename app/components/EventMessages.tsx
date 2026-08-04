@@ -97,7 +97,7 @@ export function ResponseReceivedCard({ events, viewAllHref }: { events: QualityE
   );
   return (
     <CardShell
-      title="Response Received"
+      title="Needs Your Response"
       tooltip="The technician has replied to a Field Quality request and the event is waiting on your next step. Newest replies first."
       count={responded.length}
       viewAllHref={viewAllHref}

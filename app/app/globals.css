@@ -48,3 +48,9 @@ body {
 
 * { scrollbar-width: thin; scrollbar-color: #d9d9d9 transparent; }
 [data-theme="dark"] * { scrollbar-color: #303030 transparent; }
+
+/* Count badges (filter panel, queue cards): no halo ring, bold number */
+.ant-badge-count {
+  box-shadow: none;
+  font-weight: 600;
+}

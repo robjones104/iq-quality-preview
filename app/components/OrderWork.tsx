@@ -75,7 +75,7 @@ export function OrderResponseReceivedCard({ orders, viewAllHref, maxRows = 5 }: 
     [orders, eventMap]);
   return (
     <CardShell
-      title="Response Received"
+      title="Needs Your Response"
       tooltip="The technician has replied on an open order's thread, newest first. CS-tagged replies answer your questions; FQ-tagged replies answer Field Quality's and may mean validation is close."
       count={responded.length}
       viewAllHref={viewAllHref}
