@@ -189,6 +189,16 @@ export const LIGHT_COMPONENT_TOKENS: ThemeConfig['components'] = {
     colorPrimary: '#319FC8',
     algorithm: true,
   },
+  // Calendar selection matches dark mode (Rob, 2026-08-03: light and dark must
+  // work cohesively; the navy selection clashed with the teal system). Teal-
+  // seeded with dark text on the endpoints (6.08:1, the same rendering dark
+  // mode gets via its global colorTextLightSolid); in-range wash derives to a
+  // light teal tint.
+  DatePicker: {
+    colorPrimary: '#319FC8',
+    colorTextLightSolid: '#141414',
+    algorithm: true,
+  },
   // Primary buttons carry the brand gold in light mode too (Rob, 2026-08-03:
   // "brand the light theme better" — light chrome was all navy). Scoped to
   // Button only: gold as a GLOBAL colorPrimary would derive illegible gold
