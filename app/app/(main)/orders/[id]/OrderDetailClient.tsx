@@ -534,7 +534,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
       isCurrent: stepIdx === 1,
     },
     {
-      label: decisionStage === 'Fulfilled' ? 'Fulfilled' : decisionStage === 'Declined' ? 'Declined' : 'Resolution',
+      label: decisionStage === 'Fulfilled' ? 'Fulfilled' : decisionStage === 'Declined' ? 'Declined' : 'Pending Closure',
       color: decisionStage === 'Declined' ? '#cf1322' : '#389e0d',
       reached: stepIdx === 2,
       isCurrent: stepIdx === 2,

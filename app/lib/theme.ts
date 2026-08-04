@@ -67,9 +67,12 @@ export const DARK_SEED_OVERRIDES: ThemeConfig['token'] = {
 //   - ROLES/IDENTITY are monochromatic (FQ/CS tags, thread avatars): the
 //     letters carry the meaning, never a hue.
 //   - PURPLE = Procurement (location), exclusively.
-//   - GOLD (the brand accent, #FFD20B dark / gold family light) = accents and
-//     attention flags (awaiting, stale age, manual entry, direct ship),
-//     always paired with an icon or text, never a category color.
+//   - GOLD (the brand accent, #FFD20B dark / gold family light) = accents,
+//     attention flags (awaiting, stale age, manual entry, direct ship), AND
+//     deliberate brand surface presence (table header tint, sort-column tint,
+//     active nav band) — Rob's ruling 2026-08-04: "we need more of the
+//     branding yellow; that's why the header is yellow." Never a category
+//     color; attention uses always pair with an icon or text.
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
