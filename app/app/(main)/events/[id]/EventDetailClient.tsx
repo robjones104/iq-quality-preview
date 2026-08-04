@@ -417,7 +417,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   const stepIdx      = STATUS_STEP[status];
   const reportedDate = event.reportedAt.replace('T', ' ').substring(0, 16);
 
-  const thirdLabel   = status === 'Validated' ? 'Validated' : status === 'Invalidated' ? 'Invalidated' : 'Resolution';
+  const thirdLabel   = status === 'Validated' ? 'Validated' : status === 'Invalidated' ? 'Invalidated' : 'Pending Validation';
   const thirdColor   = status === 'Validated' ? STATUS_COLORS['Validated'] : status === 'Invalidated' ? STATUS_COLORS['Invalidated'] : null;
   const thirdReached = status === 'Validated' || status === 'Invalidated';
 
