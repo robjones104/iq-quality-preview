@@ -1,15 +1,14 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Card, Typography, theme } from 'antd';
-import { HourglassFilled, MessageFilled, InfoCircleOutlined } from '@ant-design/icons';
+import { Card, Tag, Typography, theme } from 'antd';
+import { MessageFilled, InfoCircleOutlined } from '@ant-design/icons';
 import { Tooltip } from 'antd';
 import Link from 'next/link';
 import dayjs from 'dayjs';
 import { now } from '@/lib/appTime';
 import type { QualityEvent } from '@/data/types';
-import { StatusTag } from '@/components/StatusTag';
-import { awaitingParty, awaitingTechReply, hasTechReply, replyReviewParty } from '@/components/TechReplyWarning';
+import { awaitingParty, replyReviewParty } from '@/components/TechReplyWarning';
 
 const { Text, Paragraph } = Typography;
 const TODAY = now();
@@ -42,11 +41,14 @@ function daysSince(iso: string): number {
   return Math.max(0, TODAY.diff(dayjs(iso), 'day'));
 }
 
-function MessageRow({ event, snippet, ageDays, hotWhenStale }: {
-  event: QualityEvent; snippet?: string; ageDays: number; hotWhenStale: boolean;
+function MessageRow({ event, snippet, ageDays, hotWhenStale, personTooltip }: {
+  event: QualityEvent; snippet?: string; ageDays: number; hotWhenStale: boolean; personTooltip: string;
 }) {
   const { token } = theme.useToken();
   const hot = hotWhenStale && ageDays >= STALE_MIN;
+  // Anatomy matches the Orders dashboard lanes (Rob, 2026-08-03): ID, person
+  // tag, jobNo · branch meta. No status tag — every row here is mid-
+  // investigation by definition, and the lane itself carries the thread state.
   return (
     <div style={{
       background: token.colorFillQuaternary,
@@ -61,14 +63,14 @@ function MessageRow({ event, snippet, ageDays, hotWhenStale }: {
           <Link href={`/events/${event.id}`} style={{ fontSize: token.fontSizeSM, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap' }}>
             {event.id}
           </Link>
-          <StatusTag
-            status={event.status}
-            additionalInfoRequested={awaitingTechReply(event.additionalInfoRequests)}
-            responseReceived={hasTechReply(event.additionalInfoRequests)}
-          />
+          <Tooltip title={personTooltip}>
+            <Tag style={{ fontSize: token.fontSizeXS, lineHeight: '16px', padding: '0 5px', margin: 0 }}>
+              {event.reportedBy}
+            </Tag>
+          </Tooltip>
         </div>
         <Text type="secondary" style={{ fontSize: token.fontSizeXS, whiteSpace: 'nowrap' }}>
-          {event.reportedBy} · {event.branch}
+          {event.jobNo} · {event.branch}
         </Text>
       </div>
       <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
@@ -134,34 +136,9 @@ function Empty({ icon, message }: { icon: React.ReactNode; message: string }) {
   );
 }
 
-export function AwaitingResponseCard({ events, viewAllHref }: { events: QualityEvent[]; viewAllHref?: string }) {
-  const waiting = useMemo(() =>
-    events
-      .filter(awaitingFqResponse)
-      .sort((a, b) => daysSince(b.date) - daysSince(a.date)),
-    [events]
-  );
-  return (
-    <CardShell
-      title="Awaiting Response"
-      tooltip="Field Quality requests for more information that the technician has not yet answered, oldest first. Requests sent by Customer Service live on the Orders view."
-      count={waiting.length}
-      viewAllHref={viewAllHref}
-    >
-      {waiting.length === 0
-        ? <Empty icon={<HourglassFilled />} message="No events awaiting a technician response" />
-        : waiting.slice(0, MAX_ROWS).map(e => (
-            <MessageRow
-              key={e.id}
-              event={e}
-              snippet={lastMessage(e)?.text ?? e.additionalInfoNote}
-              ageDays={daysSince(e.date)}
-              hotWhenStale
-            />
-          ))}
-    </CardShell>
-  );
-}
+// The Awaiting Response lane was cut (Rob, 2026-08-03): reminders are
+// system-generated, so chasing unanswered requests is not a human queue.
+// Responses are the only lane; it runs full width on the dashboard.
 
 export function ResponseReceivedCard({ events, viewAllHref }: { events: QualityEvent[]; viewAllHref?: string }) {
   const responded = useMemo(() =>
@@ -192,6 +169,7 @@ export function ResponseReceivedCard({ events, viewAllHref }: { events: QualityE
                 snippet={last ? `"${last.text}"` : undefined}
                 ageDays={last ? daysSince(last.sentAt) : 0}
                 hotWhenStale={false}
+                personTooltip={`${e.reportedBy} replied. Review the answer.`}
               />
             );
           })}
@@ -224,6 +202,7 @@ export function ResponseReceivedPreview({ events }: { events: QualityEvent[] }) 
             snippet={last ? `"${last.text}"` : undefined}
             ageDays={last ? daysSince(last.sentAt) : 0}
             hotWhenStale={false}
+            personTooltip={`${e.reportedBy} replied. Review the answer.`}
           />
         );
       })}

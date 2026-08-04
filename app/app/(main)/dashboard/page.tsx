@@ -20,10 +20,10 @@ import { useOrderStore } from '@/store/orderStore';
 import { useScopedEvents, useScopedOrders } from '@/lib/useScopedData';
 import { AiSummary } from '@/components/AiSummary';
 import { EventsOverTimeChart, EventsByIssueChart, EventsDonutCard } from '@/components/FieldIntake';
-import { WaitingOnTechChart, DataQualityChart, EventsUpdatedByFqCard } from '@/components/TriageReview';
-import { AwaitingResponseCard, ResponseReceivedCard, ResponseReceivedPreview } from '@/components/EventMessages';
-import { PendingCSReviewChart, DecisionTrendChart, DeclinedOrdersPreview, DeclinedCsvButton } from '@/components/OrderFulfillment';
-import { OrderAwaitingResponseCard, OrderResponseReceivedCard, OrderResponseReceivedPreview } from '@/components/OrderWork';
+import { DataQualityChart, EventsUpdatedByFqCard } from '@/components/TriageReview';
+import { ResponseReceivedCard, ResponseReceivedPreview } from '@/components/EventMessages';
+import { DecisionTrendChart, DeclinedOrdersPreview, DeclinedCsvButton } from '@/components/OrderFulfillment';
+import { OrderResponseReceivedCard, OrderResponseReceivedPreview } from '@/components/OrderWork';
 import type { QualityEvent } from '@/data/types';
 import type { Order } from '@/data/orders';
 import type { DateRange } from '@/components/DateRangeFilter';
@@ -619,15 +619,11 @@ function DashboardPageContent() {
 
               {(() => {
                 const panels =
-                  view === 'events' ? [
-                      { title: 'Awaiting Response',   content: <WaitingOnTechChart events={filteredEvents} /> },
-                      { title: 'Response Received',   content: <ResponseReceivedPreview events={filteredEvents} /> },
+                  view === 'events' ? [                      { title: 'Response Received',   content: <ResponseReceivedPreview events={filteredEvents} /> },
                       { title: 'Events Over Time',  content: <EventsOverTimeChart events={filteredEvents} dateRange={dateRange} height={200} /> },
                       { title: 'By Issue',          content: <EventsByIssueChart events={filteredEvents} height={200} /> },
                       { title: 'Events Updated by Field Quality', content: <DataQualityChart events={filteredEvents} /> },
-                  ] : [
-                      { title: 'Awaiting Response',  content: <PendingCSReviewChart orders={liveOrders} /> },
-                      { title: 'Response Received',  content: <OrderResponseReceivedPreview orders={liveOrders} /> },
+                  ] : [                      { title: 'Response Received',  content: <OrderResponseReceivedPreview orders={liveOrders} /> },
                       { title: 'Decision Trend',     content: <DecisionTrendChart orders={liveOrders} height={200} /> },
                       { title: 'Declined Orders',    content: <DeclinedOrdersPreview orders={liveOrders} /> },
                   ];
@@ -676,12 +672,11 @@ function DashboardPageContent() {
 
           {screens.md !== false && view === 'events' && (
             <>
-              {/* Messages: the two conversation lanes of Under Investigation */}
+              {/* Messages: responses only, full width. The Awaiting lane was cut
+                  (Rob, 2026-08-03): reminders are system-generated, so the only
+                  human queue is answers waiting for review. */}
               <Row gutter={[token.marginSM, token.marginSM]} style={{ alignItems: 'stretch' }}>
-                <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column' }}>
-                  <AwaitingResponseCard events={filteredEvents} viewAllHref={buildKpiHref('/events?flag=additionalInfo', dateRange, {})} />
-                </Col>
-                <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column' }}>
+                <Col xs={24} style={{ display: 'flex', flexDirection: 'column' }}>
                   <ResponseReceivedCard events={filteredEvents} viewAllHref={buildKpiHref('/events?flag=responded', dateRange, {})} />
                 </Col>
               </Row>
@@ -720,12 +715,10 @@ function DashboardPageContent() {
 
           {screens.md !== false && view === 'orders' && (
             <>
-              {/* Messages: the two conversation lanes, mirroring the Events view */}
+              {/* Messages: responses only, full width — mirrors the Events view.
+                  Awaiting lane cut; reminders are system-generated. */}
               <Row gutter={[token.marginSM, token.marginSM]} style={{ alignItems: 'stretch' }}>
-                <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column' }}>
-                  <OrderAwaitingResponseCard orders={liveOrders} viewAllHref={buildKpiHref('/orders?flag=info', dateRange, {})} />
-                </Col>
-                <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column' }}>
+                <Col xs={24} style={{ display: 'flex', flexDirection: 'column' }}>
                   <OrderResponseReceivedCard orders={liveOrders} viewAllHref={buildKpiHref('/orders?flag=responded', dateRange, {})} />
                 </Col>
               </Row>

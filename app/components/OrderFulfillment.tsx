@@ -11,11 +11,9 @@ import dayjs from 'dayjs';
 import { now } from '@/lib/appTime';
 import type { Order } from '@/data/orders';
 import type { QualityEvent } from '@/data/types';
-import { isReporterSide } from '@/components/TechReplyWarning';
 import { useEffectiveEventMap } from '@/lib/effectiveEvents';
 
-const { Text, Paragraph } = Typography;
-const STALE_DAYS = 3;
+const { Text } = Typography;
 
 
 function parseOrderDate(lastUpdated: string): dayjs.Dayjs {
@@ -31,19 +29,6 @@ const STAGES = ['Pending Decision', 'Approved', 'Fulfilled', 'Declined'] as cons
 
 const TODAY = now();
 
-type PendingItem = {
-  id: string;
-  eventId: string;
-  jobNo: string;
-  branch: string;
-  component: string;
-  partsCount: number;
-  ageDays: number;
-  commentCount: number;
-  latestComment: string | null;
-  techReplied: boolean;
-};
-
 function exportToCsv(filename: string, headers: string[], rows: (string | number)[][]) {
   const lines = [headers, ...rows].map(r => r.map(cell => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','));
   const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
@@ -54,105 +39,6 @@ function exportToCsv(filename: string, headers: string[], rows: (string | number
 }
 
 
-function PendingRow({ item, token }: { item: PendingItem; token: ReturnType<typeof theme.useToken>['token'] }) {
-  return (
-    <div style={{
-      position: 'relative',
-      background: token.colorFillQuaternary,
-      border: `1px solid ${token.colorBorderSecondary}`,
-      borderRadius: token.borderRadiusSM,
-      padding: '8px 10px',
-      display: 'flex',
-      gap: 10,
-    }}>
-      {/* Left: ID + parts tag, then branch · component */}
-      <div style={{ flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3 }}>
-          <Link href={`/orders/${item.id}`} style={{ fontSize: token.fontSizeSM, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap' }}>
-            {item.eventId}
-          </Link>
-          <Tag color="geekblue" style={{ fontSize: token.fontSizeXS, lineHeight: '16px', padding: '0 5px', margin: 0 }}>
-            {item.partsCount} part{item.partsCount !== 1 ? 's' : ''}
-          </Tag>
-        </div>
-        <Text type="secondary" style={{ fontSize: token.fontSizeXS, whiteSpace: 'nowrap' }}>
-          {item.branch} · {item.component}
-        </Text>
-      </div>
-
-      {/* Right: latest comment + age, top-aligned */}
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-        {item.latestComment && (
-          <Paragraph
-            ellipsis={{ rows: 2 }}
-            style={{
-              flex: 1,
-              minWidth: 0,
-              marginBottom: 0,
-              fontSize: token.fontSizeSM,
-              color: token.colorTextSecondary,
-              overflowWrap: 'anywhere',
-            }}
-          >
-            {item.latestComment}
-          </Paragraph>
-        )}
-        <Text style={{
-          flexShrink: 0,
-          marginLeft: 'auto',
-          fontSize: token.fontSizeXS,
-          fontWeight: 600,
-          color: item.ageDays >= STALE_DAYS ? token.colorWarning : token.colorTextTertiary,
-          lineHeight: '16px',
-        }}>
-          {item.ageDays}d
-        </Text>
-      </div>
-    </div>
-  );
-}
-
-export function PendingCSReviewChart({ orders }: { orders: Order[] }) {
-  const { token } = theme.useToken();
-  const eventMap = useEffectiveEventMap();
-  const pendingItems = useMemo((): PendingItem[] =>
-    orders
-      .filter(o => o.orderStatus === 'Open')
-      .map(o => {
-        const ev = eventMap.get(o.eventId);
-        const thread = ev?.additionalInfoRequests ?? [];
-        const last = thread[thread.length - 1];
-        return { id: o.id, eventId: o.eventId, jobNo: o.jobNo, branch: ev?.branch ?? '—', component: ev?.component ?? '—', partsCount: o.parts.length, ageDays: TODAY.diff(parseOrderDate(o.lastUpdated), 'day'), commentCount: thread.length, latestComment: last?.text ?? null, techReplied: isReporterSide(last?.sentBy) };
-      })
-      .filter(item => item.commentCount > 0 && !item.techReplied)
-      .sort((a, b) => b.ageDays - a.ageDays),
-    [orders, eventMap]
-  );
-  const preview = pendingItems.slice(0, 5);
-
-  if (pendingItems.length === 0) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 160, gap: 8, color: token.colorTextTertiary }}>
-        <ShoppingCartOutlined style={{ fontSize: token.fontSizeHeading3 }} />
-        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No open orders awaiting a technician response</Text>
-      </div>
-    );
-  }
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary, marginBottom: 2 }}>
-        {pendingItems.length} pending
-      </div>
-      {preview.map(item => <PendingRow key={item.id} item={item} token={token} />)}
-    </div>
-  );
-}
-
-
-// Raw G2 grouped-stacked columns: per week, an Open bar (Pending Decision +
-// Approved) beside a Closed bar (Fulfilled + Declined). The
-// @ant-design/plots wrapper cannot express stack-within-dodge in this
-// version, so this chart uses the G2 engine directly.
 function GroupedStackTrend({ data, stages, colors, plotTheme, onSegmentClick }: {
   data: Record<string, string | number>[];
   stages: readonly string[];
@@ -201,6 +87,7 @@ function GroupedStackTrend({ data, stages, colors, plotTheme, onSegmentClick }: 
 
   return <div ref={container} style={{ width: '100%', height: '100%', cursor: 'pointer' }} />;
 }
+
 
 export function DecisionTrendChart({
   orders,

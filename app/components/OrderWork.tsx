@@ -2,14 +2,14 @@
 
 import { useMemo } from 'react';
 import { Card, Tag, Tooltip, Typography, theme } from 'antd';
-import { HourglassFilled, InfoCircleOutlined, MessageFilled } from '@ant-design/icons';
+import { InfoCircleOutlined, MessageFilled } from '@ant-design/icons';
 import Link from 'next/link';
 import dayjs from 'dayjs';
 import { now } from '@/lib/appTime';
 import { capabilitiesFor } from '@/lib/roles';
 import type { Order } from '@/data/orders';
 import { useEffectiveEventMap } from '@/lib/effectiveEvents';
-import { awaitingTechReply, awaitingParty, replyReviewParty } from '@/components/TechReplyWarning';
+import { replyReviewParty } from '@/components/TechReplyWarning';
 
 const { Text, Paragraph } = Typography;
 const TODAY = now();
@@ -117,48 +117,8 @@ function LaneRow({ orderId, eventId, meta, snippet, ageDays, hotWhenStale, owner
   );
 }
 
-export function OrderAwaitingResponseCard({ orders, viewAllHref, maxRows = 5 }: { orders: EffectiveOrder[]; viewAllHref?: string; maxRows?: number }) {
-  const eventMap = useEffectiveEventMap();
-  const waiting = useMemo(() =>
-    orders
-      .filter(o => o.orderStatus === 'Open' && awaitingTechReply(eventMap.get(o.eventId)?.additionalInfoRequests))
-      .sort((a, b) => {
-        const la = eventMap.get(a.eventId)?.additionalInfoRequests?.at(-1)?.sentAt ?? '';
-        const lb = eventMap.get(b.eventId)?.additionalInfoRequests?.at(-1)?.sentAt ?? '';
-        return la.localeCompare(lb);
-      }),
-    [orders, eventMap]);
-  return (
-    <CardShell
-      title="Awaiting Response"
-      tooltip="Open orders where a request for more information has not yet been answered by the technician, oldest first. The tag shows who asked: either party's request gates your decision, but a stalled FQ request is chased through Field Quality, not the tech."
-      count={waiting.length}
-      viewAllHref={viewAllHref}
-    >
-      {waiting.length === 0
-        ? <Empty icon={<HourglassFilled />} message="No open orders awaiting a technician response" />
-        : waiting.slice(0, maxRows).map(o => {
-            const ev = eventMap.get(o.eventId);
-            const last = ev?.additionalInfoRequests?.at(-1);
-            return (
-              <LaneRow
-                key={o.id}
-                orderId={o.id}
-                eventId={o.eventId}
-                meta={`${o.jobNo} · ${ev?.branch ?? '—'}`}
-                snippet={last?.text}
-                ageDays={last ? daysSinceIso(last.sentAt) : 0}
-                hotWhenStale
-                owner={awaitingParty(ev?.additionalInfoRequests)}
-                ownerTooltip={awaitingParty(ev?.additionalInfoRequests) === 'Customer Service'
-                  ? 'Requested by Customer Service.'
-                  : 'Requested by Field Quality. If it stalls, follow up with Field Quality, not the tech.'}
-              />
-            );
-          })}
-    </CardShell>
-  );
-}
+// The Awaiting Response lane was cut (Rob, 2026-08-03): reminders are
+// system-generated, so chasing is not a human queue. Responses only.
 
 export function OrderResponseReceivedCard({ orders, viewAllHref, maxRows = 5 }: { orders: EffectiveOrder[]; viewAllHref?: string; maxRows?: number }) {
   const eventMap = useEffectiveEventMap();

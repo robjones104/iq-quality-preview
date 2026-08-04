@@ -2,26 +2,12 @@
 
 import { useMemo, useState } from 'react';
 import { Card, Tooltip, Typography, theme } from 'antd';
-import { ArrowRightOutlined, HourglassFilled, EditOutlined, InfoCircleOutlined } from '@ant-design/icons';
-import Link from 'next/link';
+import { ArrowRightOutlined, EditOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
-import dayjs from 'dayjs';
-import { now } from '@/lib/appTime';
 import type { QualityEvent } from '@/data/types';
-import { StatusTag } from '@/components/StatusTag';
 import { ExpandToggle } from './CardControls';
-import { awaitingFqResponse } from './EventMessages';
-import { awaitingTechReply, hasTechReply } from './TechReplyWarning';
 
-const { Text, Paragraph } = Typography;
-const TODAY = now();
-
-const STALE_MIN = 7;
-
-function ageDays(date: string): number {
-  return TODAY.diff(dayjs(date), 'day');
-}
-
+const { Text } = Typography;
 function MetricInfoIcon({ tooltip, token }: { tooltip: string; token: ReturnType<typeof theme.useToken>['token'] }) {
   return (
     <Tooltip title={tooltip}>
@@ -30,66 +16,6 @@ function MetricInfoIcon({ tooltip, token }: { tooltip: string; token: ReturnType
         style={{ marginLeft: 6, color: token.colorTextTertiary, fontSize: token.fontSizeSM, cursor: 'help' }}
       />
     </Tooltip>
-  );
-}
-
-function WaitingCard({ event }: { event: QualityEvent }) {
-  const { token } = theme.useToken();
-  const days = ageDays(event.date);
-  return (
-    <div style={{
-      background: token.colorFillQuaternary,
-      border: `1px solid ${token.colorBorderSecondary}`,
-      borderRadius: token.borderRadiusSM,
-      padding: '8px 10px',
-      display: 'flex',
-      gap: 10,
-    }}>
-      {/* Left: ID + status tag, then name · branch */}
-      <div style={{ flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3 }}>
-          <Link href={`/events/${event.id}`} style={{ fontSize: token.fontSizeSM, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap' }}>
-            {event.id}
-          </Link>
-          <StatusTag
-            status={event.status}
-            additionalInfoRequested={awaitingTechReply(event.additionalInfoRequests)}
-            responseReceived={hasTechReply(event.additionalInfoRequests)}
-          />
-        </div>
-        <Text type="secondary" style={{ fontSize: token.fontSizeXS, whiteSpace: 'nowrap' }}>
-          {event.reportedBy} · {event.branch}
-        </Text>
-      </div>
-
-      {/* Right: comment + days side by side, both top-aligned */}
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-        {event.additionalInfoNote && (
-          <Paragraph
-            ellipsis={{ rows: 2 }}
-            style={{
-              flex: 1,
-              minWidth: 0,
-              marginBottom: 0,
-              fontSize: token.fontSizeSM,
-              color: token.colorTextSecondary,
-              overflowWrap: 'anywhere',
-            }}
-          >
-            {event.additionalInfoNote}
-          </Paragraph>
-        )}
-        <Text style={{
-          flexShrink: 0,
-          fontSize: token.fontSizeXS,
-          fontWeight: 600,
-          color: days >= STALE_MIN ? token.colorWarning : token.colorTextTertiary,
-          lineHeight: '16px',
-        }}>
-          {days}d
-        </Text>
-      </div>
-    </div>
   );
 }
 
@@ -253,29 +179,6 @@ export function EventsUpdatedByFqCard({ events }: { events: QualityEvent[] }) {
               </>
             )}
           </Card>
-  );
-}
-
-export function WaitingOnTechChart({ events }: { events: QualityEvent[] }) {
-  const { token } = theme.useToken();
-  const waitingEvents = useMemo(() =>
-    events.filter(awaitingFqResponse).sort((a, b) => ageDays(b.date) - ageDays(a.date)),
-    [events]
-  );
-  const preview = waitingEvents.slice(0, 3);
-
-  if (waitingEvents.length === 0) {
-    return (
-      <EmptyState icon={<HourglassFilled />} message="No events awaiting a technician response" />
-    );
-  }
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary, marginBottom: 2 }}>
-        {waitingEvents.length} awaiting
-      </div>
-      {preview.map(e => <WaitingCard key={e.id} event={e} />)}
-    </div>
   );
 }
 

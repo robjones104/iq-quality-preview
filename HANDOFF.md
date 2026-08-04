@@ -47,9 +47,10 @@ Every state mutation in the app goes through one of these named actions. No comp
 | `patchEvent(eventId, patch)` | Field-level edit: status, issue, component, door, root cause, tags, escalation link, parts request, ship-to (`shipTo`/`shipToAddress`), photos. Also carries thread messages: senders write the FULL `additionalInfoRequests` array (the overlay replaces the static thread, so appends must include the existing conversation) | `PATCH /events/:id`; thread appends become `POST /events/:id/info-requests` |
 | `pushActivityLog(eventId, entry)` | Append to the event activity log | server-side effect of the mutation that caused it |
 | `pushEditHistory(eventId, entry)` | Append to the edit-history audit trail | server-side effect of `PATCH /events/:id` |
-| `updateAdditionalInfoRequest(eventId, id, patch)` | Mark replied / bump resend count | `PATCH /events/:id/info-requests/:requestId` |
 
 `pushActivityLog` and `pushEditHistory` exist because the client must simulate what a backend would derive. When real mutations land server-side, generate log/audit entries there and drop these two actions.
+
+Reminders on unanswered info requests are SYSTEM-GENERATED (product ruling 2026-08-03): there is no manual send-reminder action anywhere in the UI, and the seed threads' `kind: 'followup'` entries represent what the scheduler would emit. The backend owns the nudge cadence (e.g. a scheduled job that appends a followup message and notifies the reporter after N days without a reply).
 
 ### orderStore (`store/orderStore.ts`, key `iq-order-mutations`)
 

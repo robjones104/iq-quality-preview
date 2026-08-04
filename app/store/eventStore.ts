@@ -36,7 +36,6 @@ type EventMutationStore = {
   patchEvent: (eventId: string, patch: Partial<EventMutations>) => void;
   pushActivityLog: (eventId: string, entry: ActivityLog) => void;
   pushEditHistory: (eventId: string, entry: EditHistoryEntry) => void;
-  updateAdditionalInfoRequest: (eventId: string, id: string, patch: Partial<AdditionalInfoRequest>) => void;
 };
 
 export const useEventStore = create<EventMutationStore>()(
@@ -78,18 +77,6 @@ export const useEventStore = create<EventMutationStore>()(
                 ...(state.mutations[eventId]?.editHistory ?? []),
                 entry,
               ],
-            },
-          },
-        })),
-      updateAdditionalInfoRequest: (eventId, id, patch) =>
-        set(state => ({
-          mutations: {
-            ...state.mutations,
-            [eventId]: {
-              ...state.mutations[eventId],
-              additionalInfoRequests: (state.mutations[eventId]?.additionalInfoRequests ?? []).map(
-                r => (r.id === id ? { ...r, ...patch } : r)
-              ),
             },
           },
         })),

@@ -40,8 +40,7 @@ export function useInfoRequestThread(
   senderRole: SenderRole,
   opts: UseInfoRequestThreadOpts = {}
 ) {
-  const { mutations, patchEvent, updateAdditionalInfoRequest } = useEventStore();
-  const { notification } = App.useApp();
+  const { mutations, patchEvent } = useEventStore();
   const evtStored = mutations[event.id] ?? {};
 
   const [reqDraftOpen, setReqDraftOpen] = useState(false);
@@ -71,18 +70,6 @@ export function useInfoRequestThread(
     );
   };
 
-  const resendRequest = (id: string) => {
-    const root = infoRequests.find(r => r.id === id);
-    if (!root) return;
-    const followup: AdditionalInfoRequest = {
-      id: `air_${Date.now()}`, text: root.text, sentAt: nowTs(), kind: 'followup', relatesTo: id, sentBy: senderRole,
-    };
-    appendToThread(followup);
-    updateAdditionalInfoRequest(event.id, id, { resendCount: (root.resendCount ?? 0) + 1 });
-    opts.onActivity?.(`Follow-up reminder sent to ${event.reportedBy}.`);
-    notification.success({ message: 'Follow-up reminder sent.' });
-  };
-
   const cancelDraft = () => {
     setReqDraftOpen(false);
     setReqDraftText('');
@@ -95,7 +82,7 @@ export function useInfoRequestThread(
 
   return {
     infoThreads, followupsFor, reqDraftOpen, reqDraftText, setReqDraftText,
-    sendInfoRequest, resendRequest, startNewRequest, cancelDraft, senderRole,
+    sendInfoRequest, startNewRequest, cancelDraft, senderRole,
   };
 }
 
@@ -103,7 +90,7 @@ type ThreadState = ReturnType<typeof useInfoRequestThread>;
 
 export function InfoRequestThreadPanel({
   reportedBy, canSend, infoThreads, followupsFor, reqDraftOpen, reqDraftText, setReqDraftText,
-  sendInfoRequest, resendRequest, startNewRequest, cancelDraft, senderRole,
+  sendInfoRequest, startNewRequest, cancelDraft, senderRole,
 }: ThreadState & { reportedBy: string; canSend: boolean }) {
   const { token } = theme.useToken();
   const { notification } = App.useApp();
@@ -204,9 +191,12 @@ export function InfoRequestThreadPanel({
             </div>
           </div>
         ) : isOwnLatestThread ? (
-          <Button block icon={<RedoOutlined />} onClick={() => resendRequest(latestThread.id)}>
-            Send a Reminder
-          </Button>
+          // Manual reminders were cut (Rob, 2026-08-03): the system nudges the
+          // reporter automatically while a response is pending.
+          <Text type="secondary" style={{ fontSize: token.fontSizeSM, textAlign: 'center', padding: '4px 0' }}>
+            <RedoOutlined style={{ marginRight: 6 }} />
+            Response pending. Reminders are sent automatically.
+          </Text>
         ) : (
           <Button block icon={<MessageFilled />} onClick={startNewRequest}>
             Request Additional Information
