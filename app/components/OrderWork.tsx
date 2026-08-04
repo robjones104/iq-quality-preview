@@ -4,24 +4,18 @@ import { useMemo } from 'react';
 import { Card, Tag, Tooltip, Typography, theme } from 'antd';
 import { InfoCircleOutlined, MessageFilled } from '@ant-design/icons';
 import Link from 'next/link';
-import dayjs from 'dayjs';
-import { now } from '@/lib/appTime';
+import { useRouter } from 'next/navigation';
+import { QueueRow } from '@/components/QueueRow';
 import { capabilitiesFor } from '@/lib/roles';
 import type { Order } from '@/data/orders';
 import { useEffectiveEventMap } from '@/lib/effectiveEvents';
 import { replyReviewParty } from '@/components/TechReplyWarning';
 
-const { Text, Paragraph } = Typography;
-const TODAY = now();
-const STALE_MIN = 7;
+const { Text } = Typography;
 
 // The message cards consume EFFECTIVE orders (mutations already merged by the
 // dashboard) so runtime decisions move orders in and out of the lanes live.
 export type EffectiveOrder = Order & { trackingNumber?: string };
-
-function daysSinceIso(iso: string): number {
-  return Math.max(0, TODAY.diff(dayjs(iso), 'day'));
-}
 
 function CardShell({ title, tooltip, count, viewAllHref, children }: {
   title: string; tooltip: string; count: number; viewAllHref?: string; children: React.ReactNode;
@@ -31,8 +25,10 @@ function CardShell({ title, tooltip, count, viewAllHref, children }: {
     <Card
       size="small"
       title={
-        <span style={{ fontSize: token.fontSizeSM, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
-          {title}
+        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <MessageFilled style={{ color: token.colorWarning }} />
+          <span>{title}</span>
+          {count > 0 && <Tag color="gold">{count}</Tag>}
           <Tooltip title={tooltip}>
             <InfoCircleOutlined style={{ color: token.colorTextTertiary, fontSize: token.fontSizeSM, cursor: 'help' }} />
           </Tooltip>
@@ -46,7 +42,6 @@ function CardShell({ title, tooltip, count, viewAllHref, children }: {
             : <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextSecondary }}>({count})</Text>
       }
       style={{ height: '100%' }}
-      styles={{ body: { minHeight: 300, padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 8 } }}
     >
       {children}
     </Card>
@@ -63,64 +58,11 @@ function Empty({ icon, message }: { icon: React.ReactNode; message: string }) {
   );
 }
 
-// The owner tag names the person, not the role (Rob's ruling 2026-08-03):
-// office parties map to their demo personas. Monochromatic by design decision:
-// chromatic fills are reserved for record lifecycle, gold for accents. Tooltip
-// copy is supplied per card, because the same tag means "chase them" on the
-// awaiting lane and "check their answer" on the responded lane.
-function LaneRow({ orderId, eventId, meta, snippet, ageDays, hotWhenStale, owner, ownerTooltip }: {
-  orderId: string; eventId: string; meta: string; snippet?: string; ageDays: number; hotWhenStale: boolean;
-  owner?: 'Field Quality' | 'Customer Service' | null;
-  ownerTooltip?: string;
-}) {
-  const { token } = theme.useToken();
-  const hot = hotWhenStale && ageDays >= STALE_MIN;
-  const ownerName = owner ? capabilitiesFor(owner).displayName : null;
-  return (
-    <div style={{
-      background: token.colorFillQuaternary,
-      border: `1px solid ${token.colorBorderSecondary}`,
-      borderRadius: token.borderRadiusSM,
-      padding: '8px 10px',
-      display: 'flex',
-      gap: 10,
-    }}>
-      <div style={{ flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3 }}>
-          <Link href={`/orders/${orderId}`} style={{ fontSize: token.fontSizeSM, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap' }}>
-            {eventId}
-          </Link>
-          {ownerName && (
-            <Tooltip title={ownerTooltip}>
-              <Tag style={{ fontSize: token.fontSizeXS, lineHeight: '16px', padding: '0 5px', margin: 0 }}>
-                {ownerName}
-              </Tag>
-            </Tooltip>
-          )}
-        </div>
-        <Text type="secondary" style={{ fontSize: token.fontSizeXS, whiteSpace: 'nowrap' }}>{meta}</Text>
-      </div>
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-        {snippet && (
-          <Paragraph
-            ellipsis={{ rows: 2 }}
-            style={{ flex: 1, minWidth: 0, marginBottom: 0, fontSize: token.fontSizeSM, color: token.colorTextSecondary, overflowWrap: 'anywhere' }}
-          >
-            {snippet}
-          </Paragraph>
-        )}
-        <Text style={{ flexShrink: 0, fontSize: token.fontSizeXS, fontWeight: 600, color: hot ? token.colorWarning : token.colorTextTertiary, lineHeight: '16px' }}>
-          {ageDays}d
-        </Text>
-      </div>
-    </div>
-  );
-}
-
 // The Awaiting Response lane was cut (Rob, 2026-08-03): reminders are
 // system-generated, so chasing is not a human queue. Responses only.
 
 export function OrderResponseReceivedCard({ orders, viewAllHref, maxRows = 5 }: { orders: EffectiveOrder[]; viewAllHref?: string; maxRows?: number }) {
+  const router = useRouter();
   const eventMap = useEffectiveEventMap();
   const responded = useMemo(() =>
     orders
@@ -140,32 +82,37 @@ export function OrderResponseReceivedCard({ orders, viewAllHref, maxRows = 5 }: 
     >
       {responded.length === 0
         ? <Empty icon={<MessageFilled />} message="No technician replies waiting for review" />
-        : responded.slice(0, maxRows).map(o => {
-            const ev = eventMap.get(o.eventId);
-            const last = ev?.additionalInfoRequests?.at(-1);
-            const party = replyReviewParty(ev?.additionalInfoRequests);
-            return (
-              <LaneRow
-                key={o.id}
-                orderId={o.id}
-                eventId={o.eventId}
-                meta={`${o.jobNo} · ${ev?.branch ?? '—'}`}
-                snippet={last ? `"${last.text}"` : undefined}
-                ageDays={last ? daysSinceIso(last.sentAt) : 0}
-                hotWhenStale={false}
-                owner={party}
-                ownerTooltip={party === 'Customer Service'
-                  ? 'The technician answered your question. Review it and move the order forward.'
-                  : 'The technician answered Field Quality. Check the reply; validation may be about to unblock this order.'}
-              />
-            );
-          })}
+        : (
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {responded.slice(0, maxRows).map((o, i) => {
+              const ev = eventMap.get(o.eventId);
+              const last = ev?.additionalInfoRequests?.at(-1);
+              const party = replyReviewParty(ev?.additionalInfoRequests);
+              return (
+                <QueueRow
+                  key={o.id}
+                  id={o.eventId}
+                  personName={party ? capabilitiesFor(party).displayName : ''}
+                  personTooltip={party === 'Customer Service'
+                    ? 'The technician answered your question. Review it and move the order forward.'
+                    : 'The technician answered Field Quality. Check the reply; validation may be about to unblock this order.'}
+                  text={last?.text}
+                  dateLabel={last?.sentAt.slice(0, 10)}
+                  actionLabel="Review"
+                  onOpen={() => router.push(`/orders/${o.id}`)}
+                  topBorder={i > 0}
+                />
+              );
+            })}
+          </div>
+        )}
     </CardShell>
   );
 }
 
 /** Compact preview for the mobile carousel: count line + top three replies. */
 export function OrderResponseReceivedPreview({ orders }: { orders: EffectiveOrder[] }) {
+  const router = useRouter();
   const { token } = theme.useToken();
   const eventMap = useEffectiveEventMap();
   const responded = useMemo(() =>
@@ -185,18 +132,20 @@ export function OrderResponseReceivedPreview({ orders }: { orders: EffectiveOrde
       <div style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary, marginBottom: 2 }}>
         {responded.length} waiting for review
       </div>
-      {responded.slice(0, 3).map(o => {
+      {responded.slice(0, 3).map((o, i) => {
         const ev = eventMap.get(o.eventId);
         const last = ev?.additionalInfoRequests?.at(-1);
+        const party = replyReviewParty(ev?.additionalInfoRequests);
         return (
-          <LaneRow
+          <QueueRow
             key={o.id}
-            orderId={o.id}
-            eventId={o.eventId}
-            meta={`${o.jobNo} · ${ev?.branch ?? '—'}`}
-            snippet={last ? `"${last.text}"` : undefined}
-            ageDays={last ? daysSinceIso(last.sentAt) : 0}
-            hotWhenStale={false}
+            id={o.eventId}
+            personName={party ? capabilitiesFor(party).displayName : ''}
+            text={last?.text}
+            dateLabel={last?.sentAt.slice(0, 10)}
+            actionLabel="Review"
+            onOpen={() => router.push(`/orders/${o.id}`)}
+            topBorder={i > 0}
           />
         );
       })}

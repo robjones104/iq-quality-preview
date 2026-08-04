@@ -14,6 +14,7 @@ import { useScopedEvents } from '@/lib/useScopedData';
 import { useCapabilities } from '@/store/roleStore';
 import { capabilitiesFor } from '@/lib/roles';
 import { EventSummaryDrawer } from './EventSummaryDrawer';
+import { QueueRow } from '@/components/QueueRow';
 import type { QualityEvent } from '@/data/types';
 
 const { Text } = Typography;
@@ -148,32 +149,16 @@ export function IntakeHomeClient() {
                 // ruling 2026-08-03): office parties map to their personas.
                 const asking = capabilitiesFor(awaitingParty(thread) ?? 'Field Quality').displayName;
                 return (
-                  <div
+                  <QueueRow
                     key={e.id}
-                    onClick={() => setDrawerEvent(e)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 12,
-                      padding: '10px 4px',
-                      cursor: 'pointer',
-                      borderTop: i > 0 ? `1px solid ${token.colorBorderSecondary}` : undefined,
-                    }}
-                  >
-                    <Text style={{ fontSize: token.fontSize, fontWeight: 600, color: token.colorLink, flexShrink: 0 }}>
-                      {e.id}
-                    </Text>
-                    <Tag style={{ flexShrink: 0, marginInlineEnd: 0 }}>{asking}</Tag>
-                    <Text type="secondary" style={{ fontSize: token.fontSizeSM, flex: 1, minWidth: 0 }} ellipsis>
-                      {last?.text}
-                    </Text>
-                    <Text type="secondary" style={{ fontSize: token.fontSizeSM, flexShrink: 0 }}>
-                      {last?.sentAt.slice(0, 10)}
-                    </Text>
-                    <Button size="small" onClick={(ev) => { ev.stopPropagation(); setDrawerEvent(e); }}>
-                      Respond
-                    </Button>
-                  </div>
+                    id={e.id}
+                    personName={asking}
+                    text={last?.text}
+                    dateLabel={last?.sentAt.slice(0, 10)}
+                    actionLabel="Respond"
+                    onOpen={() => setDrawerEvent(e)}
+                    topBorder={i > 0}
+                  />
                 );
               })}
             </div>

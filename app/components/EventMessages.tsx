@@ -5,14 +5,12 @@ import { Card, Tag, Typography, theme } from 'antd';
 import { MessageFilled, InfoCircleOutlined } from '@ant-design/icons';
 import { Tooltip } from 'antd';
 import Link from 'next/link';
-import dayjs from 'dayjs';
-import { now } from '@/lib/appTime';
+import { useRouter } from 'next/navigation';
+import { QueueRow } from '@/components/QueueRow';
 import type { QualityEvent } from '@/data/types';
 import { awaitingParty, replyReviewParty } from '@/components/TechReplyWarning';
 
-const { Text, Paragraph } = Typography;
-const TODAY = now();
-const STALE_MIN = 7;
+const { Text } = Typography;
 const MAX_ROWS = 5;
 
 // The events dashboard is Field Quality's screen, so both lanes scope to
@@ -37,64 +35,8 @@ function lastMessage(e: QualityEvent) {
   return t?.length ? t[t.length - 1] : undefined;
 }
 
-function daysSince(iso: string): number {
-  return Math.max(0, TODAY.diff(dayjs(iso), 'day'));
-}
-
-function MessageRow({ event, snippet, ageDays, hotWhenStale, personTooltip }: {
-  event: QualityEvent; snippet?: string; ageDays: number; hotWhenStale: boolean; personTooltip: string;
-}) {
-  const { token } = theme.useToken();
-  const hot = hotWhenStale && ageDays >= STALE_MIN;
-  // Anatomy matches the Orders dashboard lanes (Rob, 2026-08-03): ID, person
-  // tag, jobNo · branch meta. No status tag — every row here is mid-
-  // investigation by definition, and the lane itself carries the thread state.
-  return (
-    <div style={{
-      background: token.colorFillQuaternary,
-      border: `1px solid ${token.colorBorderSecondary}`,
-      borderRadius: token.borderRadiusSM,
-      padding: '8px 10px',
-      display: 'flex',
-      gap: 10,
-    }}>
-      <div style={{ flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3 }}>
-          <Link href={`/events/${event.id}`} style={{ fontSize: token.fontSizeSM, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap' }}>
-            {event.id}
-          </Link>
-          <Tooltip title={personTooltip}>
-            <Tag style={{ fontSize: token.fontSizeXS, lineHeight: '16px', padding: '0 5px', margin: 0 }}>
-              {event.reportedBy}
-            </Tag>
-          </Tooltip>
-        </div>
-        <Text type="secondary" style={{ fontSize: token.fontSizeXS, whiteSpace: 'nowrap' }}>
-          {event.jobNo} · {event.branch}
-        </Text>
-      </div>
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-        {snippet && (
-          <Paragraph
-            ellipsis={{ rows: 2 }}
-            style={{ flex: 1, minWidth: 0, marginBottom: 0, fontSize: token.fontSizeSM, color: token.colorTextSecondary, overflowWrap: 'anywhere' }}
-          >
-            {snippet}
-          </Paragraph>
-        )}
-        <Text style={{
-          flexShrink: 0,
-          fontSize: token.fontSizeXS,
-          fontWeight: 600,
-          color: hot ? token.colorWarning : token.colorTextTertiary,
-          lineHeight: '16px',
-        }}>
-          {ageDays}d
-        </Text>
-      </div>
-    </div>
-  );
-}
+// Rows use the shared QueueRow (the intake Needs Your Response anatomy;
+// Rob, 2026-08-04): flat hairline-divided rows, single-line text, date, action.
 
 function CardShell({ title, tooltip, count, viewAllHref, children }: {
   title: string; tooltip: string; count: number; viewAllHref?: string; children: React.ReactNode;
@@ -104,8 +46,10 @@ function CardShell({ title, tooltip, count, viewAllHref, children }: {
     <Card
       size="small"
       title={
-        <span style={{ fontSize: token.fontSizeSM, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
-          {title}
+        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <MessageFilled style={{ color: token.colorWarning }} />
+          <span>{title}</span>
+          {count > 0 && <Tag color="gold">{count}</Tag>}
           <Tooltip title={tooltip}>
             <InfoCircleOutlined style={{ color: token.colorTextTertiary, fontSize: token.fontSizeSM, cursor: 'help' }} />
           </Tooltip>
@@ -119,7 +63,6 @@ function CardShell({ title, tooltip, count, viewAllHref, children }: {
             : <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextSecondary }}>({count})</Text>
       }
       style={{ height: '100%' }}
-      styles={{ body: { minHeight: 300, padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 8 } }}
     >
       {children}
     </Card>
@@ -141,6 +84,7 @@ function Empty({ icon, message }: { icon: React.ReactNode; message: string }) {
 // Responses are the only lane; it runs full width on the dashboard.
 
 export function ResponseReceivedCard({ events, viewAllHref }: { events: QualityEvent[]; viewAllHref?: string }) {
+  const router = useRouter();
   const responded = useMemo(() =>
     events
       .filter(respondedNeedsReview)
@@ -160,25 +104,33 @@ export function ResponseReceivedCard({ events, viewAllHref }: { events: QualityE
     >
       {responded.length === 0
         ? <Empty icon={<MessageFilled />} message="No technician replies waiting for review" />
-        : responded.slice(0, MAX_ROWS).map(e => {
-            const last = lastMessage(e);
-            return (
-              <MessageRow
-                key={e.id}
-                event={e}
-                snippet={last ? `"${last.text}"` : undefined}
-                ageDays={last ? daysSince(last.sentAt) : 0}
-                hotWhenStale={false}
-                personTooltip={`${e.reportedBy} replied. Review the answer.`}
-              />
-            );
-          })}
+        : (
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {responded.slice(0, MAX_ROWS).map((e, i) => {
+              const last = lastMessage(e);
+              return (
+                <QueueRow
+                  key={e.id}
+                  id={e.id}
+                  personName={e.reportedBy}
+                  personTooltip={`${e.reportedBy} replied. Review the answer.`}
+                  text={last?.text}
+                  dateLabel={last?.sentAt.slice(0, 10)}
+                  actionLabel="Review"
+                  onOpen={() => router.push(`/events/${e.id}`)}
+                  topBorder={i > 0}
+                />
+              );
+            })}
+          </div>
+        )}
     </CardShell>
   );
 }
 
 /** Compact preview for the mobile carousel: count line + top three replies. */
 export function ResponseReceivedPreview({ events }: { events: QualityEvent[] }) {
+  const router = useRouter();
   const { token } = theme.useToken();
   const responded = useMemo(() =>
     events.filter(respondedNeedsReview).sort((a, b) =>
@@ -193,16 +145,19 @@ export function ResponseReceivedPreview({ events }: { events: QualityEvent[] }) 
       <div style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary, marginBottom: 2 }}>
         {responded.length} waiting for review
       </div>
-      {responded.slice(0, 3).map(e => {
+      {responded.slice(0, 3).map((e, i) => {
         const last = lastMessage(e);
         return (
-          <MessageRow
+          <QueueRow
             key={e.id}
-            event={e}
-            snippet={last ? `"${last.text}"` : undefined}
-            ageDays={last ? daysSince(last.sentAt) : 0}
-            hotWhenStale={false}
+            id={e.id}
+            personName={e.reportedBy}
             personTooltip={`${e.reportedBy} replied. Review the answer.`}
+            text={last?.text}
+            dateLabel={last?.sentAt.slice(0, 10)}
+            actionLabel="Review"
+            onOpen={() => router.push(`/events/${e.id}`)}
+            topBorder={i > 0}
           />
         );
       })}
