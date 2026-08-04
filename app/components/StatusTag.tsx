@@ -37,17 +37,6 @@ const lightInverseStyle = (status: EventStatus): CSSProperties => ({
   borderColor: 'transparent',
 });
 
-// Order-status (Open/Closed) badges share the light-mode inversion (Rob,
-// 2026-08-04: detail pages must match the tables). Same AA-passing dark steps:
-// white on #0958D9 6.15:1, on #237804 5.59:1. Dark mode keeps antd presets.
-// Call sites must SPREAD the returned style into their own (a style prop after
-// the spread clobbers it — the bug class from 08-03).
-export function orderStatusTagProps(status: 'Open' | 'Closed', isDark: boolean): { color?: string; style: CSSProperties } {
-  return isDark
-    ? { color: status === 'Open' ? 'blue' : 'green', style: {} }
-    : { style: { background: status === 'Open' ? '#0958D9' : '#237804', color: '#FFFFFF', borderColor: 'transparent' } };
-}
-
 // The two thread states, shape-differentiated (color stays lifecycle-only):
 // info circle = a question is out, the reporter side owes an answer;
 // message bubble = the answer came back, the office owes the next move.

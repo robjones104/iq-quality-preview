@@ -28,7 +28,6 @@ import type { QualityEvent } from '@/data/types';
 import { DOOR_OPTIONS, PART_CATALOG } from '@/data/filterOptions';
 import { nowStampUs } from '@/lib/appTime';
 import { capabilitiesFor } from '@/lib/roles';
-import { orderStatusTagProps } from '@/components/StatusTag';
 const { Text } = Typography;
 
 type Status = OrderStatus;
@@ -74,18 +73,12 @@ const SEED_LOGS: Record<string, LogEntry[]> = {
   ],
 };
 
-const STATUS_HEX: Record<Status, string> = {
-  Open:   '#1677ff',
-  Closed: '#389e0d',
-};
-
 type Props = { order: Order; event: QualityEvent };
 
 export function OrderDetailClient({ order, event: eventProp }: Props) {
   const evtMutations = useEventStore(s => s.mutations);
   const event = useMemo(() => mergeEvent(eventProp, evtMutations[eventProp.id]), [eventProp, evtMutations]);
   const { token } = theme.useToken();
-  const isDark = token.colorBgContainer !== '#ffffff';
   const screens = Grid.useBreakpoint();
   const isMobile = !screens.md;
   const { mutations: orderMutations, createdOrders, patchOrder, pushOrderLog } = useOrderStore();
@@ -103,6 +96,10 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
 
   const [status, setStatus]             = useState<Status>(ordStored.status ?? (order.orderStatus as Status));
   const [approved, setApproved]         = useState(ordStored.approved ?? order.approved ?? (order.orderStatus === 'Closed'));
+  // Declined is store/seed-derived (the decline action writes the store, so
+  // this stays reactive); checked first in the stepper, so the legacy
+  // "closed implies approved" default above cannot mislabel a declined order.
+  const declined = (ordStored.declined ?? order.declined) === true;
   const [parts, setParts]               = useState<OrderPart[]>([...(ordStored.partsOverride ?? order.parts)]);
   const [activeTab, setActiveTab]       = useState('details');
   const [assignedToProcurement, setAssignedToProcurement] = useState(ordStored.assignedToProcurement ?? order.assignedToProcurement ?? false);
@@ -478,7 +475,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
     { title: 'Date & Time',      dataIndex: 'timestamp',      key: 'timestamp',      width: 148, render: (t: string) => <Text style={{ fontSize: token.fontSizeSM }}>{t}</Text> },
     { title: 'Role',             dataIndex: 'role',           key: 'role',           width: 136, render: (r: string, entry: LogEntry) => <Text style={{ fontSize: token.fontSizeSM, color: entry.auto ? token.colorTextTertiary : token.colorText }}>{r}</Text> },
     { title: 'Employee',         dataIndex: 'employee',       key: 'employee',       width: 160, render: (e: string, entry: LogEntry) => <Text style={{ fontSize: token.fontSizeSM, color: entry.auto ? token.colorTextTertiary : token.colorText }}>{e}</Text> },
-    { title: 'Order Status',     dataIndex: 'orderStatus',    key: 'orderStatus',    width: 104, render: (s: Status) => { const p = orderStatusTagProps(s, isDark); return <Tag color={p.color} style={{ fontSize: token.fontSizeSM, margin: 0, ...p.style }}>{s}</Tag>; } },
+    { title: 'Order Status',     dataIndex: 'orderStatus',    key: 'orderStatus',    width: 104, render: (s: Status) => <Tag style={{ fontSize: token.fontSizeSM, margin: 0 }}>{s}</Tag> },
     { title: 'Submitted Status', dataIndex: 'submittedStatus', key: 'submittedStatus', width: 140, render: (s: string) => <Text style={{ fontSize: token.fontSizeSM }}>{s}</Text> },
     { title: 'Comment',          dataIndex: 'content',        key: 'content',                    render: (c: string) => <Text style={{ fontSize: token.fontSizeSM }}>{c}</Text> },
   ];
@@ -511,14 +508,38 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
     );
   };
 
-  const stepIdx = status === 'Closed' ? 1 : 0;
-  const stageLabels: Status[] = ['Open', 'Closed'];
-  const stages = stageLabels.map((label, i) => ({
-    label,
-    color: STATUS_HEX[label],
-    reached: stepIdx >= i,
-    isCurrent: stepIdx === i,
-  }));
+  // Three-beat decision journey (Rob, 2026-08-04), mirroring the event
+  // stepper's anatomy: two fixed stages plus a resolution step with two
+  // outcomes. A declined order skips Approved, exactly as an invalidated
+  // event can skip Under Investigation. Vocabulary matches the KPI lanes
+  // and Decision Trend: Pending Decision / Approved / Fulfilled / Declined.
+  const decisionStage = declined
+    ? 'Declined'
+    : approved
+      ? (status === 'Closed' ? 'Fulfilled' : 'Approved')
+      : 'Pending Decision';
+  const stepIdx = decisionStage === 'Pending Decision' ? 0 : decisionStage === 'Approved' ? 1 : 2;
+  const stages = [
+    {
+      label: 'Pending Decision',
+      color: '#1677ff',
+      reached: true,
+      isCurrent: stepIdx === 0,
+    },
+    {
+      label: 'Approved',
+      color: '#95de64',
+      // Declined orders never passed Approved: the step renders unreached.
+      reached: stepIdx >= 1 && !declined,
+      isCurrent: stepIdx === 1,
+    },
+    {
+      label: decisionStage === 'Fulfilled' ? 'Fulfilled' : decisionStage === 'Declined' ? 'Declined' : 'Resolution',
+      color: decisionStage === 'Declined' ? '#cf1322' : '#389e0d',
+      reached: stepIdx === 2,
+      isCurrent: stepIdx === 2,
+    },
+  ];
 
   const actionButtons = !canActOnOrder ? (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: token.colorTextTertiary }}>
@@ -686,7 +707,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
             </Link>
             <span style={{ color: token.colorBorderSecondary, fontSize: token.fontSizeLG, lineHeight: 1 }}>|</span>
             <span style={{ fontSize: token.fontSizeLG, fontWeight: 600, color: token.colorText }}>{order.eventId}</span>
-            <Tag color={orderStatusTagProps(status, isDark).color} style={{ margin: 0, ...orderStatusTagProps(status, isDark).style }}>{status}</Tag>
+            <Tag style={{ margin: 0 }}>{status}</Tag>
             {!isMobile && approved && status === 'Open' && (
               <Tag color="green" style={{ margin: 0 }}>Approved</Tag>
             )}
@@ -742,7 +763,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
                 <div style={{ flex: 1, paddingBottom: 18, margin: '0 8px' }}>
                   <div style={{
                     height: 2,
-                    background: stepIdx > i
+                    background: stages[i].reached && stages[i + 1].reached
                       ? `linear-gradient(to right, ${stages[i].color}, ${stages[i + 1].color})`
                       : token.colorBorderSecondary,
                     borderRadius: 1,
@@ -1129,7 +1150,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
                             <Text style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary }}>{entry.timestamp}</Text>
                           </div>
                           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                            <Tag color={orderStatusTagProps(entry.orderStatus, isDark).color} style={{ fontSize: token.fontSizeXS, margin: 0, ...orderStatusTagProps(entry.orderStatus, isDark).style }}>{entry.orderStatus}</Tag>
+                            <Tag style={{ fontSize: token.fontSizeXS, margin: 0 }}>{entry.orderStatus}</Tag>
                             <Text style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary }}>{entry.submittedStatus}</Text>
                           </div>
                           <Text style={{ fontSize: token.fontSizeSM, color: entry.auto ? token.colorTextTertiary : token.colorText }}>

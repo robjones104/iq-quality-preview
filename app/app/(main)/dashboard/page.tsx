@@ -447,19 +447,35 @@ function DashboardPageContent() {
   const isValidated   = (e: QualityEvent) => e.status === 'Validated';
   const isInvalidated = (e: QualityEvent) => e.status === 'Invalidated';
 
-  const kpis = [
-    { title: 'Total Event Count',   count: filteredEvents.length,                     prior: priorEvents?.length ?? null, href: buildKpiHref('/events', dateRange, appliedFilters),
-      tooltip: 'Total count of events in the selected time period.', swatch: token.colorText },
-    { title: 'Reported',            count: filteredEvents.filter(isReported).length,   prior: prior(isReported),           href: buildKpiHref('/events?status=Reported', dateRange, appliedFilters),
-      tooltip: 'Events that have been submitted but have not yet been reviewed or assessed.', swatch: STATUS_COLORS.Reported },
-    // Lifecycle only: the four stages partition Total. Conversation state
-    // (awaiting / replied) lives in the Messages row below, not on this bar.
-    { title: 'Under Investigation', count: filteredEvents.filter(isUnderInv).length,    prior: prior(isUnderInv),           href: buildKpiHref('/events?status=Under+Investigation', dateRange, appliedFilters),
-      tooltip: 'Events that are actively being reviewed and investigated ahead of a validation decision.', swatch: STATUS_COLORS['Under Investigation'] },
-    { title: 'Validated',           count: filteredEvents.filter(isValidated).length,   prior: prior(isValidated),          href: buildKpiHref('/events?status=Validated', dateRange, appliedFilters),
-      tooltip: 'Events that have been validated as quality events for further analytics and/or order fulfillment.', deltaTone: 'neutral' as const, swatch: STATUS_COLORS.Validated },
-    { title: 'Invalidated',         count: filteredEvents.filter(isInvalidated).length, prior: prior(isInvalidated),        href: buildKpiHref('/events?status=Invalidated', dateRange, appliedFilters),
-      tooltip: 'Events that have been invalidated. These events may lack sufficient evidence or may not be true quality events.', deltaTone: 'neutral' as const, swatch: STATUS_COLORS.Invalidated },
+  // Unified state grammar (Rob, 2026-08-04): Open/Closed is the container,
+  // the lifecycle stage is the lane — same anatomy as the Orders bar. The
+  // event's Open/Closed is derived (Reported/UI are open; Validated/
+  // Invalidated are closed). Lane tooltips are Rob's copy, unchanged.
+  const eventTotalKpi = {
+    title: 'Total Event Count',
+    count: filteredEvents.length,
+    prior: priorEvents?.length ?? null,
+    href: buildKpiHref('/events', dateRange, appliedFilters),
+    tooltip: 'Total count of events in the selected time period.',
+    swatch: token.colorText,
+  };
+
+  const eventOpenLanes: [KpiLane, KpiLane] = [
+    { label: 'Reported', count: filteredEvents.filter(isReported).length, prior: prior(isReported), swatch: STATUS_COLORS.Reported,
+      href: buildKpiHref('/events?status=Reported', dateRange, appliedFilters),
+      tooltip: 'Events that have been submitted but have not yet been reviewed or assessed.' },
+    { label: 'Under Investigation', count: filteredEvents.filter(isUnderInv).length, prior: prior(isUnderInv), swatch: STATUS_COLORS['Under Investigation'],
+      href: buildKpiHref('/events?status=Under+Investigation', dateRange, appliedFilters),
+      tooltip: 'Events that are actively being reviewed and investigated ahead of a validation decision.' },
+  ];
+
+  const eventClosedLanes: [KpiLane, KpiLane] = [
+    { label: 'Validated', count: filteredEvents.filter(isValidated).length, prior: prior(isValidated), deltaTone: 'neutral', swatch: STATUS_COLORS.Validated,
+      href: buildKpiHref('/events?status=Validated', dateRange, appliedFilters),
+      tooltip: 'Events that have been validated as quality events for further analytics and/or order fulfillment.' },
+    { label: 'Invalidated', count: filteredEvents.filter(isInvalidated).length, prior: prior(isInvalidated), deltaTone: 'neutral', swatch: STATUS_COLORS.Invalidated,
+      href: buildKpiHref('/events?status=Invalidated', dateRange, appliedFilters),
+      tooltip: 'Events that have been invalidated. These events may lack sufficient evidence or may not be true quality events.' },
   ];
 
 
@@ -488,35 +504,33 @@ function DashboardPageContent() {
   const isApprovedOpen    = (o: Order) => o.orderStatus === 'Open' && !!o.approved;
   const isFulfilled       = (o: Order) => o.orderStatus === 'Closed' && !!o.approved;
   const isDeclinedOrder   = (o: Order) => !!o.declined;
-  const approvedWithCs    = liveOrders.filter(o => isApprovedOpen(o) && !o.assignedToProcurement).length;
-  const approvedWithPro   = liveOrders.filter(o => isApprovedOpen(o) && o.assignedToProcurement).length;
 
   const orderTotalKpi = {
     title: 'Total Order Count',
     count: liveOrders.length,
     prior: priorLive?.length ?? null,
     href: buildKpiHref('/orders', dateRange, {}),
-    tooltip: 'Total count of orders in the selected time period. Excludes orders consolidated into other orders; the surviving order carries their demand.',
+    tooltip: 'Total count of orders in the selected time period. Orders merged during consolidation are counted once, under the surviving order.',
     swatch: token.colorText,
   };
 
   const openLanes: [KpiLane, KpiLane] = [
     { label: 'Pending Decision', count: liveOrders.filter(isPendingDecision).length, prior: priorLiveN(isPendingDecision), swatch: STATUS_COLORS.Reported,
       href: buildKpiHref('/orders?orderStatus=Open&decision=Pending', dateRange, {}),
-      tooltip: 'Open · No Decision. Orders that have not yet received an approve or decline decision, at any age.' },
+      tooltip: 'Orders that are waiting for Customer Service to approve or decline.' },
     { label: 'Approved', count: liveOrders.filter(isApprovedOpen).length, prior: priorLiveN(isApprovedOpen), deltaTone: 'neutral',
       swatch: '#95de64',
       href: buildKpiHref('/orders?orderStatus=Open&decision=Approved', dateRange, {}),
-      tooltip: `Open · Approved. Still being worked: ${approvedWithCs} with Customer Service, ${approvedWithPro} with Procurement. Light green = approved and open; solid green = fulfilled (approved and closed).` },
+      tooltip: 'Orders that have been approved and are being fulfilled.' },
   ];
 
   const closedLanes: [KpiLane, KpiLane] = [
     { label: 'Fulfilled', count: liveOrders.filter(isFulfilled).length, prior: priorLiveN(isFulfilled), deltaTone: 'neutral', swatch: STATUS_COLORS.Validated,
       href: buildKpiHref('/orders?orderStatus=Closed&decision=Approved', dateRange, {}),
-      tooltip: 'Fulfilled = approved, then closed. The replacement order was placed and the order closed out. Same green family as Approved: light while open, solid once fulfilled.' },
+      tooltip: 'Orders that were approved and closed after the replacement order was placed.' },
     { label: 'Declined', count: liveOrders.filter(isDeclinedOrder).length, prior: priorLiveN(isDeclinedOrder), swatch: '#cf1322',
       href: buildKpiHref('/orders?decision=Declined', dateRange, {}),
-      tooltip: 'Closed · Declined. Closed without fulfillment: duplicates, incorrect configurations, or orders that otherwise did not qualify. Reopening returns one to Open with no decision.' },
+      tooltip: 'Orders that were declined and closed. Declined orders can be reopened if needed.' },
   ];
 
   const carouselRef = useRef<HTMLDivElement>(null);
@@ -585,19 +599,35 @@ function DashboardPageContent() {
             gap: token.marginSM,
           }}>
             {view === 'events'
-              ? kpis.map((k) => <KpiCard key={k.title} {...k} dateRange={dateRange} />)
+              ? (
+                <>
+                  <KpiCard {...eventTotalKpi} dateRange={dateRange} />
+                  <SplitKpiCard
+                    title="Open"
+                    tooltip="Events that are still open: newly reported or under investigation."
+                    lanes={eventOpenLanes}
+                    dateRange={dateRange}
+                  />
+                  <SplitKpiCard
+                    title="Closed"
+                    tooltip="Events that have been closed: validated or invalidated."
+                    lanes={eventClosedLanes}
+                    dateRange={dateRange}
+                  />
+                </>
+              )
               : (
                 <>
                   <KpiCard {...orderTotalKpi} dateRange={dateRange} />
                   <SplitKpiCard
                     title="Open"
-                    tooltip="Orders still in progress: awaiting a decision or approved and being worked."
+                    tooltip="Orders that are still open: waiting on a decision or approved and being fulfilled."
                     lanes={openLanes}
                     dateRange={dateRange}
                   />
                   <SplitKpiCard
                     title="Closed"
-                    tooltip="Orders that reached an outcome: fulfilled with a replacement, or declined."
+                    tooltip="Orders that have been closed: fulfilled or declined."
                     lanes={closedLanes}
                     dateRange={dateRange}
                   />
