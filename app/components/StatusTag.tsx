@@ -11,28 +11,31 @@ export const STATUS_COLORS: Record<EventStatus, string> = {
   Invalidated:           '#595959',
 };
 
-// Ant Design preset color names — dark mode keeps antd's derived dark tints.
-const STATUS_PRESETS: Record<EventStatus, string> = {
-  Reported:              'blue',
-  'Under Investigation': 'orange',
-  Validated:             'green',
-  Invalidated:           'default',
+// Status badges are solid fills with white text in BOTH themes (Rob,
+// 2026-08-05; extends the 2026-08-03 light-mode inversion). Fills are the
+// AA-passing dark step of each lifecycle hue — the raw STATUS_COLORS fail
+// 4.5:1 under white text (blue 4.10:1, orange 3.56:1, green 3.55:1). White
+// text ratios: #0958D9 6.15:1, #AD4E00 5.43:1, #237804 5.59:1, #595959
+// 7.00:1. Dark theme swaps only the gray: #595959 sits 2.6:1 against dark
+// cards (chip boundary), so Invalidated brightens to #757575 (4.2:1 vs card,
+// white text 4.5:1).
+const SOLID_BADGE_BG: Record<'light' | 'dark', Record<EventStatus, string>> = {
+  light: {
+    Reported:              '#0958D9',
+    'Under Investigation': '#AD4E00',
+    Validated:             '#237804',
+    Invalidated:           '#595959',
+  },
+  dark: {
+    Reported:              '#0958D9',
+    'Under Investigation': '#AD4E00',
+    Validated:             '#237804',
+    Invalidated:           '#757575',
+  },
 };
 
-// Light mode inverts the badge (Rob, 2026-08-03): solid dark fill, white text,
-// instead of antd's pastel tint + colored text. Fills are the AA-passing dark
-// step of each lifecycle hue — the raw STATUS_COLORS fail 4.5:1 under white
-// text (blue 4.10:1, orange 3.56:1, green 3.55:1). White text ratios:
-// #0958D9 6.15:1, #AD4E00 5.43:1, #237804 5.59:1, #595959 7.00:1.
-const LIGHT_INVERSE_BG: Record<EventStatus, string> = {
-  Reported:              '#0958D9',
-  'Under Investigation': '#AD4E00',
-  Validated:             '#237804',
-  Invalidated:           '#595959',
-};
-
-const lightInverseStyle = (status: EventStatus): CSSProperties => ({
-  background: LIGHT_INVERSE_BG[status],
+const solidBadgeStyle = (status: EventStatus, isDark: boolean): CSSProperties => ({
+  background: SOLID_BADGE_BG[isDark ? 'dark' : 'light'][status],
   color: '#FFFFFF',
   borderColor: 'transparent',
 });
@@ -81,12 +84,11 @@ export function StatusTag({ status, hasOrder, additionalInfoRequested, responseR
 
   return (
     <Tag
-      color={isDark ? STATUS_PRESETS[status] : undefined}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
         gap: 4,
-        ...(isDark ? {} : lightInverseStyle(status)),
+        ...solidBadgeStyle(status, isDark),
       }}
     >
       {status}
