@@ -21,7 +21,7 @@ import { TechReplyWarning } from '@/components/TechReplyWarning';
 import { OrderStageTag } from '@/components/StatusTag';
 import { issuePhotoUri, labelScanUri, seedPhotoCount } from '@/lib/demoMedia';
 import { ShipToLine } from '@/components/ShipToLine';
-import { aaLabelColor, AA_INACTIVE_LABEL, stageFill, OWNERSHIP_TEXT } from '@/lib/theme';
+import { aaLabelColor, AA_INACTIVE_LABEL, stageFill } from '@/lib/theme';
 import { PageHeader } from '@/components/PageHeader';
 import { useInfoRequestThread, InfoRequestThreadPanel } from '@/components/InfoRequestThread';
 import type { Order, OrderPart, OrderStatus } from '@/data/orders';
@@ -699,7 +699,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
                 {(stage as { sublabel?: string }).sublabel && (
                   // Absolute so the taller column does not lift this stage's
                   // node above its siblings (Rob 2026-08-05).
-                  <Text style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', fontSize: token.fontSizeXS, fontWeight: 500, whiteSpace: 'nowrap', marginTop: 2, color: (stage as { sublabel?: string }).sublabel === 'With Fulfillment' ? (isDarkTheme ? OWNERSHIP_TEXT.dark : OWNERSHIP_TEXT.light) : (isDarkTheme ? AA_INACTIVE_LABEL.dark : AA_INACTIVE_LABEL.light) }}>
+                  <Text style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', fontSize: token.fontSizeXS, fontWeight: 500, whiteSpace: 'nowrap', marginTop: 2, color: (stage as { sublabel?: string }).sublabel === 'With Fulfillment' ? (isDarkTheme ? '#FFFFFF' : '#141414') : (isDarkTheme ? AA_INACTIVE_LABEL.dark : AA_INACTIVE_LABEL.light) }}>
                     {(stage as { sublabel?: string }).sublabel}
                   </Text>
                 )}

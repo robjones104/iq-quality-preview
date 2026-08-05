@@ -24,7 +24,7 @@ import { FilterPanel } from '@/components/FilterPanel';
 import { PageHeader } from '@/components/PageHeader';
 import { DateRangeFilter, type DateRange } from '@/components/DateRangeFilter';
 import { EVENT_FILTER_CATEGORIES, ORDER_FILTER_CATEGORIES } from '@/data/filterOptions';
-import { useFilterStore } from '@/store/filterStore';
+import { useFilterStore, type ContainerLens } from '@/store/filterStore';
 import { useOrderStore } from '@/store/orderStore';
 import { OrderCard } from '@/components/OrderCard';
 import { ThreadStateIcons, OrderStageTag, type OrderStage } from '@/components/StatusTag';
@@ -291,9 +291,9 @@ function OrdersPageContent() {
     return items;
   };
 
-  // Coarse container lens: open = Pending Decision + Approved,
-  // closed = Fulfilled + Declined.
-  const [containerView, setContainerView] = useState<'open' | 'closed' | 'all'>('all');
+  // Workspace-wide lens, interpreted against the pipeline container.
+  const containerView = useFilterStore(st => st.containerLens);
+  const setContainerView = useFilterStore(st => st.setContainerLens);
   const filtered = orderRows.filter(o => {
     if (containerView !== 'all' && (containerView === 'open') !== (effectiveStatus(o) === 'Open')) return false;
     if (dateRange) {
@@ -662,7 +662,20 @@ function OrdersPageContent() {
       </Modal>
 
       <PageHeader
-        left={<DateRangeFilter value={dateRange} onChange={setDateRange} />}
+        left={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <DateRangeFilter value={dateRange} onChange={setDateRange} />
+            <Segmented
+              options={[
+                { label: 'Open', value: 'open' },
+                { label: 'Closed', value: 'closed' },
+                { label: 'All', value: 'all' },
+              ]}
+              value={containerView}
+              onChange={v => setContainerView(v as ContainerLens)}
+            />
+          </div>
+        }
         center={
           <AutoComplete
             value={searchText}
@@ -677,22 +690,11 @@ function OrdersPageContent() {
           </AutoComplete>
         }
         right={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Segmented
-              options={[
-                { label: 'Open', value: 'open' },
-                { label: 'Closed', value: 'closed' },
-                { label: 'All', value: 'all' },
-              ]}
-              value={containerView}
-              onChange={v => setContainerView(v as 'open' | 'closed' | 'all')}
-            />
-            <FilterPanel
-              categories={ORDER_STATUS_FILTER}
-              applied={appliedFiltersLocal}
-              onApply={setAppliedFilters}
-            />
-          </div>
+          <FilterPanel
+            categories={ORDER_STATUS_FILTER}
+            applied={appliedFiltersLocal}
+            onApply={setAppliedFilters}
+          />
         }
       />
 

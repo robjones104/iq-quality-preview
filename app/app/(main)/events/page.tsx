@@ -23,7 +23,7 @@ import { FilterPanel } from '@/components/FilterPanel';
 import { PageHeader } from '@/components/PageHeader';
 import { DateRangeFilter } from '@/components/DateRangeFilter';
 import { EVENT_FILTER_CATEGORIES } from '@/data/filterOptions';
-import { useFilterStore } from '@/store/filterStore';
+import { useFilterStore, type ContainerLens } from '@/store/filterStore';
 import type { DateRange } from '@/components/DateRangeFilter';
 import type { QualityEvent, EventStatus } from '@/data/types';
 const { Text } = Typography;
@@ -164,9 +164,10 @@ function EventsPageContent() {
   const tagFilter = tagParam?.split(',').filter(Boolean) ?? [];
   const idsFilter = idsParam?.split(',').filter(Boolean) ?? [];
 
-  // Coarse container lens shared by every table (Rob 2026-08-05):
-  // open = Reported + Under Investigation, closed = Validated + Invalidated.
-  const [containerView, setContainerView] = useState<'open' | 'closed' | 'all'>('all');
+  // Workspace-wide lens (Rob 2026-08-05): shared and persisted, interpreted
+  // here against the event lifecycle.
+  const containerView = useFilterStore(st => st.containerLens);
+  const setContainerView = useFilterStore(st => st.setContainerLens);
   const filtered = events.filter((e) => {
     if (containerView !== 'all') {
       const isOpen = e.status === 'Reported' || e.status === 'Under Investigation';
@@ -324,7 +325,18 @@ function EventsPageContent() {
               Back to {backToParam}
             </Link>
           ) : (
-            <DateRangeFilter value={dateRange} onChange={setDateRange} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <DateRangeFilter value={dateRange} onChange={setDateRange} />
+              <Segmented
+              options={[
+                { label: 'Open', value: 'open' },
+                { label: 'Closed', value: 'closed' },
+                { label: 'All', value: 'all' },
+              ]}
+              value={containerView}
+              onChange={v => setContainerView(v as ContainerLens)}
+            />
+            </div>
           )
         }
         center={
@@ -343,22 +355,11 @@ function EventsPageContent() {
           )
         }
         right={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Segmented
-              options={[
-                { label: 'Open', value: 'open' },
-                { label: 'Closed', value: 'closed' },
-                { label: 'All', value: 'all' },
-              ]}
-              value={containerView}
-              onChange={v => setContainerView(v as 'open' | 'closed' | 'all')}
-            />
-            <FilterPanel
-              categories={EVENT_FILTER_CATEGORIES}
-              applied={appliedFilters}
-              onApply={setAppliedFilters}
-            />
-          </div>
+          <FilterPanel
+            categories={EVENT_FILTER_CATEGORIES}
+            applied={appliedFilters}
+            onApply={setAppliedFilters}
+          />
         }
       />
 

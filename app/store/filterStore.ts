@@ -6,7 +6,14 @@ import type { DateRange } from '@/components/DateRangeFilter';
 
 const defaultRange = (): DateRange => [now().subtract(30, 'day'), now()];
 
+export type ContainerLens = 'open' | 'closed' | 'all';
+
 type FilterStore = {
+  // Global open/closed lens (Rob 2026-08-05): one workspace-wide scope that
+  // every table interprets against its own axis (events: lifecycle; orders:
+  // pipeline container). Travels with the user like the date range does.
+  containerLens: ContainerLens;
+  setContainerLens: (v: ContainerLens) => void;
   // Dashboard state — persists for KPI card navigation carry-over
   dateRange: DateRange | null;
   setDateRange: (range: DateRange | null) => void;
@@ -38,6 +45,8 @@ const toDateRange = (v: unknown): DateRange | null => {
 export const useFilterStore = create<FilterStore>()(
   persist(
     (set) => ({
+      containerLens: 'open',
+      setContainerLens: (v) => set({ containerLens: v }),
       dateRange: defaultRange(),
       setDateRange: (dateRange) => set({ dateRange }),
       dashboardFilters: {},

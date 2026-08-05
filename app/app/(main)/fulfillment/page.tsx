@@ -12,6 +12,7 @@ import Link from 'next/link';
 import { orders } from '@/data/orders';
 import { useEffectiveEventMap } from '@/lib/effectiveEvents';
 import { PageHeader } from '@/components/PageHeader';
+import { useFilterStore, type ContainerLens } from '@/store/filterStore';
 import { DateRangeFilter, type DateRange } from '@/components/DateRangeFilter';
 import { useOrderStore } from '@/store/orderStore';
 import type { Order, OrderStatus } from '@/data/orders';
@@ -38,8 +39,9 @@ export default function FulfillmentPage() {
   const { token } = theme.useToken();
 
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
-  // Queue defaults to the working set; Closed shows fulfilled history.
-  const [containerView, setContainerView] = useState<'open' | 'closed' | 'all'>('open');
+  // Workspace-wide lens (shared store), interpreted against the container.
+  const containerView = useFilterStore(st => st.containerLens);
+  const setContainerView = useFilterStore(st => st.setContainerLens);
 
   const { mutations: orderMutations, createdOrders } = useOrderStore();
   const eventMap = useEffectiveEventMap();
@@ -146,17 +148,19 @@ export default function FulfillmentPage() {
   return (
     <>
       <PageHeader
-        left={<DateRangeFilter value={dateRange} onChange={setDateRange} />}
-        right={
-          <Segmented
-            options={[
-              { label: 'Open', value: 'open' },
-              { label: 'Closed', value: 'closed' },
-              { label: 'All', value: 'all' },
-            ]}
-            value={containerView}
-            onChange={v => setContainerView(v as 'open' | 'closed' | 'all')}
-          />
+        left={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <DateRangeFilter value={dateRange} onChange={setDateRange} />
+            <Segmented
+                options={[
+                  { label: 'Open', value: 'open' },
+                  { label: 'Closed', value: 'closed' },
+                  { label: 'All', value: 'all' },
+                ]}
+                value={containerView}
+                onChange={v => setContainerView(v as ContainerLens)}
+              />
+          </div>
         }
       />
 
