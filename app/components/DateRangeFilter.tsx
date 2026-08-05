@@ -130,10 +130,17 @@ export function DateRangeFilter({ value, onChange }: Props) {
     <>
       <Input
         readOnly
+        aria-label="Date range"
         prefix={<CalendarOutlined style={{ color: token.colorTextTertiary }} />}
         value={inputLabel()}
         placeholder="Date range"
         onClick={handleOpen}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            if (e.key === ' ') e.preventDefault();
+            handleOpen();
+          }
+        }}
         style={{
           cursor: 'pointer',
           width: Math.max(128, (inputLabel() || 'Date range').length * 7.8 + 52),
@@ -214,6 +221,7 @@ export function DateRangeFilter({ value, onChange }: Props) {
                   <div style={{ display: 'flex', gap: 6 }}>
                     <Select
                       size="small"
+                      aria-label="Month"
                       value={hVal.month()}
                       onChange={m => {
                         const next = hVal.month(m);
@@ -225,6 +233,7 @@ export function DateRangeFilter({ value, onChange }: Props) {
                     />
                     <Select
                       size="small"
+                      aria-label="Year"
                       value={hVal.year()}
                       onChange={y => {
                         const next = hVal.year(y);

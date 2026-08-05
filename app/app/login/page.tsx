@@ -45,7 +45,7 @@ export default function LoginPage() {
       <Card style={{ width: 360 }} variant="outlined">
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
           <Image src="/logo.png" alt="iQ Quality" width={72} height={72} style={{ marginBottom: 12, mixBlendMode: 'screen' }} />
-          <Title level={4} style={{ margin: '0 0 4px' }}>iQ Quality Preview</Title>
+          <Title level={1} style={{ margin: '0 0 4px', fontSize: token.fontSizeHeading4, lineHeight: token.lineHeightHeading4 }}>iQ Quality Preview</Title>
           <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Enter the access code to continue</Text>
         </div>
         <Form onFinish={handleSubmit} layout="vertical">
@@ -55,8 +55,10 @@ export default function LoginPage() {
             help={error ? 'Incorrect access code' : ''}
           >
             <Input.Password
+              aria-label="Access code"
               placeholder="Access code"
               size="large"
+              autoComplete="current-password"
               onChange={() => setError(false)}
               autoFocus
             />

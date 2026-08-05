@@ -54,3 +54,37 @@ body {
   box-shadow: none;
   font-weight: 600;
 }
+
+/* Skip link: visually hidden until keyboard focus lands on it. */
+.skip-link {
+  position: absolute;
+  left: 8px;
+  top: -48px;
+  z-index: 1000;
+  padding: 8px 16px;
+  background: #141414;
+  color: #ffffff;
+  border-radius: 6px;
+  transition: top 0.15s;
+}
+.skip-link:focus {
+  top: 8px;
+}
+
+/* Keyboard scrolls must clear the 56px sticky page header. */
+main {
+  scroll-padding-top: 64px;
+}
+
+/* Screen-reader-only text (headings, table column names). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}

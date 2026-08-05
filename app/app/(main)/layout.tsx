@@ -6,8 +6,9 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   return (
     <AuthGuard>
       <div style={{ display: 'flex', minHeight: '100vh' }}>
+        <a href="#main-content" className="skip-link">Skip to main content</a>
         <SidebarNav />
-        <main style={{ flex: 1, overflow: 'auto', minWidth: 0 }}>
+        <main id="main-content" tabIndex={-1} style={{ flex: 1, overflow: 'auto', minWidth: 0 }}>
           <RoleGuard>{children}</RoleGuard>
         </main>
       </div>

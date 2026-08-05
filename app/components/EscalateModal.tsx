@@ -72,7 +72,7 @@ export function EscalateModal({ open, onCancel, event, openEscalations, onCreate
 
   return (
     <Modal
-      title={result ? null : 'Escalate Event'}
+      title="Escalate Event"
       open={open}
       onOk={handleOk}
       onCancel={handleCancel}
@@ -179,6 +179,7 @@ export function EscalateModal({ open, onCancel, event, openEscalations, onCreate
       ) : (
         <Select
           showSearch
+          aria-label="Search escalations"
           style={{ width: '100%' }}
           placeholder="Search open escalations"
           value={existingId}

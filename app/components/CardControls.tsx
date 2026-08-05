@@ -1,13 +1,20 @@
 'use client';
 
-import { Typography, theme } from 'antd';
+import { Button, theme } from 'antd';
 
 export function ExpandToggle({ expanded, onToggle }: { expanded: boolean; onToggle: () => void }) {
   const { token } = theme.useToken();
+  // Typography.Link renders an hrefless <a>: no role, no keyboard, no state.
   return (
-    <Typography.Link style={{ fontSize: token.fontSizeSM, whiteSpace: 'nowrap' }} onClick={onToggle}>
+    <Button
+      type="link"
+      size="small"
+      aria-expanded={expanded}
+      onClick={onToggle}
+      style={{ fontSize: token.fontSizeSM, whiteSpace: 'nowrap', padding: 0, height: 'auto' }}
+    >
       {expanded ? 'Collapse' : 'Expand'}
-    </Typography.Link>
+    </Button>
   );
 }
 

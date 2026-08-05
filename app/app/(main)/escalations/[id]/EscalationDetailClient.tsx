@@ -322,6 +322,8 @@ export function EscalationDetailClient({ escalation: escalationProp, escalationI
                 cursor: 'pointer',
               }}
                 onClick={() => setPreviewFile({ name: att.name, blobUrl: att.blobUrl })}
+                role="button" tabIndex={0} aria-label={`Preview attachment ${att.name}`}
+                onKeyDown={e => { if (e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); setPreviewFile({ name: att.name, blobUrl: att.blobUrl }); }}
               >
                 {fileIcon(att.name)}
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -813,6 +815,7 @@ export function EscalationDetailClient({ escalation: escalationProp, escalationI
         <Input.TextArea
           value={closeMessage}
           onChange={(e) => setCloseMessage(e.target.value)}
+          aria-label="Message for field technicians"
           rows={3}
           size="small"
           placeholder="Add a note for the field technicians..."

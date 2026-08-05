@@ -23,9 +23,11 @@ type Props = {
   middle?: React.ReactNode;
   center?: React.ReactNode;
   right?: React.ReactNode;
+  // Overrides the route-derived page name for the visually hidden h1.
+  pageTitle?: string;
 };
 
-export function PageHeader({ left, middle, center, right }: Props) {
+export function PageHeader({ left, middle, center, right, pageTitle }: Props) {
   const { token } = theme.useToken();
   const screens = useBreakpoint();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -52,6 +54,23 @@ export function PageHeader({ left, middle, center, right }: Props) {
     return `${base}?${p.toString()}`;
   };
 
+  // The app has no visible page titles (the header carries controls), so the
+  // required h1 is visually hidden and derived from the route.
+  const derivedTitle = (() => {
+    if (pageTitle) return pageTitle;
+    const seg = pathname.split('/').filter(Boolean);
+    const detail = seg.length > 1 ? decodeURIComponent(seg[1]) : null;
+    if (pathname === '/' || pathname.startsWith('/dashboard')) return 'Dashboard';
+    if (pathname.startsWith('/events'))      return detail ? `Event ${detail}` : 'Events';
+    if (pathname.startsWith('/orders'))      return detail ? `Order ${detail}` : 'Orders';
+    if (pathname.startsWith('/escalations')) return detail ? `Escalation ${detail}` : 'Escalations';
+    if (pathname.startsWith('/procurement')) return 'Procurement';
+    if (pathname.startsWith('/intake'))      return pathname.includes('/new') ? 'Report a Quality Event' : 'Intake Home';
+    if (pathname.startsWith('/manage'))      return 'Categories';
+    if (pathname.startsWith('/account'))     return 'Account';
+    return 'iQ Quality';
+  })();
+
   const activeKey = (() => {
     if (pathname === '/' || pathname === '/dashboard') return '/dashboard';
     if (pathname.startsWith('/manage'))       return '/manage/root-causes';
@@ -64,15 +83,19 @@ export function PageHeader({ left, middle, center, right }: Props) {
     return '';
   })();
 
+  // Page links live in a real <nav> list (Menu's role="menu" is wrong
+  // semantics for navigation); the Menu below keeps only action items.
+  const navLinks = [
+    ...(caps.intake           ? [{ key: '/intake',             icon: <HomeFilled />,      href: '/intake',             label: 'Home' }] : []),
+    ...(caps.dashboard        ? [{ key: '/dashboard',          icon: <HomeFilled />,      href: '/dashboard',          label: 'Home' }] : []),
+    ...(caps.events           ? [{ key: '/events',             icon: <CalendarFilled />,  href: navHref('/events'),    label: 'Events' }] : []),
+    ...(caps.orders           ? [{ key: '/orders',             icon: <ShoppingFilled />,  href: navHref('/orders'),    label: 'Orders' }] : []),
+    ...(caps.escalations      ? [{ key: '/escalations',        icon: <FlagFilled />,      href: '/escalations',        label: 'Escalations' }] : []),
+    ...(caps.procurementQueue ? [{ key: '/procurement',        icon: <ContainerFilled />, href: '/procurement',        label: 'Procurement' }] : []),
+    ...(caps.categories       ? [{ key: '/manage/root-causes', icon: <DatabaseFilled />,  href: '/manage/root-causes', label: 'Categories' }] : []),
+  ];
+
   const menuItems = [
-    ...(caps.intake           ? [{ key: '/intake',             icon: <HomeFilled />,      label: <Link href="/intake"             onClick={close}>Home</Link> }] : []),
-    ...(caps.dashboard        ? [{ key: '/dashboard',          icon: <HomeFilled />,      label: <Link href="/dashboard"          onClick={close}>Home</Link> }] : []),
-    ...(caps.events           ? [{ key: '/events',             icon: <CalendarFilled />,  label: <Link href={navHref('/events')}  onClick={close}>Events</Link> }] : []),
-    ...(caps.orders           ? [{ key: '/orders',             icon: <ShoppingFilled />,  label: <Link href={navHref('/orders')}  onClick={close}>Orders</Link> }] : []),
-    ...(caps.escalations      ? [{ key: '/escalations',        icon: <FlagFilled />,      label: <Link href="/escalations"        onClick={close}>Escalations</Link> }] : []),
-    ...(caps.procurementQueue ? [{ key: '/procurement',        icon: <ContainerFilled />, label: <Link href="/procurement"        onClick={close}>Procurement</Link> }] : []),
-    ...(caps.categories       ? [{ key: '/manage/root-causes', icon: <DatabaseFilled />,  label: <Link href="/manage/root-causes" onClick={close}>Categories</Link> }] : []),
-    { type: 'divider' as const },
     {
       key: 'role-switcher',
       icon: <UserSwitchOutlined />,
@@ -102,7 +125,7 @@ export function PageHeader({ left, middle, center, right }: Props) {
 
   return (
     <>
-      <div
+      <header
         style={{
           height: 56,
           display: 'flex',
@@ -118,6 +141,7 @@ export function PageHeader({ left, middle, center, right }: Props) {
           flexShrink: 0,
         }}
       >
+        <h1 className="sr-only">{derivedTitle}</h1>
         {/* Left: hamburger (mobile only) + page-contextual content */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
           {!screens.md && (
@@ -148,7 +172,7 @@ export function PageHeader({ left, middle, center, right }: Props) {
 
         {/* Right: page-contextual actions */}
         {right && <div style={{ flexShrink: 0 }}>{right}</div>}
-      </div>
+      </header>
 
       {/* Mobile navigation drawer */}
       <Drawer
@@ -173,11 +197,34 @@ export function PageHeader({ left, middle, center, right }: Props) {
         placement="left"
         styles={{ wrapper: { width: '100%' }, body: { padding: 0 }, header: { padding: '16px 20px' } }}
       >
+        <nav aria-label="Main navigation">
+          <ul style={{ listStyle: 'none', margin: 0, padding: '8px 0' }}>
+            {navLinks.map(item => (
+              <li key={item.key}>
+                <Link
+                  href={item.href}
+                  onClick={close}
+                  aria-current={activeKey === item.key ? 'page' : undefined}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '10px 24px', fontSize: 16,
+                    color: activeKey === item.key ? token.colorPrimary : token.colorText,
+                    background: activeKey === item.key ? token.colorFillTertiary : 'transparent',
+                    fontWeight: activeKey === item.key ? 600 : 400,
+                  }}
+                >
+                  <span aria-hidden style={{ display: 'inline-flex' }}>{item.icon}</span>
+                  {item.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
         <Menu
           mode="inline"
           selectedKeys={[activeKey]}
           items={menuItems}
-          style={{ border: 'none', height: '100%', fontSize: 16 }}
+          style={{ border: 'none', fontSize: 16 }}
         />
       </Drawer>
 

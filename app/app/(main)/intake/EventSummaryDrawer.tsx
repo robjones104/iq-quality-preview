@@ -171,6 +171,8 @@ export function EventSummaryDrawer({
           </Text>
           <Input.TextArea
             rows={3}
+            aria-label="Reply to information request"
+            aria-required
             placeholder="Write your response..."
             value={replyText}
             onChange={(e) => setReplyText(e.target.value)}

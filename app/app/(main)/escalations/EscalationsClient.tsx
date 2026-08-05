@@ -140,7 +140,7 @@ export function EscalationsClient() {
       />
 
       <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 12 }}>
           <Segmented
             options={['All', 'Open', 'Closed']}
             value={statusFilter}
@@ -148,6 +148,7 @@ export function EscalationsClient() {
           />
           <Select
             allowClear
+            aria-label="Filter by escalation type"
             placeholder="All types"
             style={{ minWidth: 220 }}
             value={typeFilter}

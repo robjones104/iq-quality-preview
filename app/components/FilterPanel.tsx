@@ -185,6 +185,9 @@ export function FilterPanel({ categories, applied, onApply }: Props) {
     <div style={{ display: 'flex', width: 520, height: 300, overflow: 'hidden', borderRadius: token.borderRadiusLG }}>
       {/* Left: category list */}
       <div
+        role="tablist"
+        aria-orientation="vertical"
+        aria-label="Filter categories"
         style={{
           width: 148,
           borderRight: `1px solid ${token.colorBorderSecondary}`,
@@ -200,7 +203,16 @@ export function FilterPanel({ categories, applied, onApply }: Props) {
           return (
             <div
               key={cat.key}
+              role="tab"
+              tabIndex={0}
+              aria-selected={isActive}
               onClick={() => handleCategoryClick(cat.key)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  if (e.key === ' ') e.preventDefault();
+                  handleCategoryClick(cat.key);
+                }
+              }}
               style={{
                 padding: '9px 16px',
                 cursor: 'pointer',

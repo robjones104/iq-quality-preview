@@ -503,7 +503,8 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
         gap: 6, minHeight: 160, cursor: 'pointer',
-      }} onClick={() => setExpandedScan(0)}>
+      }} onClick={() => setExpandedScan(0)} role="button" tabIndex={0} aria-label="Expand label scan"
+        onKeyDown={e => { if (e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); setExpandedScan(0); }}>
         <BarcodeOutlined style={{ fontSize: token.fontSizeHeading2, color: token.colorTextQuaternary }} />
         <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No label scans attached</Text>
         <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Click to expand</Text>
@@ -560,14 +561,16 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
           display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center',
           gap: 6, cursor: 'pointer', marginBottom: 8,
-        }} onClick={() => setExpandedPhoto(0)}>
+        }} onClick={() => setExpandedPhoto(0)} role="button" tabIndex={0} aria-label="Expand photo"
+          onKeyDown={e => { if (e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); setExpandedPhoto(0); }}>
           <PictureFilled style={{ fontSize: token.fontSizeHeading3, color: token.colorTextQuaternary }} />
           <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No photos attached</Text>
           <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Click to expand</Text>
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
           {[1, 2, 3].map(i => (
-            <div key={i} onClick={() => setExpandedPhoto(i)} style={{
+            <div key={i} onClick={() => setExpandedPhoto(i)} role="button" tabIndex={0} aria-label={`Expand photo ${i}`}
+              onKeyDown={e => { if (e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); setExpandedPhoto(i); }} style={{
               flex: 1, aspectRatio: '1',
               background: token.colorFillTertiary,
               border: `1px solid ${token.colorBorderSecondary}`,
@@ -795,6 +798,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
                       node: status === 'Open' && editingReplacement ? (
                         <Input
                           size="small"
+                          aria-label="Replacement Order number"
                           placeholder="e.g. SO110029876"
                           value={replacementDraft}
                           onChange={e => setReplacementDraft(e.target.value)}
@@ -1044,7 +1048,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
 
       {/* APPROVE MODAL */}
       <Modal
-        title={approveSuccess ? null : 'Approve Order'}
+        title="Approve Order"
         open={approveOpen}
         onCancel={() => { setApproveOpen(false); setApproveAssign(false); setApproveProcurementEmail(''); setApproveSuccess(false); }}
         onOk={handleConfirmApprove}
@@ -1092,6 +1096,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
               <Form layout="vertical" size="small" style={{ marginTop: 12 }}>
                 <Form.Item label="Notify" style={{ marginBottom: 0 }}>
                   <Select
+                    aria-label="Notify"
                     placeholder="Select procurement contact..."
                     value={approveProcurementEmail || undefined}
                     onChange={v => setApproveProcurementEmail(v)}
@@ -1107,7 +1112,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
 
       {/* DECLINE MODAL */}
       <Modal
-        title={declineSuccess ? null : 'Decline Order'}
+        title="Decline Order"
         open={declineOpen}
         onCancel={() => { setDeclineOpen(false); setDeclineReason(''); setDeclineSuccess(false); }}
         onOk={handleDecline}
@@ -1134,6 +1139,8 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
               This will close the order. Please provide a reason for the record.
             </Text>
             <Input.TextArea
+              aria-label="Reason for declining"
+              aria-required
               placeholder="Reason for declining..."
               value={declineReason}
               onChange={e => setDeclineReason(e.target.value)}
@@ -1146,7 +1153,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
 
       {/* REOPEN MODAL */}
       <Modal
-        title={reopenSuccess ? null : 'Reopen Order'}
+        title="Reopen Order"
         open={reopenOpen}
         onCancel={() => { setReopenOpen(false); setReopenReason(''); setReopenSuccess(false); }}
         onOk={handleReopen}
@@ -1173,6 +1180,8 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
               This will reopen the order to Open status. Please provide a reason.
             </Text>
             <Input.TextArea
+              aria-label="Reason for reopening"
+              aria-required
               placeholder="Reason for reopening..."
               value={reopenReason}
               onChange={e => setReopenReason(e.target.value)}
@@ -1185,7 +1194,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
 
       {/* ASSIGN TO PROCUREMENT MODAL */}
       <Modal
-        title={procurementSuccess ? null : 'Assign to Procurement'}
+        title="Assign to Procurement"
         open={procurementOpen}
         onCancel={() => { setProcurementOpen(false); setProcurementEmail(''); setProcurementSuccess(false); }}
         onOk={handleAssignProcurement}
@@ -1215,6 +1224,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
             <Form layout="vertical" size="small">
               <Form.Item label="Notify" style={{ marginBottom: 0 }}>
                 <Select
+                  aria-label="Notify"
                   placeholder="Select procurement contact..."
                   value={procurementEmail || undefined}
                   onChange={v => setProcurementEmail(v)}
@@ -1229,7 +1239,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
 
       {/* CLOSE ORDER MODAL */}
       <Modal
-        title={closeSuccess ? null : 'Close Order'}
+        title="Close Order"
         open={closeOpen}
         onCancel={() => { setCloseOpen(false); setCloseSuccess(false); setCloseReplacementOrderNo(''); }}
         onOk={handleClose}
@@ -1305,6 +1315,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
             <>
               <Form.Item label="Street Address" required style={{ marginBottom: 10 }}>
                 <Input
+                  aria-label="Street Address"
                   placeholder="e.g. 4821 Commerce Park Dr"
                   value={shipToStreetDraft}
                   onChange={e => setShipToStreetDraft(e.target.value)}
@@ -1313,6 +1324,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
               </Form.Item>
               <Form.Item label="City, State ZIP" required style={{ marginBottom: 0 }}>
                 <Input
+                  aria-label="City, State ZIP"
                   placeholder="e.g. Marietta, GA 30060"
                   value={shipToCityDraft}
                   onChange={e => setShipToCityDraft(e.target.value)}
@@ -1326,7 +1338,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
 
       {/* RETURN TO CUSTOMER SERVICE MODAL */}
       <Modal
-        title={returnSuccess ? null : 'Return to Customer Service'}
+        title="Return to Customer Service"
         open={returnOpen}
         onCancel={() => { setReturnOpen(false); setReturnComment(''); setReturnSuccess(false); }}
         onOk={handleReturnToCS}
@@ -1353,6 +1365,8 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
               This order cannot be fulfilled by Procurement (e.g. discontinued parts). Please provide a comment explaining why it&apos;s being returned.
             </Text>
             <Input.TextArea
+              aria-label="Reason for returning to Customer Service"
+              aria-required
               placeholder="Reason for returning to Customer Service..."
               value={returnComment}
               onChange={e => setReturnComment(e.target.value)}

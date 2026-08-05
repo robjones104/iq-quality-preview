@@ -99,9 +99,15 @@ export function IntakeHomeClient() {
       },
     },
     {
+      // Screen-reader-only header for the otherwise unlabeled chevron column.
+      title: (
+        <span style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0 }}>
+          Open
+        </span>
+      ),
       key: 'chevron',
       width: 36,
-      render: () => <RightOutlined style={{ fontSize: token.fontSizeSM, color: token.colorTextQuaternary }} />,
+      render: () => <RightOutlined aria-hidden style={{ fontSize: token.fontSizeSM, color: token.colorTextQuaternary }} />,
     },
   ];
 

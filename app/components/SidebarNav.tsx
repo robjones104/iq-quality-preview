@@ -98,8 +98,12 @@ export function SidebarNav() {
     return `${base}?${p.toString()}`;
   };
 
-  const isActive = (href: string) =>
-    pathname === href || pathname.startsWith(href + '/');
+  // Hrefs may carry a query (CS Home lands on /dashboard?view=orders);
+  // active state matches on the path alone.
+  const isActive = (href: string) => {
+    const base = href.split('?')[0];
+    return pathname === base || pathname.startsWith(base + '/');
+  };
 
   const isDark = darkMode;
   const YELLOW = '#FFD20B';
@@ -195,6 +199,9 @@ return (
           <Tooltip title={expanded ? null : `Viewing as ${role}`} placement="right">
             <div
               role="button"
+              tabIndex={0}
+              aria-label={`Switch viewing role. Currently viewing as ${role}`}
+              aria-haspopup="menu"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -224,6 +231,9 @@ return (
           <Tooltip title={expanded ? null : caps.email} placement="right">
             <div
               role="button"
+              tabIndex={0}
+              aria-label={`Account menu for ${caps.email}`}
+              aria-haspopup="menu"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -266,6 +276,7 @@ return (
               size="small"
               checked={darkMode}
               onChange={toggle}
+              aria-label="Toggle dark mode"
               checkedChildren={<MoonFilled />}
               unCheckedChildren={<SunFilled />}
             />

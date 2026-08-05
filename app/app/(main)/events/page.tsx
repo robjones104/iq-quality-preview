@@ -353,7 +353,22 @@ function EventsPageContent() {
         {screens.md !== false && chips.length > 0 && (
           <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: token.marginXS, marginBottom: token.margin }}>
             {chips.map((chip) => (
-              <Tag key={chip} closable onClose={() => removeChip(chip)} closeIcon={<CloseOutlined />} style={{ margin: 0 }}>
+              <Tag
+                key={chip}
+                closable
+                onClose={() => removeChip(chip)}
+                closeIcon={
+                  // Padding grows the close target to 24x24; the negative margin cancels it visually.
+                  <span
+                    role="img"
+                    aria-label={`Remove filter ${chip}`}
+                    style={{ display: 'inline-flex', padding: 7, margin: -7 }}
+                  >
+                    <CloseOutlined />
+                  </span>
+                }
+                style={{ margin: 0 }}
+              >
                 {chip}
               </Tag>
             ))}

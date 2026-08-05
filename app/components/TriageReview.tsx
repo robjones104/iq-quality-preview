@@ -10,12 +10,23 @@ import { BRAND } from '@/lib/theme';
 
 const { Text } = Typography;
 function MetricInfoIcon({ tooltip, token }: { tooltip: string; token: ReturnType<typeof theme.useToken>['token'] }) {
+  // A raw 12px icon fails the 24px target floor (WCAG 2.5.8); the button hits
+  // it while the negative margin keeps the visual footprint unchanged.
   return (
     <Tooltip title={tooltip}>
-      <InfoCircleOutlined
+      <button
+        type="button"
+        aria-label={tooltip}
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-        style={{ marginLeft: 6, color: token.colorTextTertiary, fontSize: token.fontSizeSM, cursor: 'help' }}
-      />
+        style={{
+          width: 24, height: 24, margin: '-6px 0 -6px 0', marginLeft: 0, padding: 0,
+          border: 'none', background: 'transparent', cursor: 'help',
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          color: token.colorTextTertiary, fontSize: token.fontSizeSM,
+        }}
+      >
+        <InfoCircleOutlined />
+      </button>
     </Tooltip>
   );
 }

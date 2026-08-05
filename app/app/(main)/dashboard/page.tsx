@@ -196,12 +196,23 @@ function KpiDelta({ count, prior, deltaTone = 'inverse', dateRange }: {
 
 function MetricInfoIcon({ tooltip }: { tooltip: string }) {
   const { token } = theme.useToken();
+  // A raw 12px icon fails the 24px target floor (WCAG 2.5.8); the button hits
+  // it while negative margin keeps the visual footprint unchanged.
   return (
     <Tooltip title={tooltip}>
-      <InfoCircleOutlined
+      <button
+        type="button"
+        aria-label={tooltip}
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-        style={{ marginLeft: 6, color: token.colorTextTertiary, fontSize: token.fontSizeSM, cursor: 'help' }}
-      />
+        style={{
+          width: 24, height: 24, margin: '-6px 0', padding: 0, marginLeft: 0,
+          border: 'none', background: 'transparent', cursor: 'help',
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          color: token.colorTextTertiary, fontSize: token.fontSizeSM,
+        }}
+      >
+        <InfoCircleOutlined />
+      </button>
     </Tooltip>
   );
 }
@@ -576,7 +587,22 @@ function DashboardPageContent() {
         {screens.md !== false && chips.length > 0 && (
           <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: token.marginXS, marginBottom: token.margin }}>
             {chips.map((chip) => (
-              <Tag key={chip} closable onClose={() => removeChip(chip)} closeIcon={<CloseOutlined />} style={{ margin: 0 }}>
+              <Tag
+                key={chip}
+                closable
+                onClose={() => removeChip(chip)}
+                closeIcon={
+                  // Padding grows the close target to 24x24; the negative margin cancels it visually.
+                  <span
+                    role="img"
+                    aria-label={`Remove filter ${chip}`}
+                    style={{ display: 'inline-flex', padding: 7, margin: -7 }}
+                  >
+                    <CloseOutlined />
+                  </span>
+                }
+                style={{ margin: 0 }}
+              >
                 {chip}
               </Tag>
             ))}

@@ -62,6 +62,8 @@ export function FilterDrawer({ open, onClose, categories, selected, onChange, on
           </Space>
           <Text
             type="secondary"
+            role="button"
+            tabIndex={0}
             style={{ fontSize: token.fontSizeSM, cursor: 'pointer', flexShrink: 0 }}
             onClick={(e) => {
               e.stopPropagation();
@@ -69,6 +71,18 @@ export function FilterDrawer({ open, onClose, categories, selected, onChange, on
                 onChange(cat.key, []);
               } else {
                 onChange(cat.key, cat.filteredOptions);
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                if (e.key === ' ') e.preventDefault();
+                // Keep the keypress from also toggling the collapse panel.
+                e.stopPropagation();
+                if (allSelected) {
+                  onChange(cat.key, []);
+                } else {
+                  onChange(cat.key, cat.filteredOptions);
+                }
               }
             }}
           >

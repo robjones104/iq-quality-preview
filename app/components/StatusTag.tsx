@@ -54,12 +54,12 @@ export function ThreadStateIcons({ awaiting, responded, awaitingTooltip, respond
     <>
       {awaiting && (
         <Tooltip title={awaitingTooltip ?? 'Information requested, response pending'}>
-          <InfoCircleOutlined style={{ fontSize: token.fontSizeSM }} />
+          <InfoCircleOutlined tabIndex={0} aria-label={awaitingTooltip ?? 'Information requested, response pending'} style={{ fontSize: token.fontSizeSM }} />
         </Tooltip>
       )}
       {responded && (
         <Tooltip title={respondedTooltip ?? 'Response received'}>
-          <MessageOutlined style={{ fontSize: token.fontSizeSM }} />
+          <MessageOutlined tabIndex={0} aria-label={respondedTooltip ?? 'Response received'} style={{ fontSize: token.fontSizeSM }} />
         </Tooltip>
       )}
     </>

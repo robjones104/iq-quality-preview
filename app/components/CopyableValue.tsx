@@ -17,7 +17,15 @@ export function CopyableValue({ value }: { value: string }) {
 
   return (
     <span
+      role="button"
+      tabIndex={0}
+      aria-label={`Copy ${value}`}
       onClick={handleCopy}
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCopy(); }
+      }}
+      onFocus={() => setHovered(true)}
+      onBlur={() => setHovered(false)}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{

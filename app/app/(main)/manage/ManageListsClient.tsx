@@ -251,7 +251,12 @@ export function ManageListsClient({
       ),
     },
     {
-      title: '',
+      // Screen-reader-only header for the otherwise unlabeled actions column.
+      title: (
+        <span style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0 }}>
+          Actions
+        </span>
+      ),
       key: 'actions',
       width: 80,
       render: (_: unknown, record: ListItem) => (
@@ -433,6 +438,7 @@ export function ManageListsClient({
       >
         <Input
           ref={editInputRef}
+          aria-label={`${ADD_LABEL[activeTab]} name`}
           value={editName}
           onChange={e => setEditName(e.target.value)}
           onPressEnter={saveEdit}

@@ -535,14 +535,16 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
         gap: 6,
         cursor: 'pointer',
         marginBottom: 8,
-      }} onClick={() => setExpandedImg(0)}>
+      }} onClick={() => setExpandedImg(0)} role="button" tabIndex={0} aria-label="Expand photo"
+        onKeyDown={e => { if (e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); setExpandedImg(0); }}>
         <PictureFilled style={{ fontSize: token.fontSizeHeading3, color: token.colorTextQuaternary }} />
         <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No photos attached</Text>
         <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Click to expand</Text>
       </div>
       <div style={{ display: 'flex', gap: 6 }}>
         {[1, 2].map(i => (
-          <div key={i} onClick={() => setExpandedImg(i)} style={{
+          <div key={i} onClick={() => setExpandedImg(i)} role="button" tabIndex={0} aria-label={`Expand photo ${i}`}
+            onKeyDown={e => { if (e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); setExpandedImg(i); }} style={{
             flex: 1, aspectRatio: '1',
             background: token.colorFillTertiary,
             border: `1px solid ${token.colorBorderSecondary}`,
@@ -594,6 +596,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
               <Select
                 mode="multiple"
                 showSearch
+                aria-label="Root Cause"
                 disabled={!canAugment}
                 value={rootCauses}
                 placeholder="Select or add root causes..."
@@ -635,6 +638,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
               <Tooltip title={status === 'Invalidated' ? 'Invalidated events can’t be linked to an escalation.' : ''}>
                 <Select
                   showSearch
+                  aria-label="Escalation"
                   disabled={status === 'Invalidated' || !roleCanEdit}
                   value={escalation ?? undefined}
                   placeholder="Link to escalation"
@@ -665,6 +669,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
             <Form.Item label="Tags" style={{ marginBottom: 0 }}>
               <Select
                 mode="tags"
+                aria-label="Tags"
                 disabled={!canAugment}
                 value={tags}
                 onChange={(t: string[]) => { setTags(t); patchEvent(event.id, { tags: t }); }}
@@ -920,7 +925,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                     {/* Left: all data (~3/5) */}
                     <Col xs={24} md={15} style={{ display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
                       {/* Upper content — scrolls independently if tall */}
-                      <div style={{ overflow: 'auto', flexShrink: 1, minHeight: 0 }}>
+                      <div tabIndex={0} role="region" aria-label="Event details" style={{ overflow: 'auto', flexShrink: 1, minHeight: 0 }}>
                       {/* Submission metadata — Plant has its own inline edit affordance; the rest is read-only */}
                       <div style={{
                         display: 'flex', gap: 24, marginBottom: 14,
@@ -937,6 +942,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                                 <Select
                                   autoFocus
                                   size="small"
+                                  aria-label="Plant"
                                   value={plantDraft}
                                   onChange={setPlantDraft}
                                   options={PLANT_OPTIONS.map(v => ({ value: v, label: v }))}
@@ -1103,6 +1109,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                                 <div style={{ marginBottom: 10 }}>
                                   <Select
                                     size="small"
+                                    aria-label="Select part"
                                     value={selectedPartIdx}
                                     onChange={idx => {
                                       setSelectedPartIdx(idx);
@@ -1120,6 +1127,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                                       <Form.Item label="Part #" style={{ marginBottom: 10 }}>
                                         <Select
                                           showSearch
+                                          aria-label="Part #"
                                           value={editPartNumber || partsState[selectedPartIdx].partNumber}
                                           options={PART_CATALOG.map(p => ({ value: p.partNumber, label: p.partNumber }))}
                                           onChange={v => {
@@ -1135,6 +1143,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                                       <Form.Item label="Part Description" style={{ marginBottom: 10 }}>
                                         <Select
                                           showSearch
+                                          aria-label="Part Description"
                                           value={editPartDescription || partsState[selectedPartIdx].description}
                                           options={PART_CATALOG.map(p => ({ value: p.partDescription, label: p.partDescription }))}
                                           onChange={v => {
@@ -1151,6 +1160,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                                     <Col flex={1}>
                                       <Form.Item label="Quantity Type" style={{ marginBottom: 0 }}>
                                         <Select
+                                          aria-label="Quantity Type"
                                           value={editPartQuantityType || partsState[selectedPartIdx].quantityType}
                                           onChange={setEditPartQuantityType}
                                           options={['Piece', 'Length'].map(v => ({ value: v, label: v }))}
@@ -1229,6 +1239,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                             <Form layout="vertical" size="small">
                               <Form.Item label="Hardware Kit Information" style={{ marginBottom: 10 }}>
                                 <Select
+                                  aria-label="Hardware Kit Information"
                                   value={hkMode}
                                   onChange={(v: 'entire' | 'components') => setHkMode(v)}
                                   options={[
@@ -1319,14 +1330,16 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                         gap: 6,
                         cursor: 'pointer',
                         marginBottom: 8,
-                      }} onClick={() => setExpandedImg(0)}>
+                      }} onClick={() => setExpandedImg(0)} role="button" tabIndex={0} aria-label="Expand photo"
+                        onKeyDown={e => { if (e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); setExpandedImg(0); }}>
                         <PictureFilled style={{ fontSize: token.fontSizeHeading3, color: token.colorTextQuaternary }} />
                         <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No photos attached</Text>
                         <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Click to expand</Text>
                       </div>
                       <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
                         {[1, 2, 3].map(i => (
-                          <div key={i} onClick={() => setExpandedImg(i)} style={{
+                          <div key={i} onClick={() => setExpandedImg(i)} role="button" tabIndex={0} aria-label={`Expand photo ${i}`}
+                            onKeyDown={e => { if (e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); setExpandedImg(i); }} style={{
                             flex: 1, aspectRatio: '1',
                             background: token.colorFillTertiary,
                             border: `1px solid ${token.colorBorderSecondary}`,
@@ -1447,6 +1460,8 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                             cursor: 'pointer',
                           }}
                             onClick={() => setPreviewFile({ name: att.name, blobUrl: att.blobUrl })}
+                            role="button" tabIndex={0} aria-label={`Preview attachment ${att.name}`}
+                            onKeyDown={e => { if (e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); setPreviewFile({ name: att.name, blobUrl: att.blobUrl }); }}
                           >
                             {fileIcon(att.name)}
                             <div style={{ flex: 1, minWidth: 0 }}>
@@ -1534,9 +1549,13 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                 size="small"
                 title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Additional Requests</span>}
                 style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
-                styles={{ body: { flex: 1, overflow: 'auto', padding: 16, minHeight: 0 } }}
+                styles={{ body: { flex: 1, overflow: 'hidden', padding: 0, minHeight: 0, display: 'flex', flexDirection: 'column' } }}
               >
-                {messagesContent}
+                {/* Focusable scroll wrapper: the read-only thread has no
+                    focusable children, so keyboard users need the pane itself */}
+                <div tabIndex={0} role="region" aria-label="Messages" style={{ flex: 1, overflow: 'auto', padding: 16, minHeight: 0 }}>
+                  {messagesContent}
+                </div>
               </Card>
               <Card
                 size="small"
@@ -1619,7 +1638,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
 
       {/* VALIDATE MODAL */}
       <Modal
-        title={validateSuccess ? null : 'Validate Event'}
+        title="Validate Event"
         open={validateOpen}
         onCancel={() => { setValidateOpen(false); setValidateNote(''); setValidateSuccess(false); }}
         footer={validateSuccess ? null : undefined}
@@ -1662,6 +1681,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
             <Input.TextArea
               value={validateNote}
               onChange={e => setValidateNote(e.target.value)}
+              aria-label="Validation note"
               placeholder="Add a validation note (optional)..."
               rows={3}
               autoFocus
@@ -1672,7 +1692,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
 
       {/* INVALIDATE MODAL */}
       <Modal
-        title={invalidateSuccess ? null : 'Invalidate Event'}
+        title="Invalidate Event"
         open={invalidateOpen}
         onCancel={() => { setInvalidateOpen(false); setInvalidateNote(''); setInvalidateSuccess(false); }}
         footer={invalidateSuccess ? null : undefined}
@@ -1716,6 +1736,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
             <Input.TextArea
               value={invalidateNote}
               onChange={e => setInvalidateNote(e.target.value)}
+              aria-label="Invalidation note"
               placeholder="Add an invalidation note (optional)..."
               rows={3}
               autoFocus
@@ -1726,7 +1747,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
 
       {/* START INVESTIGATION MODAL */}
       <Modal
-        title={startInvSuccess ? null : 'Start Investigation'}
+        title="Start Investigation"
         open={startInvOpen}
         onCancel={() => { setStartInvOpen(false); setStartInvNote(''); setStartInvReqInfo(true); setStartInvSuccess(false); }}
         footer={startInvSuccess ? null : undefined}
@@ -1774,6 +1795,8 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
               <Input.TextArea
                 value={startInvNote}
                 onChange={e => setStartInvNote(e.target.value)}
+                aria-label="Additional information needed from field tech"
+                aria-required
                 placeholder="Describe what additional information is needed (required)..."
                 rows={3}
                 autoFocus
@@ -1785,7 +1808,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
 
       {/* REOPEN EVENT MODAL */}
       <Modal
-        title={reopenEvtSuccess ? null : 'Reopen Event'}
+        title="Reopen Event"
         open={reopenEvtOpen}
         onCancel={() => { setReopenEvtOpen(false); setReopenEvtSuccess(false); }}
         footer={reopenEvtSuccess ? null : undefined}
@@ -2017,6 +2040,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
             <>
               <Form.Item label="Street Address" required style={{ marginBottom: 10 }}>
                 <Input
+                  aria-label="Street Address"
                   placeholder="e.g. 4821 Commerce Park Dr"
                   value={shipToStreetDraft}
                   onChange={e => setShipToStreetDraft(e.target.value)}
@@ -2025,6 +2049,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
               </Form.Item>
               <Form.Item label="City, State ZIP" required style={{ marginBottom: 0 }}>
                 <Input
+                  aria-label="City, State ZIP"
                   placeholder="e.g. Marietta, GA 30060"
                   value={shipToCityDraft}
                   onChange={e => setShipToCityDraft(e.target.value)}

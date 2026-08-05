@@ -15,7 +15,11 @@ export function JobNoValue({ jobNo, manualEntry }: { jobNo: string; manualEntry?
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
       {flagged && (
         <Tooltip title="SO # entered manually by tech at submission. Verify against the ERP before fulfillment.">
-          <SignatureOutlined style={{ color: token.colorTextTertiary, fontSize: token.fontSizeSM }} />
+          <SignatureOutlined
+            tabIndex={0}
+            aria-label="SO number entered manually by tech at submission. Verify against the ERP before fulfillment."
+            style={{ color: token.colorTextTertiary, fontSize: token.fontSizeSM }}
+          />
         </Tooltip>
       )}
       <CopyableValue value={jobNo} />

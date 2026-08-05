@@ -191,6 +191,8 @@ export function InfoRequestThreadPanel({
             <Input.TextArea
               autoFocus
               rows={4}
+              aria-label="Additional information request"
+              aria-required
               placeholder="Describe what additional information is needed from the field tech..."
               value={reqDraftText}
               onChange={e => setReqDraftText(e.target.value)}
