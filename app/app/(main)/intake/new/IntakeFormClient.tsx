@@ -2,13 +2,9 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { App, Button, Card, Checkbox, Descriptions, Form, Input, InputNumber, Modal, Radio, Result, Select, Switch, Tag, Typography, Upload, theme } from 'antd';
 import {
-  App, Button, Card, Checkbox, Descriptions, Form, Input, InputNumber, Modal, Radio,
-  Result, Select, Skeleton, Switch, Tag, Typography, Upload, theme,
-} from 'antd';
-import type { UploadFile } from 'antd';
-import {
-  ArrowLeftOutlined, BarcodeOutlined, DeleteOutlined, PlusOutlined, SignatureOutlined,
+  ArrowLeftOutlined, DeleteOutlined, InboxOutlined, PlusOutlined, SignatureOutlined,
 } from '@ant-design/icons';
 import { PageHeader } from '@/components/PageHeader';
 import { useEventStore } from '@/store/eventStore';
@@ -50,7 +46,7 @@ const selectOpts = (values: string[]) => values.map(v => ({ value: v, label: v }
 export function IntakeFormClient() {
   const router = useRouter();
   const { token } = theme.useToken();
-  const { notification } = App.useApp();
+  const {  } = App.useApp();
   const caps = useCapabilities();
   const branch = caps.assignedBranch ?? 'Atlanta';
 
@@ -58,13 +54,10 @@ export function IntakeFormClient() {
   const { createdEvents, createEvent, pushActivityLog } = useEventStore();
   const createOrder = useOrderStore((s) => s.createOrder);
 
-  // Barcode provenance: scanned fills SO/EL/DFO and the event reads as
-  // barcode-sourced; typing (or editing a scanned value) is manual entry and
-  // sets jobNoManualEntry, surfacing the existing signature indicator.
-  const [scanning, setScanning] = useState(false);
-  const [scanned, setScanned] = useState(false);
-
-  const [photos, setPhotos] = useState<UploadFile[]>([]);
+  // Desktop reporting has no barcode scanner (Rob 2026-08-05): every portal
+  // submission is manual entry (the signature indicator downstream) and files
+  // arrive through the standard Attachments dropzone.
+  const [attachments, setAttachments] = useState<{ uid: string; name: string; size: number }[]>([]);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewValues, setReviewValues] = useState<FormValues | null>(null);
   const [submitted, setSubmitted] = useState<{ eventId: string; orderId: string | null } | null>(null);
@@ -77,24 +70,6 @@ export function IntakeFormClient() {
   const isSO = (jobNo ?? '').toUpperCase().startsWith('SO');
 
   const catalog = useMemo(() => eligibleParts(door, component), [door, component]);
-
-  const simulateScan = () => {
-    setScanning(true);
-    setTimeout(() => {
-      const soNum = `SO109${String(Math.floor(Math.random() * 900000) + 100000)}`;
-      form.setFieldsValue({
-        jobNo: soNum,
-        dfo: Math.floor(Math.random() * 6) + 1,
-        elLine: Math.floor(Math.random() * 3) + 1,
-      });
-      setScanned(true);
-      setScanning(false);
-      notification.success({
-        message: 'Barcode read.',
-        description: `Sales order, EL line, and DFO line extracted from ${soNum}.`,
-      });
-    }, 700);
-  };
 
   const nextEventId = (): string => {
     let n = 1;
@@ -128,7 +103,8 @@ export function IntakeFormClient() {
       id,
       date: nowDateStr(),
       jobNo: values.jobNo.toUpperCase(),
-      ...(so && !scanned ? { jobNoManualEntry: true } : {}),
+      // Portal submissions are keyed by hand; no scanner on the desktop.
+      ...(so ? { jobNoManualEntry: true } : {}),
       dfo: so ? values.dfo ?? 1 : 1,
       ...(so && values.elLine != null ? { elLine: values.elLine } : {}),
       status: 'Reported',
@@ -210,8 +186,7 @@ export function IntakeFormClient() {
 
   const resetAll = () => {
     form.resetFields();
-    setPhotos([]);
-    setScanned(false);
+    setAttachments([]);
     setSubmitted(null);
     setReviewValues(null);
   };
@@ -275,41 +250,15 @@ export function IntakeFormClient() {
         >
           <Card size="small" title="Job Details">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px',
-                border: `1px dashed ${token.colorBorder}`, borderRadius: token.borderRadiusSM,
-              }}>
-                <BarcodeOutlined style={{ fontSize: token.fontSizeHeading3, color: token.colorTextSecondary }} />
-                <div style={{ flex: 1 }}>
-                  <Text style={{ display: 'block', fontSize: token.fontSize }}>Have the order barcode?</Text>
-                  <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
-                    Upload a scan or photo and the sales order, EL line, and DFO line fill in automatically.
-                  </Text>
-                </div>
-                <Upload
-                  accept="image/*"
-                  maxCount={1}
-                  showUploadList={false}
-                  beforeUpload={() => { simulateScan(); return false; }}
-                >
-                  <Button loading={scanning}>Upload Barcode</Button>
-                </Upload>
-              </div>
-
-              {scanning ? (
-                <Skeleton.Input active block style={{ height: 64 }} />
-              ) : (
                 <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                   <Form.Item
                     name="jobNo"
                     label={
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                         Sales Order # / Work Order #
-                        {scanned
-                          ? <Tag color="green" style={{ marginInlineEnd: 0 }}>Scanned</Tag>
-                          : isSO && jobNo
-                            ? <Tag icon={<SignatureOutlined />} style={{ marginInlineEnd: 0 }}>Manual entry</Tag>
-                            : null}
+                        {isSO && jobNo
+                          ? <Tag icon={<SignatureOutlined />} style={{ marginInlineEnd: 0 }}>Manual entry</Tag>
+                          : null}
                       </span>
                     }
                     rules={[
@@ -318,7 +267,7 @@ export function IntakeFormClient() {
                     ]}
                     style={{ flex: '1 1 220px', marginBottom: 0 }}
                   >
-                    <Input placeholder="SO109XXXXXX" onChange={() => setScanned(false)} />
+                    <Input placeholder="SO109XXXXXX" />
                   </Form.Item>
                   {isSO && (
                     <>
@@ -340,7 +289,6 @@ export function IntakeFormClient() {
                     </>
                   )}
                 </div>
-              )}
             </div>
           </Card>
 
@@ -373,7 +321,7 @@ export function IntakeFormClient() {
             </div>
           </Card>
 
-          <Card size="small" title="Description & Photos">
+          <Card size="small" title="Description & Attachments">
             <Form.Item
               name="issueDescription"
               label="Issue Description"
@@ -387,19 +335,39 @@ export function IntakeFormClient() {
                 placeholder="What is wrong, where on the door, and what impact it has on the install..."
               />
             </Form.Item>
-            <Form.Item label="Photos of the event" style={{ marginBottom: 0 }}>
-              <Upload
-                listType="picture-card"
-                fileList={photos}
-                beforeUpload={() => false}
-                onChange={({ fileList }) => setPhotos(fileList)}
-                multiple
-              >
-                <div>
-                  <PlusOutlined />
-                  <div style={{ marginTop: 4, fontSize: token.fontSizeSM }}>Add Photo</div>
-                </div>
-              </Upload>
+            <Form.Item label="Attachments" style={{ marginBottom: 0 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <Upload.Dragger
+                  multiple
+                  accept=".pdf,.png,.jpg,.jpeg,.csv,.txt,.xlsx,.xls,.doc,.docx,.ppt,.pptx,.eml,.msg"
+                  showUploadList={false}
+                  beforeUpload={(file) => {
+                    setAttachments(prev => [...prev, { uid: `att_${Date.now()}_${file.name}`, name: file.name, size: file.size }]);
+                    return false;
+                  }}
+                  style={{ borderRadius: token.borderRadiusSM }}
+                >
+                  <p style={{ margin: 0, paddingBottom: 4 }}><InboxOutlined style={{ fontSize: 24, color: token.colorPrimary }} /></p>
+                  <p style={{ margin: 0, fontSize: token.fontSizeSM, color: token.colorText }}>Drag files here or <span style={{ color: token.colorLink }}>click to upload</span></p>
+                  <p style={{ margin: '4px 0 0', fontSize: token.fontSizeXS, color: token.colorTextTertiary }}>
+                    PDF · Excel · CSV · Images
+                  </p>
+                  <p style={{ margin: '2px 0 0', fontSize: token.fontSizeXS, color: token.colorTextQuaternary }}>
+                    Email chains: .eml (standard) or .msg (Outlook)
+                  </p>
+                </Upload.Dragger>
+                {attachments.map(att => (
+                  <div key={att.uid} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: token.colorFillTertiary, borderRadius: token.borderRadiusSM }}>
+                    <Text style={{ fontSize: token.fontSizeSM, flex: 1 }} ellipsis={{ tooltip: att.name }}>{att.name}</Text>
+                    <Text type="secondary" style={{ fontSize: token.fontSizeXS }}>{(att.size / 1024).toFixed(0)} KB</Text>
+                    <Button
+                      type="text" size="small" icon={<DeleteOutlined />}
+                      aria-label={`Remove attachment ${att.name}`}
+                      onClick={() => setAttachments(prev => prev.filter(a => a.uid !== att.uid))}
+                    />
+                  </div>
+                ))}
+              </div>
             </Form.Item>
           </Card>
 
@@ -606,10 +574,8 @@ export function IntakeFormClient() {
                   children: (
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                       {reviewValues.jobNo.toUpperCase()}
-                      {reviewValues.jobNo.toUpperCase().startsWith('SO') && (
-                        scanned
-                          ? <Tag color="green" style={{ marginInlineEnd: 0 }}>Scanned</Tag>
-                          : <Tag icon={<SignatureOutlined />} style={{ marginInlineEnd: 0 }}>Manual entry</Tag>
+                            {reviewValues.jobNo.toUpperCase().startsWith('SO') && (
+                        <Tag icon={<SignatureOutlined />} style={{ marginInlineEnd: 0 }}>Manual entry</Tag>
                       )}
                     </span>
                   ),
@@ -622,7 +588,7 @@ export function IntakeFormClient() {
                 { key: 'door', label: 'Door', children: reviewValues.door },
                 { key: 'component', label: 'Component', children: reviewValues.component },
                 { key: 'issue', label: 'Issue', children: reviewValues.issue },
-                { key: 'photos', label: 'Photos', children: `${photos.length} attached` },
+                { key: 'attachments', label: 'Attachments', children: `${attachments.length} attached` },
                 { key: 'desc', label: 'Description', children: reviewValues.issueDescription, span: 2 },
               ]}
             />
