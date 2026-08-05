@@ -548,7 +548,7 @@ function DashboardPageContent() {
       href: buildKpiHref('/orders?stage=Pending Decision', dateRange, {}),
       tooltip: 'Orders that are waiting for Customer Service to approve or decline.' },
     { label: 'Approved', count: liveOrders.filter(isApprovedOpen).length, prior: priorLiveN(isApprovedOpen), deltaTone: 'neutral',
-      swatch: '#95de64',
+      swatch: '#006d75',
       href: buildKpiHref('/orders?stage=Approved', dateRange, {}),
       tooltip: 'Orders that have been approved and are being fulfilled.' },
   ];
@@ -816,7 +816,7 @@ function DashboardPageContent() {
                     title={
                       <span style={{ fontSize: token.fontSizeSM, fontWeight: 500, display: 'inline-flex', alignItems: 'center' }}>
                         Decision Trend
-                        <MetricInfoIcon tooltip="Orders per week by decision: Pending (blue), Approved (light green while open, solid green once closed), Declined (red). Click a segment to open those orders." />
+                        <MetricInfoIcon tooltip="Orders per week by decision: Pending (blue), Approved (teal while open, solid green once fulfilled), Declined (gray). Click a segment to open those orders." />
                       </span>
                     }
                     style={{ height: '100%', display: 'flex', flexDirection: 'column' }}

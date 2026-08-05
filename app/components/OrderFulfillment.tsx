@@ -195,7 +195,7 @@ export function DecisionTrendChart({
       <GroupedStackTrend
         data={trendData}
         stages={STAGES}
-        colors={['#1677ff', '#95de64', '#389e0d', stageFill('#595959', isDark)]}
+        colors={['#1677ff', '#13c2c2', '#389e0d', stageFill('#595959', isDark)]}
         plotTheme={plotTheme}
         legendGroups={[
           { label: 'Open', stages: ['Pending Decision', 'Approved'] },
