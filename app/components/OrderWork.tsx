@@ -15,7 +15,7 @@ const { Text } = Typography;
 
 // The message cards consume EFFECTIVE orders (mutations already merged by the
 // dashboard) so runtime decisions move orders in and out of the lanes live.
-export type EffectiveOrder = Order & { trackingNumber?: string };
+export type EffectiveOrder = Order;
 
 function CardShell({ title, tooltip, count, viewAllHref, children }: {
   title: string; tooltip: string; count: number; viewAllHref?: string; children: React.ReactNode;

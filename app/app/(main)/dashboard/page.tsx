@@ -417,7 +417,6 @@ function DashboardPageContent() {
       replacementOrderNo:    m.replacementOrderNo ?? o.replacementOrderNo,
       consolidated:          m.consolidated ?? o.consolidated,
       consolidatedInto:      m.consolidatedInto ?? o.consolidatedInto,
-      trackingNumber:        m.trackingNumber,
     };
   }), [orders, orderMutations]);
 

@@ -206,7 +206,6 @@ function OrdersPageContent() {
   // Close single modal
   const [closeOpen, setCloseOpen] = useState(false);
   const [closeReplacementOrderNo, setCloseReplacementOrderNo] = useState('');
-  const [closeTracking, setCloseTracking] = useState('');
 
   // Reopen modal
   const [reopenOpen, setReopenOpen]     = useState(false);
@@ -255,28 +254,10 @@ function OrdersPageContent() {
 
   const handleClose = () => {
     if (!activeOrderId || !closeReplacementOrderNo.trim()) return;
-    const tracking = closeTracking.trim();
     patchOrder(activeOrderId, {
       status: 'Closed',
       replacementOrderNo: closeReplacementOrderNo.trim(),
-      ...(tracking ? { trackingNumber: tracking } : {}),
     });
-    if (tracking) {
-      // Simulated tech notification, mirrored on the linked event's activity log.
-      const row = orderRows.find(r => r.id === activeOrderId);
-      const ev = row ? eventMap.get(row.eventId) : undefined;
-      if (ev) {
-        pushActivityLog(ev.id, {
-          id: `trk_${Date.now()}`,
-          eventId: ev.id,
-          date: nowStampUs(),
-          role: 'System',
-          employee: 'System',
-          status: ev.status,
-          comment: `Technician ${ev.reportedBy} notified: replacement order ${closeReplacementOrderNo.trim()}, tracking # ${tracking}.`,
-        });
-      }
-    }
     setCloseSuccess(true);
   };
 
@@ -588,7 +569,7 @@ function OrdersPageContent() {
       <Modal
         title={closeSuccess ? null : 'Close Order'}
         open={closeOpen}
-        onCancel={() => { setCloseOpen(false); setCloseSuccess(false); setCloseReplacementOrderNo(''); setCloseTracking(''); }}
+        onCancel={() => { setCloseOpen(false); setCloseSuccess(false); setCloseReplacementOrderNo(''); }}
         onOk={handleClose}
         okText="Close Order"
         okButtonProps={{ type: 'primary', disabled: !closeReplacementOrderNo.trim() }}
@@ -604,7 +585,7 @@ function OrdersPageContent() {
               {activeOrderId} has been closed. It can be reopened if needed.
             </Typography.Text>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Button type="primary" onClick={() => { setCloseOpen(false); setCloseSuccess(false); setCloseReplacementOrderNo(''); setCloseTracking(''); }}>Done</Button>
+              <Button type="primary" onClick={() => { setCloseOpen(false); setCloseSuccess(false); setCloseReplacementOrderNo(''); }}>Done</Button>
             </div>
           </div>
         ) : (
@@ -619,17 +600,6 @@ function OrdersPageContent() {
                   value={closeReplacementOrderNo}
                   onChange={e => setCloseReplacementOrderNo(e.target.value)}
                   autoFocus
-                />
-              </Form.Item>
-              <Form.Item
-                label="Tracking # (optional)"
-                extra="Adding tracking notifies the reporting technician with the shipment details."
-                style={{ marginBottom: 0 }}
-              >
-                <Input
-                  placeholder="e.g. 1Z999AA10123456784"
-                  value={closeTracking}
-                  onChange={e => setCloseTracking(e.target.value)}
                 />
               </Form.Item>
             </Form>

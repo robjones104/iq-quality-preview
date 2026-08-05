@@ -57,7 +57,7 @@ Reminders on unanswered info requests are SYSTEM-GENERATED (product ruling 2026-
 | Action | Semantics | Suggested endpoint |
 |---|---|---|
 | `createOrder(order)` | Order auto-created from a parts request on an orderless event | `POST /orders` (or a server-side effect of the parts-request mutation) |
-| `patchOrder(orderId, patch)` | Approve / decline / close / reopen / assign to procurement / replacement # / tracking # (`trackingNumber`, must notify the tech) / consolidation fields (`consolidated`, `consolidatedInto`, `eventIds`, `partsOverride`) | `PATCH /orders/:id`; consolidation via `POST /orders/:id/consolidate` (transactional, see fulfillment rules) |
+| `patchOrder(orderId, patch)` | Approve / decline / close / reopen / assign to procurement / replacement # / consolidation fields (`consolidated`, `consolidatedInto`, `eventIds`, `partsOverride`) | `PATCH /orders/:id`; consolidation via `POST /orders/:id/consolidate` (transactional, see fulfillment rules) |
 | `pushOrderLog(orderId, entry)` | Append to the order log | server-side effect of the mutation |
 
 ### escalationStore (`store/escalationStore.ts`, key `iq-escalations`)

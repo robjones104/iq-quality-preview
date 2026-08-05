@@ -107,9 +107,6 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
   const [replacementOrderNo, setReplacementOrderNo]       = useState(ordStored.replacementOrderNo ?? '');
   const [editingReplacement, setEditingReplacement]       = useState(false);
   const [replacementDraft, setReplacementDraft]           = useState('');
-  const [trackingNumber, setTrackingNumber]               = useState(ordStored.trackingNumber ?? '');
-  const [editingTracking, setEditingTracking]             = useState(false);
-  const [trackingDraft, setTrackingDraft]                 = useState('');
   const [shipToEditOpen, setShipToEditOpen]               = useState(false);
   const [shipToDraft, setShipToDraft]                     = useState<'branch' | 'address'>('branch');
   const [shipToStreetDraft, setShipToStreetDraft]         = useState('');
@@ -129,7 +126,6 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
   const [approveProcurementEmail, setApproveProcurementEmail]     = useState('');
   const [closeOpen, setCloseOpen]                       = useState(false);
   const [closeReplacementOrderNo, setCloseReplacementOrderNo] = useState('');
-  const [closeTracking, setCloseTracking]               = useState('');
   const [declineOpen, setDeclineOpen]                   = useState(false);
   const [declineReason, setDeclineReason]               = useState('');
   const [reopenOpen, setReopenOpen]                     = useState(false);
@@ -219,49 +215,19 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
     setProcurementSuccess(true);
   };
 
-  // The tech who reported the event gets the replacement + tracking update;
-  // it lands in the event's activity log as the simulated notification.
-  const notifyTechOfShipment = (replacement: string, tracking: string) => {
-    pushActivityLog(event.id, {
-      id: `trk_${Date.now()}`,
-      eventId: event.id,
-      date: nowStampUs(),
-      role: 'System',
-      employee: 'System',
-      status: event.status,
-      comment: `Technician ${event.reportedBy} notified: replacement order ${replacement || 'pending'}, tracking # ${tracking}.`,
-    });
-  };
 
   const handleClose = () => {
     if (!closeReplacementOrderNo.trim()) return;
-    const tracking = closeTracking.trim();
     setStatus('Closed');
     setReplacementOrderNo(closeReplacementOrderNo.trim());
-    if (tracking) setTrackingNumber(tracking);
     patchOrder(order.id, {
       status: 'Closed',
       replacementOrderNo: closeReplacementOrderNo.trim(),
-      ...(tracking ? { trackingNumber: tracking } : {}),
     });
-    addLog(`Order closed. Replacement Order #: ${closeReplacementOrderNo.trim()}${tracking ? `. Tracking #: ${tracking}` : ''}`, false, 'Closed');
-    if (tracking) {
-      addLog(`Technician ${event.reportedBy} notified with replacement order and tracking number.`, true, 'Closed');
-      notifyTechOfShipment(closeReplacementOrderNo.trim(), tracking);
-    }
+    addLog(`Order closed. Replacement Order #: ${closeReplacementOrderNo.trim()}`, false, 'Closed');
     setCloseSuccess(true);
   };
 
-  const handleSaveTracking = () => {
-    const val = trackingDraft.trim();
-    if (!val) return;
-    setTrackingNumber(val);
-    patchOrder(order.id, { trackingNumber: val });
-    addLog(`Tracking #: ${val}`, false, undefined, assignedToProcurement ? 'Procurement' : undefined);
-    addLog(`Technician ${event.reportedBy} notified with tracking number.`, true);
-    notifyTechOfShipment(replacementOrderNo, val);
-    setEditingTracking(false);
-  };
 
   const openShipToEdit = () => {
     setShipToDraft(event.shipTo === 'address' ? 'address' : 'branch');
@@ -956,38 +922,6 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
                         </div>
                       ),
                     }] : []),
-                    // Tracking is addable by CS and Procurement at any point,
-                    // before or after close; saving it notifies the reporting
-                    // tech.
-                    ...(canClose ? [{
-                      label: 'Tracking #',
-                      node: editingTracking ? (
-                        <Input
-                          size="small"
-                          placeholder="e.g. 1Z999AA10123456784"
-                          value={trackingDraft}
-                          onChange={e => setTrackingDraft(e.target.value)}
-                          onPressEnter={handleSaveTracking}
-                          onKeyDown={e => { if (e.key === 'Escape') setEditingTracking(false); }}
-                          onBlur={() => { if (trackingDraft.trim()) handleSaveTracking(); else setEditingTracking(false); }}
-                          autoFocus
-                          style={{ width: 180 }}
-                        />
-                      ) : (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                          <Text style={{ fontSize: token.fontSizeSM, color: trackingNumber ? token.colorText : token.colorTextQuaternary }}>
-                            {trackingNumber || 'Not yet entered'}
-                          </Text>
-                          <Button
-                            type="text"
-                            size="small"
-                            icon={<EditFilled />}
-                            onClick={() => { setTrackingDraft(trackingNumber); setEditingTracking(true); }}
-                            style={{ color: token.colorTextTertiary }}
-                          />
-                        </div>
-                      ),
-                    }] : []),
                   ] as { label: string; node: React.ReactNode }[]).map(({ label, node }, i, arr) => (
                     <Fragment key={label}>
                       <div>
@@ -1424,11 +1358,10 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
             </div>
             <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
               {order.eventId} has been closed.
-              {trackingNumber && ` Technician ${event.reportedBy} has been notified with the replacement order and tracking number.`}
               {' '}It can be reopened if needed.
             </Text>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Button type="primary" onClick={() => { setCloseOpen(false); setCloseSuccess(false); setCloseReplacementOrderNo(''); setCloseTracking(''); }}>Done</Button>
+              <Button type="primary" onClick={() => { setCloseOpen(false); setCloseSuccess(false); setCloseReplacementOrderNo(''); }}>Done</Button>
             </div>
           </div>
         ) : (
@@ -1443,17 +1376,6 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
                   value={closeReplacementOrderNo}
                   onChange={e => setCloseReplacementOrderNo(e.target.value)}
                   autoFocus
-                />
-              </Form.Item>
-              <Form.Item
-                label="Tracking # (optional)"
-                extra={`Adding tracking notifies technician ${event.reportedBy} with the shipment details.`}
-                style={{ marginBottom: 0 }}
-              >
-                <Input
-                  placeholder="e.g. 1Z999AA10123456784"
-                  value={closeTracking}
-                  onChange={e => setCloseTracking(e.target.value)}
                 />
               </Form.Item>
             </Form>

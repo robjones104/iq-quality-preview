@@ -20,7 +20,6 @@ type OrderMutations = {
   declineReason?: string;
   assignedToProcurement?: boolean;
   replacementOrderNo?: string;
-  trackingNumber?: string;
   // Same-SO consolidation. Source orders close with `consolidated` (a distinct
   // disposition, deliberately not `declined`) pointing at the surviving order;
   // the survivor gets the merged `eventIds` and its parts replaced by
