@@ -54,25 +54,42 @@ export const DARK_SEED_OVERRIDES: ThemeConfig['token'] = {
 };
 
 // ---------------------------------------------------------------------------
-// COLOR CONSTITUTION (2026-07-29, Rob's rulings)
-// Hue meaning is allocated by semantic layer, app-wide:
-//   - Saturated chromatic fills = RECORD LIFECYCLE ONLY.
+// COLOR CONSTITUTION — THE GOLD & TEAL LAWS (Rob, 2026-08-04)
+// "Gold is the brand, teal is your cursor." Every hue in the app belongs to
+// exactly one law. When adding UI, find the law first; if neither fits, the
+// element is neutral.
+//
+// GOLD LAW — the brand and its actions. Where gold is seen:
+//   1. Primary CTA buttons, both themes (gold fill, near-black text).
+//   2. Secondary (default) button hover/active, both themes (gold border +
+//      dark-gold text in light for AA; raw gold in dark).
+//   3. Brand surface tints: table header band, sorted-column wash, active
+//      nav item band/pill.
+//   4. Attention flags, always icon- or text-paired: awaiting/stale age,
+//      manual-entry signature, direct-ship pin, queue-card count Tag.
+//   5. Reporter-side thread avatars (gold family = the field's voice).
+//
+// TEAL LAW — live interaction, "your cursor." Where teal is seen:
+//   1. Links and link-role text (IDs, View in Table, drill-ins).
+//   2. Focus rings on every control, both themes.
+//   3. Checked/selected control states: checkbox, radio, switch-on.
+//   4. Calendar range selection; active pagination item.
+//   5. Active sort carets, applied-filter funnels, filter category bar,
+//      filter selection-count badges.
+//   Light teal = #277FA0 (AA-exact); dark teal = #319FC8 (raw brand hex).
+//
+// Count badges disambiguated: filter counts (what YOU selected) = teal;
+// queue counts (what needs attention) = gold.
+//
+// EVERYTHING ELSE:
+//   - Saturated chromatic fills = RECORD SUBSTATES ONLY, always with text.
 //       Events:  Reported blue, Under Investigation orange, Validated green,
 //                Invalidated gray.
-//       Orders:  Pending blue, Approved green (light #95de64 while open;
-//                solid #389e0d once closed, labeled "Fulfilled" after the
-//                backend's order:fulfill action), Declined red. Orange is
-//                Events-only.
-//     Nothing else may use these hues as fills; KPI swatches carry them.
-//   - ROLES/IDENTITY are monochromatic (FQ/CS tags, thread avatars): the
-//     letters carry the meaning, never a hue.
+//       Orders:  Pending Decision blue, Approved light green, Fulfilled solid
+//                green, Declined red. Orange is Events-only.
+//   - Open/Closed containers are NEUTRAL chips on both record types.
+//   - ROLES/IDENTITY are monochromatic; names carry the meaning.
 //   - PURPLE = Procurement (location), exclusively.
-//   - GOLD (the brand accent, #FFD20B dark / gold family light) = accents,
-//     attention flags (awaiting, stale age, manual entry, direct ship), AND
-//     deliberate brand surface presence (table header tint, sort-column tint,
-//     active nav band) — Rob's ruling 2026-08-04: "we need more of the
-//     branding yellow; that's why the header is yellow." Never a category
-//     color; attention uses always pair with an icon or text.
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
@@ -234,6 +251,13 @@ export const LIGHT_COMPONENT_TOKENS: ThemeConfig['components'] = {
     colorPrimaryHover: '#E9C300',
     colorPrimaryActive: '#D4B200',
     primaryColor: '#141414',
+    // Gold Law 2: secondary buttons hover gold in light like they do in dark.
+    // Dark-gold values pass AA: border #B08900 3.27:1 (non-text), text
+    // #946200 5.24:1, active #7A5200 7.0:1-class.
+    defaultHoverBorderColor: '#B08900',
+    defaultHoverColor: '#946200',
+    defaultActiveBorderColor: '#7A5200',
+    defaultActiveColor: '#7A5200',
   },
   Tabs: {
     inkBarColor: '#141414',
