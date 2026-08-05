@@ -10,6 +10,7 @@ import dayjs from 'dayjs';
 import type { QualityEvent } from '@/data/types';
 import type { DateRange } from '@/components/DateRangeFilter';
 import { ExpandToggle } from './CardControls';
+import { useThemeStore } from '@/store/themeStore';
 
 const { Text } = Typography;
 
@@ -84,8 +85,7 @@ export function FieldIntake({
   const [donutMode, setDonutMode] = useState<'issue' | 'component'>('issue');
   const { token } = theme.useToken();
 
-  // colorBgBase is '#000000' in dark algorithm, '#ffffff' in light
-  const isDark = token.colorBgBase === '#000000';
+  const isDark = useThemeStore(st => st.darkMode);
   const plotTheme = isDark ? 'classicDark' : 'classic';
   const reducedMotion = useReducedMotion();
   const axisStyle = {
@@ -330,7 +330,7 @@ export function EventsDonutCard({ events }: { events: QualityEvent[] }) {
   const router = useRouter();
   const [donutMode, setDonutMode] = useState<'issue' | 'component'>('issue');
   const { token } = theme.useToken();
-  const isDark = token.colorBgBase === '#000000';
+  const isDark = useThemeStore(st => st.darkMode);
   const plotTheme = isDark ? 'classicDark' : 'classic';
   const reducedMotion = useReducedMotion();
 
@@ -425,7 +425,7 @@ export function EventsByBranchChart({
 }) {
   const { token } = theme.useToken();
   const router = useRouter();
-  const isDark = token.colorBgBase === '#000000';
+  const isDark = useThemeStore(st => st.darkMode);
   const plotTheme = isDark ? 'classicDark' : 'classic';
   const axisStyle = {
     labelFill:     token.colorText,
@@ -504,7 +504,7 @@ export function EventsByIssueChart({
   const [donutMode, setDonutMode] = useState<'issue' | 'component'>('issue');
   const { token } = theme.useToken();
   const router = useRouter();
-  const isDark = token.colorBgBase === '#000000';
+  const isDark = useThemeStore(st => st.darkMode);
   const plotTheme = isDark ? 'classicDark' : 'classic';
   const reducedMotion = useReducedMotion();
 
@@ -563,7 +563,7 @@ export function EventsOverTimeChart({
 }) {
   const { token } = theme.useToken();
   const router = useRouter();
-  const isDark = token.colorBgBase === '#000000';
+  const isDark = useThemeStore(st => st.darkMode);
   const plotTheme = isDark ? 'classicDark' : 'classic';
   const axisStyle = {
     labelFill:     token.colorText,

@@ -15,6 +15,7 @@ import { now } from '@/lib/appTime';
 import type { Order } from '@/data/orders';
 import type { QualityEvent } from '@/data/types';
 import { useEffectiveEventMap } from '@/lib/effectiveEvents';
+import { useThemeStore } from '@/store/themeStore';
 
 const { Text } = Typography;
 
@@ -144,7 +145,7 @@ export function DecisionTrendChart({
 }) {
   const { token } = theme.useToken();
   const router = useRouter();
-  const isDark = token.colorBgBase === '#000000';
+  const isDark = useThemeStore(st => st.darkMode);
   const plotTheme = isDark ? 'classicDark' : 'classic';
   // Weekly cohorts by current stage: each week renders an Open column
   // (Pending Decision + Approved stacked) beside a Closed column (Fulfilled +

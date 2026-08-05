@@ -8,6 +8,7 @@ import dayjs from 'dayjs';
 import { now } from '@/lib/appTime';
 import type { QualityEvent } from '@/data/types';
 import type { DateRange } from '@/components/DateRangeFilter';
+import { useThemeStore } from '@/store/themeStore';
 
 const { Text, Paragraph } = Typography;
 
@@ -149,7 +150,7 @@ export function AiSummary({
   dateRange: DateRange | null;
 }) {
   const { token } = theme.useToken();
-  const isDark = token.colorBgBase === '#000000';
+  const isDark = useThemeStore(st => st.darkMode);
   const [ready, setReady] = useState(false);
   const [expanded, setExpanded] = useState(false);
 

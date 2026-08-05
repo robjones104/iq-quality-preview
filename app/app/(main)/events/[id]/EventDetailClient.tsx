@@ -32,6 +32,7 @@ import { useEscalationStore } from '@/store/escalationStore';
 import { useInfoRequestThread, InfoRequestThreadPanel } from '@/components/InfoRequestThread';
 import type { QualityEvent, EventStatus, ActivityLog } from '@/data/types';
 import { nowDate, nowStampIso, nowStampUs } from '@/lib/appTime';
+import { useThemeStore } from '@/store/themeStore';
 const { Text, Paragraph } = Typography;
 
 const ROOT_CAUSE_OPTIONS = [
@@ -218,7 +219,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
     e.target.value = '';
   };
   const { token } = theme.useToken();
-  const isDarkTheme = token.colorBgBase === '#000000';
+  const isDarkTheme = useThemeStore(st => st.darkMode);
   const router = useRouter();
   const screens = Grid.useBreakpoint();
   const isMobile = !screens.md;

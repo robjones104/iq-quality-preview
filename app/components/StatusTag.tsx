@@ -2,6 +2,7 @@ import { Tag, Tooltip, theme } from 'antd';
 import { ShoppingCartOutlined, InfoCircleOutlined, MessageOutlined } from '@ant-design/icons';
 import type { CSSProperties } from 'react';
 import type { EventStatus } from '@/data/types';
+import { useThemeStore } from '@/store/themeStore';
 
 // Hex values kept for chart library use (bar chart series colors in TriageReview)
 export const STATUS_COLORS: Record<EventStatus, string> = {
@@ -80,7 +81,7 @@ type Props = {
 
 export function StatusTag({ status, hasOrder, additionalInfoRequested, responseReceived, awaitingTooltip, respondedTooltip }: Props) {
   const { token } = theme.useToken();
-  const isDark = token.colorBgContainer !== '#ffffff';
+  const isDark = useThemeStore(st => st.darkMode);
 
   return (
     <Tag

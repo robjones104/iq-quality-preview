@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import dayjs from 'dayjs';
 import {
-  Button, Card, Table, Tag, Typography, theme,
+  Card, Segmented, Table, Tag, Typography, theme,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { JobNoValue } from '@/components/JobNoValue';
@@ -145,12 +145,14 @@ export default function FulfillmentPage() {
       <PageHeader
         left={<DateRangeFilter value={dateRange} onChange={setDateRange} />}
         right={
-          <Button
-            type={showClosed ? 'primary' : 'default'}
-            onClick={() => setShowClosed(v => !v)}
-          >
-            {showClosed ? 'Showing All' : 'Showing Open Only'}
-          </Button>
+          <Segmented
+            options={[
+              { label: 'Open Only', value: 'open' },
+              { label: 'All', value: 'all' },
+            ]}
+            value={showClosed ? 'all' : 'open'}
+            onChange={v => setShowClosed(v === 'all')}
+          />
         }
       />
 

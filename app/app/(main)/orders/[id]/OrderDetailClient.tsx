@@ -29,6 +29,7 @@ import type { QualityEvent } from '@/data/types';
 import { DOOR_OPTIONS, PART_CATALOG } from '@/data/filterOptions';
 import { nowStampUs } from '@/lib/appTime';
 import { capabilitiesFor } from '@/lib/roles';
+import { useThemeStore } from '@/store/themeStore';
 const { Text } = Typography;
 
 type Status = OrderStatus;
@@ -80,7 +81,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
   const evtMutations = useEventStore(s => s.mutations);
   const event = useMemo(() => mergeEvent(eventProp, evtMutations[eventProp.id]), [eventProp, evtMutations]);
   const { token } = theme.useToken();
-  const isDarkTheme = token.colorBgBase === '#000000';
+  const isDarkTheme = useThemeStore(st => st.darkMode);
   const screens = Grid.useBreakpoint();
   const isMobile = !screens.md;
   const { mutations: orderMutations, createdOrders, patchOrder, pushOrderLog } = useOrderStore();
@@ -657,7 +658,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
         <div style={{ display: 'flex', alignItems: 'center', flex: '1 1 320px', maxWidth: 480 }}>
           {stages.map((stage, i) => (
             <Fragment key={stage.label}>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flexShrink: 0, position: 'relative' }}>
                 <div style={{
                   width: 24, height: 24, borderRadius: '50%',
                   background: stage.reached ? stage.color : token.colorFillSecondary,
@@ -679,7 +680,9 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
                   {stage.label}
                 </Text>
                 {(stage as { sublabel?: string }).sublabel && (
-                  <Text style={{ fontSize: token.fontSizeXS, fontWeight: 500, whiteSpace: 'nowrap', marginTop: 2, color: (stage as { sublabel?: string }).sublabel === 'With Fulfillment' ? (isDarkTheme ? OWNERSHIP_TEXT.dark : OWNERSHIP_TEXT.light) : (isDarkTheme ? AA_INACTIVE_LABEL.dark : AA_INACTIVE_LABEL.light) }}>
+                  // Absolute so the taller column does not lift this stage's
+                  // node above its siblings (Rob 2026-08-05).
+                  <Text style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', fontSize: token.fontSizeXS, fontWeight: 500, whiteSpace: 'nowrap', marginTop: 2, color: (stage as { sublabel?: string }).sublabel === 'With Fulfillment' ? (isDarkTheme ? OWNERSHIP_TEXT.dark : OWNERSHIP_TEXT.light) : (isDarkTheme ? AA_INACTIVE_LABEL.dark : AA_INACTIVE_LABEL.light) }}>
                     {(stage as { sublabel?: string }).sublabel}
                   </Text>
                 )}
