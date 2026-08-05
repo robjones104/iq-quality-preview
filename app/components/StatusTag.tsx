@@ -95,6 +95,12 @@ export function StatusTag({ status, hasOrder, additionalInfoRequested, responseR
           <ShoppingCartOutlined style={{ fontSize: token.fontSizeSM }} />
         </Tooltip>
       )}
+      {hasOrder && (additionalInfoRequested || responseReceived) && (
+        <span
+          aria-hidden
+          style={{ width: 1, height: 10, background: 'currentColor', opacity: 0.4, display: 'inline-block' }}
+        />
+      )}
       <ThreadStateIcons awaiting={additionalInfoRequested} responded={responseReceived} awaitingTooltip={awaitingTooltip} respondedTooltip={respondedTooltip} />
     </Tag>
   );
