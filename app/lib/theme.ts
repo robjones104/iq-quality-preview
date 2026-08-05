@@ -68,6 +68,11 @@ export const DARK_SEED_OVERRIDES: ThemeConfig['token'] = {
 //   4. Attention flags, always icon- or text-paired: awaiting/stale age,
 //      manual-entry signature, direct-ship pin, queue-card count Tag.
 //   5. Reporter-side thread avatars (gold family = the field's voice).
+//   6. LIGHT-SURFACE FALLBACK CLAUSE: where raw gold cannot hold on white
+//      (tab ink, small chrome), gold expresses as the brand near-black
+//      #141414 in light and raw gold in dark. Precedent: the dark-CTA
+//      button family (Filter/Save, SEMANTIC.colorBrandAction). The light
+//      black tab ink IS the gold tab, translated.
 //
 // TEAL LAW — live interaction, "your cursor." Where teal is seen:
 //   1. Links and link-role text (IDs, View in Table, drill-ins).
