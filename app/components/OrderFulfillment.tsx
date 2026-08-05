@@ -190,7 +190,7 @@ export function DecisionTrendChart({
       <GroupedStackTrend
         data={trendData}
         stages={STAGES}
-        colors={['#1677ff', '#95de64', '#389e0d', '#ff4d4f']}
+        colors={['#1677ff', '#95de64', '#389e0d', '#595959']}
         plotTheme={plotTheme}
         stageTooltips={{
           'Pending Decision': 'Waiting for Customer Service to approve or decline',

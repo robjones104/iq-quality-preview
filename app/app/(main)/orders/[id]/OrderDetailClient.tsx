@@ -425,10 +425,9 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
     },
     {
       label: decisionStage === 'Fulfilled' ? 'Fulfilled' : decisionStage === 'Declined' ? 'Declined' : 'Pending Closure',
-      // Declined fill is the warm light red (CVD ladder, Rob 2026-08-05); the
-      // LABEL keeps the darker red because #ff4d4f is 3.3:1 as text on white.
-      color: decisionStage === 'Declined' ? '#ff4d4f' : '#389e0d',
-      labelColor: decisionStage === 'Declined' ? '#cf1322' : undefined,
+      // Declined wears the Invalidated gray (Rob 2026-08-05): both records'
+      // "ended in no" terminal is neutral, red stays reserved for attention.
+      color: decisionStage === 'Declined' ? '#595959' : '#389e0d',
       reached: stepIdx === 2,
       isCurrent: stepIdx === 2,
     },
@@ -660,7 +659,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
                     <CheckOutlined style={{ fontSize: token.fontSizeXS, color: '#fff' }} />
                   )}
                 </div>
-                <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600, whiteSpace: 'nowrap', color: stage.reached ? ((stage as { labelColor?: string }).labelColor ?? stage.color) : token.colorTextQuaternary }}>
+                <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600, whiteSpace: 'nowrap', color: stage.reached ? stage.color : token.colorTextQuaternary }}>
                   {stage.label}
                 </Text>
               </div>
