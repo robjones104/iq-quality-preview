@@ -1605,7 +1605,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
               >
                 {/* Focusable scroll wrapper: the read-only thread has no
                     focusable children, so keyboard users need the pane itself */}
-                <div tabIndex={0} role="region" aria-label="Messages" style={{ flex: 1, overflow: 'auto', padding: 16, minHeight: 0 }}>
+                <div style={{ flex: 1, padding: 16, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
                   {messagesContent}
                 </div>
               </Card>

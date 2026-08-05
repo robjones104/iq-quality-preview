@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { App, Button, Input, Typography, theme } from 'antd';
+import { isReporterSide } from './TechReplyWarning';
 import { MessageFilled, RedoOutlined } from '@ant-design/icons';
 import { useEventStore } from '@/store/eventStore';
 import { capabilitiesFor } from '@/lib/roles';
@@ -114,7 +115,7 @@ type ThreadState = ReturnType<typeof useInfoRequestThread>;
 
 export function InfoRequestThreadPanel({
   reportedBy, canSend, infoThreads, followupsFor, reqDraftOpen, reqDraftText, setReqDraftText,
-  sendInfoRequest, startNewRequest, cancelDraft, senderRole,
+  sendInfoRequest, startNewRequest, cancelDraft,
 }: ThreadState & { reportedBy: string; canSend: boolean }) {
   const { token } = theme.useToken();
   const { notification } = App.useApp();
@@ -125,12 +126,26 @@ export function InfoRequestThreadPanel({
   const senderName = (sentBy: AdditionalInfoRequest['sentBy']) =>
     sentBy === 'Tech' ? reportedBy : capabilitiesFor(sentBy ?? 'Field Quality').displayName;
 
-  const sortedThreads = infoThreads.slice().sort((a, b) => a.sentAt.localeCompare(b.sentAt));
-  const latestThread = sortedThreads[sortedThreads.length - 1];
-  const isOwnLatestThread = !!latestThread && (latestThread.sentBy ?? 'Field Quality') === senderRole;
+  // Awaiting is a MESSAGE-level fact: the newest non-reminder message decides
+  // ownership (thread-level checks kept the ask button hidden after a reply).
+  const allMessages = infoThreads
+    .flatMap(t => [t, ...followupsFor(t.id)])
+    .filter(m => m.kind !== 'followup')
+    .sort((a, b) => a.sentAt.localeCompare(b.sentAt));
+  const lastMessage = allMessages[allMessages.length - 1];
+  const awaitingReply = !!lastMessage && !isReporterSide(lastMessage.sentBy);
+
+  // Chat anchoring (Rob 2026-08-05): the newest message is in view on open
+  // and on every send; older history is a scroll up away.
+  const endRef = useRef<HTMLDivElement>(null);
+  const messageCount = infoThreads.reduce((n, t) => n + 1 + followupsFor(t.id).length, 0);
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [messageCount]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', height: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', height: '100%', minHeight: 0 }}>
+      <div tabIndex={0} role="region" aria-label="Messages" style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
       {infoThreads.length === 0 && (
         <div style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
@@ -185,6 +200,8 @@ export function InfoRequestThreadPanel({
           </div>
         );
       })}
+      <div ref={endRef} aria-hidden />
+      </div>
       {canSend && (
         reqDraftOpen ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -214,12 +231,12 @@ export function InfoRequestThreadPanel({
               </Button>
             </div>
           </div>
-        ) : isOwnLatestThread ? (
+        ) : awaitingReply ? (
           // Manual reminders were cut (Rob, 2026-08-03): the system nudges the
-          // reporter automatically while a response is pending.
+          // reporter on a fixed cadence while a response is pending.
           <Text type="secondary" style={{ fontSize: token.fontSizeSM, textAlign: 'center', padding: '4px 0' }}>
             <RedoOutlined style={{ marginRight: 6 }} />
-            Response pending. Reminders are sent automatically.
+            Response pending. A reminder will be sent every 48 hours.
           </Text>
         ) : (
           <Button block icon={<MessageFilled />} onClick={startNewRequest}>
