@@ -221,7 +221,7 @@ export const ORDER_FILTER_CATEGORIES: FilterCategory[] = [
 ];
 
 export const EVENT_FILTER_CATEGORIES: FilterCategory[] = [
-  { key: 'status',      label: 'Status',       options: STATUS_OPTIONS },
+  { key: 'status',      label: 'Event Status', options: STATUS_OPTIONS },
   { key: 'issue',       label: 'Issue',         options: ISSUE_OPTIONS },
   { key: 'door',        label: 'Door',          options: DOOR_OPTIONS },
   { key: 'component',   label: 'Component',     options: COMPONENT_OPTIONS },

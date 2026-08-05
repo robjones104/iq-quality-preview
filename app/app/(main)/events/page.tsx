@@ -285,7 +285,7 @@ function EventsPageContent() {
       width: 64,
     },
     {
-      title: 'Status',
+      title: 'Event Status',
       dataIndex: 'status',
       key: 'status',
       sorter: (a, b) => a.status.localeCompare(b.status),
