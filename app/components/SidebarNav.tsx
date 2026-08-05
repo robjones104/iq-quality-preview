@@ -55,7 +55,7 @@ export function SidebarNav() {
   // world (/intake); the role has no other operational surfaces.
   const visibleNav: { href: string; label: string }[] = [
     ...(caps.intake ? [{ href: '/intake', label: 'Home' }] : []),
-    ...(caps.dashboard ? [{ href: '/dashboard', label: 'Home' }] : []),
+    ...(caps.dashboard ? [{ href: caps.landing, label: 'Home' }] : []),
     ...(caps.events ? [{ href: '/events', label: 'Events' }] : []),
     ...(caps.orders ? [{ href: '/orders', label: 'Orders' }] : []),
     ...(caps.escalations ? [{ href: '/escalations', label: 'Escalations' }] : []),

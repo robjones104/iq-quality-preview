@@ -284,8 +284,13 @@ export function DeclinedOrdersPreview({ orders }: { orders: Order[] }) {
   }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary, marginBottom: 2 }}>
-        {declinedItems.length} declined
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 2 }}>
+        <span style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary }}>
+          {declinedItems.length} declined
+        </span>
+        <Link href="/orders?decision=Declined" style={{ fontSize: token.fontSizeSM }}>
+          View in Table ({declinedItems.length})
+        </Link>
       </div>
       {preview.map(item => (
         <div key={item.id} style={{

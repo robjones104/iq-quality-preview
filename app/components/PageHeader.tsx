@@ -87,7 +87,7 @@ export function PageHeader({ left, middle, center, right, pageTitle }: Props) {
   // semantics for navigation); the Menu below keeps only action items.
   const navLinks = [
     ...(caps.intake           ? [{ key: '/intake',             icon: <HomeFilled />,      href: '/intake',             label: 'Home' }] : []),
-    ...(caps.dashboard        ? [{ key: '/dashboard',          icon: <HomeFilled />,      href: '/dashboard',          label: 'Home' }] : []),
+    ...(caps.dashboard        ? [{ key: '/dashboard',          icon: <HomeFilled />,      href: caps.landing,          label: 'Home' }] : []),
     ...(caps.events           ? [{ key: '/events',             icon: <CalendarFilled />,  href: navHref('/events'),    label: 'Events' }] : []),
     ...(caps.orders           ? [{ key: '/orders',             icon: <ShoppingFilled />,  href: navHref('/orders'),    label: 'Orders' }] : []),
     ...(caps.escalations      ? [{ key: '/escalations',        icon: <FlagFilled />,      href: '/escalations',        label: 'Escalations' }] : []),
