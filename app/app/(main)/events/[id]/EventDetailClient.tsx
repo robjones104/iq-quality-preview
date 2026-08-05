@@ -312,8 +312,8 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
               <Image
                 src={uploadedPhotos[selectedPhoto]?.url}
                 alt={uploadedPhotos[selectedPhoto]?.name}
-                height={minEmptyHeight}
-                style={{ maxWidth: '100%', objectFit: 'contain' }}
+                wrapperStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
               />
             </Image.PreviewGroup>
           </div>

@@ -545,7 +545,8 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
           <Image
             src={labelScanUri(order.jobNo, parts[0]?.configId ?? `${order.jobNo}.1`, parts[0]?.partNumber ?? '')}
             alt={`Label scan for ${order.jobNo}`}
-            style={{ maxWidth: '100%', maxHeight: 280, objectFit: 'contain' }}
+            wrapperStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
           />
         </div>
       )}
@@ -613,7 +614,12 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
             overflow: 'hidden', padding: 8,
           }}>
             <Image.PreviewGroup items={eventPhotos}>
-              <Image src={eventPhotos[0]} alt="Event photo 1" height={200} style={{ maxWidth: '100%', objectFit: 'contain' }} />
+              <Image
+                src={eventPhotos[0]}
+                alt="Event photo 1"
+                wrapperStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              />
             </Image.PreviewGroup>
           </div>
         )}
