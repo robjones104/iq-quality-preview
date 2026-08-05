@@ -20,12 +20,32 @@ function countBy<T>(arr: T[], key: (item: T) => string): Record<string, number> 
   }, {});
 }
 
+// Short ranges (Last 7 days / Last week) read per day; anything longer
+// buckets weekly (Rob 2026-08-05).
+export function isDailyRange(dateRange: DateRange | null): boolean {
+  return dateRange !== null && dateRange[1].diff(dateRange[0], 'day') <= 14;
+}
+
 // Weekly buckets (Rob 2026-08-05), same Monday-start weeks as the Decision
 // Trend: a daily line at the default 90-day range is ~90 points of sawtooth.
+// Ranges of two weeks or less fall back to per-day buckets.
 function eventsOverTime(
   events: QualityEvent[],
   dateRange: DateRange | null,
 ): { date: string; weekEnd: string; count: number }[] {
+  if (isDailyRange(dateRange)) {
+    const dayMap = countBy(events, e => e.date);
+    const [start, end] = dateRange!;
+    const daily: { date: string; weekEnd: string; count: number }[] = [];
+    let cur = start;
+    while (!cur.isAfter(end)) {
+      const d = cur.format('YYYY-MM-DD');
+      daily.push({ date: d, weekEnd: d, count: dayMap[d] ?? 0 });
+      cur = cur.add(1, 'day');
+    }
+    return daily;
+  }
+
   const weekStartOf = (d: dayjs.Dayjs) => {
     const dow = d.day();
     return d.subtract(dow === 0 ? 6 : dow - 1, 'day');
@@ -572,7 +592,7 @@ export function EventsOverTimeChart({
         x: { ...axisStyle, labelFormatter: (v: string) => dayjs(v).format('MMM D'), tickCount: 4 },
         y: { ...axisStyle, tickCount: 4 },
       }}
-      tooltip={{ title: (d: { date: string }) => `Week of ${dayjs(d.date).format('MMM D, YYYY')}` }}
+      tooltip={{ title: (d: { date: string }) => isDailyRange(dateRange) ? dayjs(d.date).format('MMM D, YYYY') : `Week of ${dayjs(d.date).format('MMM D, YYYY')}` }}
       onEvent={(_chart, event) => {
         if (event.type !== 'click' || !event.data) return;
         const datum = event.data?.data as { date?: string; weekEnd?: string } | undefined;

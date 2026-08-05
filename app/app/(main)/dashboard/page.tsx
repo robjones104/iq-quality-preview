@@ -656,7 +656,7 @@ function DashboardPageContent() {
                       { title: 'By Issue',          content: <EventsByIssueChart events={filteredEvents} height={200} /> },
                       ...(branchScoped ? [] : [{ title: 'Events Updated by Field Quality', content: <DataQualityChart events={filteredEvents} /> }]),
                   ] : [                      { title: 'Needs Your Response',  content: <OrderResponseReceivedPreview orders={liveOrders} /> },
-                      { title: 'Decision Trend',     content: <DecisionTrendChart orders={liveOrders} height={200} /> },
+                      { title: 'Decision Trend',     content: <DecisionTrendChart orders={liveOrders} dateRange={dateRange} height={200} /> },
                       { title: 'Declined Orders',    content: <DeclinedOrdersPreview orders={liveOrders} /> },
                   ];
                 return (
@@ -774,7 +774,7 @@ function DashboardPageContent() {
                     style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
                     styles={{ body: { minHeight: 300, flex: 1, display: 'flex', flexDirection: 'column' } }}
                   >
-                    <DecisionTrendChart orders={liveOrders} fill />
+                    <DecisionTrendChart orders={liveOrders} dateRange={dateRange} fill />
                   </Card>
                 </Col>
                 <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column' }}>

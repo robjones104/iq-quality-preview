@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Button, Tag, Typography, theme } from 'antd';
 
 import { Chart as G2Chart } from '@antv/g2';
+import { isDailyRange } from './FieldIntake';
+import type { DateRange } from './DateRangeFilter';
 import { ExportOutlined, ShoppingCartOutlined } from '@ant-design/icons';
 import Link from 'next/link';
 import dayjs from 'dayjs';
@@ -39,7 +41,7 @@ function exportToCsv(filename: string, headers: string[], rows: (string | number
 }
 
 
-function GroupedStackTrend({ data, stages, colors, plotTheme, stageTooltips, legendGroups, ariaLabel, onSegmentClick }: {
+function GroupedStackTrend({ data, stages, colors, plotTheme, stageTooltips, legendGroups, daily = false, ariaLabel, onSegmentClick }: {
   data: Record<string, string | number>[];
   stages: readonly string[];
   colors: string[];
@@ -48,6 +50,8 @@ function GroupedStackTrend({ data, stages, colors, plotTheme, stageTooltips, leg
   stageTooltips: Record<string, string>;
   // HTML legend grouped by series so Open/Closed membership is explicit.
   legendGroups: { label: string; stages: string[] }[];
+  // Daily buckets drop the "Week of" tooltip prefix.
+  daily?: boolean;
   ariaLabel: string;
   onSegmentClick: (datum: { stage?: string; weekStart?: string; weekEnd?: string }) => void;
 }) {
@@ -84,7 +88,7 @@ function GroupedStackTrend({ data, stages, colors, plotTheme, stageTooltips, leg
       },
       legend: false,
       tooltip: {
-        title: (d: Record<string, string>) => `Week of ${d.week} \u00b7 ${d.status} orders`,
+        title: (d: Record<string, string>) => `${daily ? '' : 'Week of '}${d.week} \u00b7 ${d.status} orders`,
         items: [(d: Record<string, string | number>) => ({
           name: stageTooltips[String(d.stage)] ?? String(d.stage),
           value: String(d.count),
@@ -100,7 +104,7 @@ function GroupedStackTrend({ data, stages, colors, plotTheme, stageTooltips, leg
     });
     return () => { chart.destroy(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, plotTheme, token.colorText, token.colorBorderSecondary]);
+  }, [data, daily, plotTheme, token.colorText, token.colorBorderSecondary]);
 
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
@@ -130,10 +134,13 @@ function GroupedStackTrend({ data, stages, colors, plotTheme, stageTooltips, leg
 
 export function DecisionTrendChart({
   orders,
+  dateRange = null,
   height = 240,
   fill = false,
 }: {
   orders: Order[];
+  // Ranges of two weeks or less bucket per day instead of per week.
+  dateRange?: DateRange | null;
   height?: number;
   // Fill the parent container's height (parent must have a concrete height,
   // e.g. a flex-stretched card body) instead of a fixed pixel height.
@@ -153,15 +160,16 @@ export function DecisionTrendChart({
       if (o.approved) return o.orderStatus === 'Closed' ? 'Fulfilled' : 'Approved';
       return o.orderStatus === 'Open' ? 'Pending Decision' : null;
     };
+    const daily = isDailyRange(dateRange);
     const weekMap: Record<string, { counts: Record<string, number>; sortKey: number }> = {};
     for (const order of orders) {
       const stage = stageOf(order);
       if (!stage) continue;
       const d = parseOrderDate(order.lastUpdated);
       const dow = d.day();
-      const weekStart = d.subtract(dow === 0 ? 6 : dow - 1, 'day');
-      const key = weekStart.format('MMM D');
-      if (!weekMap[key]) weekMap[key] = { counts: {}, sortKey: weekStart.valueOf() };
+      const periodStart = daily ? d.startOf('day') : d.subtract(dow === 0 ? 6 : dow - 1, 'day');
+      const key = periodStart.format('MMM D');
+      if (!weekMap[key]) weekMap[key] = { counts: {}, sortKey: periodStart.valueOf() };
       weekMap[key].counts[stage] = (weekMap[key].counts[stage] ?? 0) + 1;
     }
     return Object.entries(weekMap)
@@ -169,14 +177,14 @@ export function DecisionTrendChart({
       .flatMap(([week, { counts, sortKey }]) => {
         const ws = dayjs(sortKey);
         const weekStart = ws.format('YYYY-MM-DD');
-        const weekEnd   = ws.add(6, 'day').format('YYYY-MM-DD');
+        const weekEnd   = daily ? weekStart : ws.add(6, 'day').format('YYYY-MM-DD');
         return STAGES.map(stage => ({
           week, weekStart, weekEnd, stage,
           status: stage === 'Pending Decision' || stage === 'Approved' ? 'Open' : 'Closed',
           count: counts[stage] ?? 0,
         }));
       });
-  }, [orders]);
+  }, [orders, dateRange]);
 
   if (trendData.length === 0) {
     return (
@@ -202,7 +210,8 @@ export function DecisionTrendChart({
           { label: 'Open', stages: ['Pending Decision', 'Approved'] },
           { label: 'Closed', stages: ['Fulfilled', 'Declined'] },
         ]}
-        ariaLabel="Decision trend: weekly order counts, one Open column (pending decision plus approved) beside one Closed column (fulfilled plus declined) per week"
+        daily={isDailyRange(dateRange)}
+        ariaLabel="Decision trend: order counts per period, one Open column (pending decision plus approved) beside one Closed column (fulfilled plus declined)"
 
         onSegmentClick={(datum) => {
           if (!datum?.stage) return;
