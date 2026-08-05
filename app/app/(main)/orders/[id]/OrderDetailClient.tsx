@@ -18,6 +18,7 @@ import {
 import { CopyableValue } from '@/components/CopyableValue';
 import { JobNoValue } from '@/components/JobNoValue';
 import { TechReplyWarning } from '@/components/TechReplyWarning';
+import { OrderStageTag } from '@/components/StatusTag';
 import { ShipToLine } from '@/components/ShipToLine';
 import { aaLabelColor, AA_INACTIVE_LABEL, stageFill, OWNERSHIP_TEXT } from '@/lib/theme';
 import { PageHeader } from '@/components/PageHeader';
@@ -623,12 +624,9 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
             </Link>
             <span style={{ color: token.colorBorderSecondary, fontSize: token.fontSizeLG, lineHeight: 1 }}>|</span>
             <span style={{ fontSize: token.fontSizeLG, fontWeight: 600, color: token.colorText }}>{order.eventId}</span>
-            <Tag style={{ margin: 0 }}>{status}</Tag>
-            {!isMobile && approved && status === 'Open' && (
-              // One recipe both themes: solid Validated green, white text
-              // (5.6:1 on the fill). The dark pastel preset read muddy.
-              <Tag style={{ margin: 0, background: '#237804', color: '#FFFFFF', borderColor: 'transparent' }}>Approved</Tag>
-            )}
+            {/* Pipeline-first: the single stage chip carries the order's
+                state; Open/Closed is derivable from the stage. */}
+            <OrderStageTag stage={decisionStage} />
             {/* Cross-link lives in the header beside the status chip so it is
                 consistently findable on both detail pages (Rob, 2026-08-04).
                 Roles without Events access (Fulfillment) get event context

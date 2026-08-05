@@ -27,7 +27,7 @@ import { EVENT_FILTER_CATEGORIES, ORDER_FILTER_CATEGORIES } from '@/data/filterO
 import { useFilterStore } from '@/store/filterStore';
 import { useOrderStore } from '@/store/orderStore';
 import { OrderCard } from '@/components/OrderCard';
-import { StatusTag, ThreadStateIcons } from '@/components/StatusTag';
+import { ThreadStateIcons, OrderStageTag, type OrderStage } from '@/components/StatusTag';
 import type { Order, OrderStatus } from '@/data/orders';
 import type { QualityEvent } from '@/data/types';
 type OrderRow = Order & Pick<QualityEvent, 'issue' | 'component' | 'door' | 'branch' | 'plant' | 'reportedBy' | 'status' | 'jobNoManualEntry'>;
@@ -413,23 +413,24 @@ function OrdersPageContent() {
       filteredValue: appliedFiltersLocal.orderStatus ?? null,
       width: 120,
       render: (_, record) => {
-        // Ownership split (Rob, 2026-08-04): the ORDER chip is neutral and
-        // carries only CS-owned conversation state (their question pending /
-        // the answer waiting on them). FQ-owned state lives on the Event
-        // Status badge. The thread is linear, so at most one icon per row.
+        // Pipeline-first (Rob, 2026-08-05): on order surfaces the ORDER wears
+        // the color, showing its stage directly (Open/Closed is derivable:
+        // Fulfilled and Declined are closed). CS-owned conversation state
+        // stays on this chip; FQ-owned state on the neutral event chip.
         const open = effectiveStatus(record) === 'Open';
+        const stage: OrderStage = isDeclined(record)
+          ? 'Declined'
+          : isApproved(record) ? (open ? 'Approved' : 'Fulfilled') : 'Pending Decision';
         const thread = eventMap.get(record.eventId)?.additionalInfoRequests;
         const cs = capabilitiesFor('Customer Service').displayName;
         return (
-          <Tag style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            {effectiveStatus(record)}
-            <ThreadStateIcons
-              awaiting={open && partyAwaiting(thread, 'Customer Service')}
-              responded={open && partyResponded(thread, 'Customer Service')}
-              awaitingTooltip={`${cs} asked. Response pending.`}
-              respondedTooltip={`The technician replied to ${cs}'s question.`}
-            />
-          </Tag>
+          <OrderStageTag
+            stage={stage}
+            additionalInfoRequested={open && partyAwaiting(thread, 'Customer Service')}
+            responseReceived={open && partyResponded(thread, 'Customer Service')}
+            awaitingTooltip={`${cs} asked. Response pending.`}
+            respondedTooltip={`The technician replied to ${cs}'s question.`}
+          />
         );
       },
     },
@@ -439,17 +440,21 @@ function OrdersPageContent() {
       sorter: (a, b) => a.status.localeCompare(b.status),
       width: 170,
       render: (_, record) => {
+        // Event lifecycle is context here, not the working object: neutral
+        // chip, colors stay unique to the order pipeline (Rob 2026-08-05).
         const active = record.status === 'Reported' || record.status === 'Under Investigation';
         const thread = eventMap.get(record.eventId)?.additionalInfoRequests;
         const fq = capabilitiesFor('Field Quality').displayName;
         return (
-          <StatusTag
-            status={record.status}
-            additionalInfoRequested={active && partyAwaiting(thread, 'Field Quality')}
-            responseReceived={active && partyResponded(thread, 'Field Quality')}
-            awaitingTooltip={`${fq} asked. Response pending.`}
-            respondedTooltip={`${record.reportedBy} replied. Review the answer.`}
-          />
+          <Tag style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            {record.status}
+            <ThreadStateIcons
+              awaiting={active && partyAwaiting(thread, 'Field Quality')}
+              responded={active && partyResponded(thread, 'Field Quality')}
+              awaitingTooltip={`${fq} asked. Response pending.`}
+              respondedTooltip={`${record.reportedBy} replied. Review the answer.`}
+            />
+          </Tag>
         );
       },
     },

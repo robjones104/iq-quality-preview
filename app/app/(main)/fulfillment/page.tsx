@@ -13,7 +13,6 @@ import { useEffectiveEventMap } from '@/lib/effectiveEvents';
 import { PageHeader } from '@/components/PageHeader';
 import { DateRangeFilter, type DateRange } from '@/components/DateRangeFilter';
 import { useOrderStore } from '@/store/orderStore';
-import { StatusTag } from '@/components/StatusTag';
 import type { Order, OrderStatus } from '@/data/orders';
 import type { QualityEvent } from '@/data/types';
 
@@ -136,7 +135,7 @@ export default function FulfillmentPage() {
       key: 'eventStatus',
       sorter: (a, b) => a.status.localeCompare(b.status),
       width: 170,
-      render: (_, record) => <StatusTag status={record.status} />,
+      render: (_, record) => <Tag style={{ margin: 0 }}>{record.status}</Tag>,
     },
   ];
 

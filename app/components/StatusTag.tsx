@@ -41,6 +41,52 @@ const solidBadgeStyle = (status: EventStatus, isDark: boolean): CSSProperties =>
   borderColor: 'transparent',
 });
 
+// Order pipeline stages as solid tags (Rob 2026-08-05): on order surfaces
+// the ORDER wears the color and the event demotes to neutral. Approved is
+// deep teal #006d75 (white 5.9:1), deliberately not the cursor teal #277FA0:
+// interaction teal stays reserved. Declined shares the terminal gray with
+// Invalidated (brighter in dark for the chip boundary).
+export type OrderStage = 'Pending Decision' | 'Approved' | 'Fulfilled' | 'Declined';
+const ORDER_STAGE_BG: Record<'light' | 'dark', Record<OrderStage, string>> = {
+  light: {
+    'Pending Decision': '#0958D9',
+    Approved:           '#006d75',
+    Fulfilled:          '#237804',
+    Declined:           '#595959',
+  },
+  dark: {
+    'Pending Decision': '#0958D9',
+    Approved:           '#006d75',
+    Fulfilled:          '#237804',
+    Declined:           '#757575',
+  },
+};
+
+export function OrderStageTag({ stage, additionalInfoRequested, responseReceived, awaitingTooltip, respondedTooltip }: {
+  stage: OrderStage;
+  additionalInfoRequested?: boolean;
+  responseReceived?: boolean;
+  awaitingTooltip?: string;
+  respondedTooltip?: string;
+}) {
+  const isDark = useThemeStore(st => st.darkMode);
+  return (
+    <Tag
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        background: ORDER_STAGE_BG[isDark ? 'dark' : 'light'][stage],
+        color: '#FFFFFF',
+        borderColor: 'transparent',
+      }}
+    >
+      {stage}
+      <ThreadStateIcons awaiting={additionalInfoRequested} responded={responseReceived} awaitingTooltip={awaitingTooltip} respondedTooltip={respondedTooltip} />
+    </Tag>
+  );
+}
+
 // The two thread states, shape-differentiated (color stays lifecycle-only):
 // info circle = a question is out, the reporter side owes an answer;
 // message bubble = the answer came back, the office owes the next move.
