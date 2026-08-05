@@ -215,7 +215,7 @@ export const STATUS_OPTIONS = [
 export const ORDER_FILTER_CATEGORIES: FilterCategory[] = [
   // Pipeline-first (Rob 2026-08-05): one Stage axis (Open/Closed is
   // derivable), plus the two independent working facts.
-  { key: 'stage',      label: 'Stage',      options: ['Pending Decision', 'Approved', 'Fulfilled', 'Declined'] },
+  { key: 'stage',      label: 'Order Status', options: ['Pending Decision', 'Approved', 'Fulfilled', 'Declined'] },
   { key: 'assignment', label: 'Assignment', options: ['With Customer Service', 'With Fulfillment'] },
   { key: 'activity',   label: 'Activity',   options: ['Request Pending', 'Response Received'] },
 ];
