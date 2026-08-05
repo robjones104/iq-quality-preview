@@ -671,7 +671,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: isMobile ? '0 12px 16px' : '0 20px 16px', minHeight: 0 }}>
 
         {/* Status strip + same-SO sibling awareness */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '16px 0 12px', flexShrink: 0, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: stages.some(st => (st as { sublabel?: string }).sublabel) ? '16px 0 30px' : '16px 0 12px', flexShrink: 0, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', flex: '1 1 320px', maxWidth: 480 }}>
           {stages.map((stage, i) => (
             <Fragment key={stage.label}>
