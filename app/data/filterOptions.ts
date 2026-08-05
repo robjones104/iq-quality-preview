@@ -213,8 +213,11 @@ export const STATUS_OPTIONS = [
 // Dashboard Orders view — order-domain filters. Mirrors the URL param
 // vocabulary the /orders list page reads (orderStatus, decision).
 export const ORDER_FILTER_CATEGORIES: FilterCategory[] = [
-  { key: 'orderStatus', label: 'Order Status', options: ['Open', 'Closed'] },
-  { key: 'decision',    label: 'Decision',     options: ['Pending', 'Approved', 'Declined'] },
+  // Pipeline-first (Rob 2026-08-05): one Stage axis (Open/Closed is
+  // derivable), plus the two independent working facts.
+  { key: 'stage',      label: 'Stage',      options: ['Pending Decision', 'Approved', 'Fulfilled', 'Declined'] },
+  { key: 'assignment', label: 'Assignment', options: ['With Customer Service', 'With Fulfillment'] },
+  { key: 'activity',   label: 'Activity',   options: ['Request Pending', 'Response Received'] },
 ];
 
 export const EVENT_FILTER_CATEGORIES: FilterCategory[] = [

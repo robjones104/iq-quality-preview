@@ -23,6 +23,7 @@ interface OrderCardRow {
 interface OrderCardProps {
   row: OrderCardRow;
   stage: OrderStage;
+  assigned?: boolean;
   eventStatus: EventStatus;
   awaitingResponse?: boolean;
   responseReceived?: boolean;
@@ -32,7 +33,7 @@ interface OrderCardProps {
   onAction: (key: string) => void;
 }
 
-export function OrderCard({ row, stage, eventStatus, awaitingResponse, responseReceived, eventAwaiting, eventResponded, menuItems, onAction }: OrderCardProps) {
+export function OrderCard({ row, stage, assigned, eventStatus, awaitingResponse, responseReceived, eventAwaiting, eventResponded, menuItems, onAction }: OrderCardProps) {
   const { token } = theme.useToken();
   const router = useRouter();
 
@@ -58,7 +59,7 @@ export function OrderCard({ row, stage, eventStatus, awaitingResponse, responseR
           {/* Pipeline-first (Rob, 2026-08-05): the order chip wears the
               stage color and carries CS-owned conversation state; the event
               chip below is neutral with FQ-owned state. */}
-          <OrderStageTag stage={stage} additionalInfoRequested={awaitingResponse} responseReceived={responseReceived} />
+          <OrderStageTag stage={stage} assigned={assigned} additionalInfoRequested={awaitingResponse} responseReceived={responseReceived} />
           {menuItems && menuItems.length > 0 && (
             <Dropdown
               menu={{ items: menuItems, onClick: ({ key }) => onAction(key) }}

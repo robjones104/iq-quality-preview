@@ -1,5 +1,5 @@
 import { Tag, Tooltip, theme } from 'antd';
-import { ShoppingCartOutlined, InfoCircleOutlined, MessageOutlined } from '@ant-design/icons';
+import { ShoppingCartOutlined, InfoCircleOutlined, MessageOutlined, SendOutlined } from '@ant-design/icons';
 import type { CSSProperties } from 'react';
 import type { EventStatus } from '@/data/types';
 import { useThemeStore } from '@/store/themeStore';
@@ -62,13 +62,16 @@ const ORDER_STAGE_BG: Record<'light' | 'dark', Record<OrderStage, string>> = {
   },
 };
 
-export function OrderStageTag({ stage, additionalInfoRequested, responseReceived, awaitingTooltip, respondedTooltip }: {
+export function OrderStageTag({ stage, assigned, additionalInfoRequested, responseReceived, awaitingTooltip, respondedTooltip }: {
   stage: OrderStage;
+  // Approved order handed to Fulfillment: send glyph on the chip.
+  assigned?: boolean;
   additionalInfoRequested?: boolean;
   responseReceived?: boolean;
   awaitingTooltip?: string;
   respondedTooltip?: string;
 }) {
+  const { token } = theme.useToken();
   const isDark = useThemeStore(st => st.darkMode);
   return (
     <Tag
@@ -82,6 +85,17 @@ export function OrderStageTag({ stage, additionalInfoRequested, responseReceived
       }}
     >
       {stage}
+      {assigned && (
+        <Tooltip title="Assigned to Fulfillment">
+          <SendOutlined tabIndex={0} aria-label="Assigned to Fulfillment" style={{ fontSize: token.fontSizeSM }} />
+        </Tooltip>
+      )}
+      {assigned && (additionalInfoRequested || responseReceived) && (
+        <span
+          aria-hidden
+          style={{ width: 1, height: 10, background: 'currentColor', opacity: 0.4, display: 'inline-block' }}
+        />
+      )}
       <ThreadStateIcons awaiting={additionalInfoRequested} responded={responseReceived} awaitingTooltip={awaitingTooltip} respondedTooltip={respondedTooltip} />
     </Tag>
   );

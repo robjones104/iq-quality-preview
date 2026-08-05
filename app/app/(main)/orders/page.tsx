@@ -83,8 +83,9 @@ function OrdersPageContent() {
       ? all.filter(r => r.branch === caps.assignedBranch)
       : all;
   }, [createdOrders, caps.branchScoped, caps.assignedBranch, eventMap]);
-  const orderStatusParam = searchParams.get('orderStatus');
-  const decisionParam    = searchParams.get('decision');
+  const stageParam       = searchParams.get('stage');
+  const assignmentParam  = searchParams.get('assignment');
+  const activityParam    = searchParams.get('activity');
   const flagParam        = searchParams.get('flag');
   const fromParam        = searchParams.get('from');
   const toParam          = searchParams.get('to');
@@ -97,8 +98,9 @@ function OrdersPageContent() {
   });
   const [appliedFiltersLocal, setAppliedFiltersLocal] = useState<Record<string, string[]>>(() => {
     const fromUrl: Record<string, string[]> = {};
-    if (orderStatusParam) fromUrl.orderStatus = orderStatusParam.split(',');
-    if (decisionParam)    fromUrl.decision    = decisionParam.split(',');
+    if (stageParam)      fromUrl.stage      = stageParam.split(',');
+    if (assignmentParam) fromUrl.assignment = assignmentParam.split(',');
+    if (activityParam)   fromUrl.activity   = activityParam.split(',');
     return Object.keys(fromUrl).length ? fromUrl : ordersFilters;
   });
 
@@ -217,8 +219,10 @@ function OrdersPageContent() {
 
   const handleExportOrders = () => {
     const toExport = selectedOrderKeys.length > 0 ? filtered.filter(o => selectedOrderKeys.includes(o.id)) : filtered;
-    const headers = ['Order ID', 'Job No.', 'Order Status', 'Issue', 'Component', 'Door Type', 'Reported By', 'Branch', 'Plant', 'Last Updated'];
-    const rows = toExport.map(o => [o.id, o.jobNo, effectiveStatus(o), o.issue, o.component, o.door, o.reportedBy, o.branch, o.plant, o.lastUpdated]);
+    const headers = ['Order ID', 'Job No.', 'Stage', 'Issue', 'Component', 'Door Type', 'Reported By', 'Branch', 'Plant', 'Last Updated'];
+    const csvStage = (r: OrderRow): string =>
+      isDeclined(r) ? 'Declined' : isApproved(r) ? (effectiveStatus(r) === 'Open' ? 'Approved' : 'Fulfilled') : 'Pending Decision';
+    const rows = toExport.map(o => [o.id, o.jobNo, csvStage(o), o.issue, o.component, o.door, o.reportedBy, o.branch, o.plant, o.lastUpdated]);
     const lines = [headers, ...rows].map(r => r.map(cell => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','));
     const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -296,10 +300,20 @@ function OrdersPageContent() {
     if (flagParam === 'info' && !(effectiveStatus(o) === 'Open' && awaitingTechReply(eventMap.get(o.eventId)?.additionalInfoRequests))) return false;
     if (flagParam === 'responded' && !(effectiveStatus(o) === 'Open' && replyReviewParty(eventMap.get(o.eventId)?.additionalInfoRequests) !== null)) return false;
     if (flagParam === 'withCS' && !(effectiveStatus(o) === 'Open' && isApproved(o) && !isWithFulfillment(o))) return false;
-    const matchOrderStatus   = !appliedFiltersLocal.orderStatus?.length   || appliedFiltersLocal.orderStatus.includes(effectiveStatus(o));
-    const matchDecision      = !appliedFiltersLocal.decision?.length      || appliedFiltersLocal.decision.some(d =>
-      (d === 'Approved' && isApproved(o)) || (d === 'Declined' && isDeclined(o)) || (d === 'Pending' && !isApproved(o) && !isDeclined(o))
+    const stageOfRow = (r: OrderRow): string =>
+      isDeclined(r) ? 'Declined' : isApproved(r) ? (effectiveStatus(r) === 'Open' ? 'Approved' : 'Fulfilled') : 'Pending Decision';
+    const matchStage      = !appliedFiltersLocal.stage?.length      || appliedFiltersLocal.stage.includes(stageOfRow(o));
+    const matchAssignment = !appliedFiltersLocal.assignment?.length || appliedFiltersLocal.assignment.some(a =>
+      effectiveStatus(o) === 'Open' && isApproved(o) &&
+      (a === 'With Fulfillment' ? isWithFulfillment(o) : !isWithFulfillment(o))
     );
+    const matchActivity   = !appliedFiltersLocal.activity?.length   || appliedFiltersLocal.activity.some(a => {
+      if (effectiveStatus(o) !== 'Open') return false;
+      const thread = eventMap.get(o.eventId)?.additionalInfoRequests;
+      return a === 'Request Pending'
+        ? partyAwaiting(thread, 'Customer Service')
+        : partyResponded(thread, 'Customer Service');
+    });
     const matchEventStatus   = !appliedFiltersLocal.status?.length        || appliedFiltersLocal.status.includes(o.status);
     const matchIssue         = !appliedFiltersLocal.issue?.length         || appliedFiltersLocal.issue.includes(o.issue);
     const matchDoor          = !appliedFiltersLocal.door?.length          || appliedFiltersLocal.door.includes(o.door);
@@ -307,7 +321,7 @@ function OrdersPageContent() {
     const matchBranch        = !appliedFiltersLocal.branch?.length        || appliedFiltersLocal.branch.includes(o.branch);
     const matchPlant         = !appliedFiltersLocal.plant?.length         || appliedFiltersLocal.plant.includes(o.plant);
     const matchReportedBy    = !appliedFiltersLocal.reportedBy?.length    || appliedFiltersLocal.reportedBy.includes(o.reportedBy);
-    return matchOrderStatus && matchDecision && matchEventStatus &&
+    return matchStage && matchAssignment && matchActivity && matchEventStatus &&
       matchIssue && matchDoor && matchComponent && matchBranch && matchPlant && matchReportedBy;
   });
 
@@ -406,35 +420,6 @@ function OrdersPageContent() {
       width: 148,
     },
     {
-      title: 'Status',
-      key: 'orderStatus',
-      sorter: (a, b) => effectiveStatus(a).localeCompare(effectiveStatus(b)),
-      filters: [{ text: 'Open', value: 'Open' }, { text: 'Closed', value: 'Closed' }],
-      filteredValue: appliedFiltersLocal.orderStatus ?? null,
-      width: 120,
-      render: (_, record) => {
-        // Pipeline-first (Rob, 2026-08-05): on order surfaces the ORDER wears
-        // the color, showing its stage directly (Open/Closed is derivable:
-        // Fulfilled and Declined are closed). CS-owned conversation state
-        // stays on this chip; FQ-owned state on the neutral event chip.
-        const open = effectiveStatus(record) === 'Open';
-        const stage: OrderStage = isDeclined(record)
-          ? 'Declined'
-          : isApproved(record) ? (open ? 'Approved' : 'Fulfilled') : 'Pending Decision';
-        const thread = eventMap.get(record.eventId)?.additionalInfoRequests;
-        const cs = capabilitiesFor('Customer Service').displayName;
-        return (
-          <OrderStageTag
-            stage={stage}
-            additionalInfoRequested={open && partyAwaiting(thread, 'Customer Service')}
-            responseReceived={open && partyResponded(thread, 'Customer Service')}
-            awaitingTooltip={`${cs} asked. Response pending.`}
-            respondedTooltip={`The technician replied to ${cs}'s question.`}
-          />
-        );
-      },
-    },
-    {
       title: 'Event Status',
       key: 'eventStatus',
       sorter: (a, b) => a.status.localeCompare(b.status),
@@ -455,6 +440,36 @@ function OrdersPageContent() {
               respondedTooltip={`${record.reportedBy} replied. Review the answer.`}
             />
           </Tag>
+        );
+      },
+    },
+    {
+      title: 'Order Status',
+      key: 'orderStatus',
+      sorter: (a, b) => effectiveStatus(a).localeCompare(effectiveStatus(b)),
+      filters: ['Pending Decision', 'Approved', 'Fulfilled', 'Declined'].map(v => ({ text: v, value: v })),
+      filteredValue: appliedFiltersLocal.stage ?? null,
+      width: 120,
+      render: (_, record) => {
+        // Pipeline-first (Rob, 2026-08-05): on order surfaces the ORDER wears
+        // the color, showing its stage directly (Open/Closed is derivable:
+        // Fulfilled and Declined are closed). CS-owned conversation state
+        // stays on this chip; FQ-owned state on the neutral event chip.
+        const open = effectiveStatus(record) === 'Open';
+        const stage: OrderStage = isDeclined(record)
+          ? 'Declined'
+          : isApproved(record) ? (open ? 'Approved' : 'Fulfilled') : 'Pending Decision';
+        const thread = eventMap.get(record.eventId)?.additionalInfoRequests;
+        const cs = capabilitiesFor('Customer Service').displayName;
+        return (
+          <OrderStageTag
+            stage={stage}
+            assigned={open && isApproved(record) && isWithFulfillment(record)}
+            additionalInfoRequested={open && partyAwaiting(thread, 'Customer Service')}
+            responseReceived={open && partyResponded(thread, 'Customer Service')}
+            awaitingTooltip={`${cs} asked. Response pending.`}
+            respondedTooltip={`The technician replied to ${cs}'s question.`}
+          />
         );
       },
     },
@@ -717,6 +732,7 @@ function OrdersPageContent() {
                       key={row.id}
                       row={row}
                       stage={isDeclined(row) ? 'Declined' : isApproved(row) ? (open ? 'Approved' : 'Fulfilled') : 'Pending Decision'}
+                      assigned={open && isApproved(row) && isWithFulfillment(row)}
                       eventStatus={row.status}
                       awaitingResponse={open && partyAwaiting(thread, 'Customer Service')}
                       responseReceived={open && partyResponded(thread, 'Customer Service')}

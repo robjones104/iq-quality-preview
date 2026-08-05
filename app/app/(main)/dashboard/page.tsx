@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Fragment, Suspense, useEffect, useRef, useMemo, useState } from 'react';
+import React, { Fragment, Suspense, useCallback, useEffect, useRef, useMemo, useState } from 'react';
 import { AutoComplete, Button, Card, Col, Flex, Grid, Input, Row, Segmented, Statistic, Tag, Space, Tooltip, Typography, theme } from 'antd';
 import {
   CloseOutlined, SearchOutlined, InfoCircleOutlined,
@@ -13,7 +13,8 @@ import { FilterPanel } from '@/components/FilterPanel';
 import { DateRangeFilter, rangeLabelFor } from '@/components/DateRangeFilter';
 import { STATUS_COLORS } from '@/components/StatusTag';
 import { EVENT_FILTER_CATEGORIES, ORDER_FILTER_CATEGORIES } from '@/data/filterOptions';
-import { useEffectiveEvents } from '@/lib/effectiveEvents';
+import { useEffectiveEvents, useEffectiveEventMap } from '@/lib/effectiveEvents';
+import { partyAwaiting, partyResponded } from '@/components/TechReplyWarning';
 import { orders as allOrders } from '@/data/orders';
 import { useFilterStore } from '@/store/filterStore';
 import { useOrderStore } from '@/store/orderStore';
@@ -25,7 +26,7 @@ import { DataQualityChart, EventsUpdatedByFqCard } from '@/components/TriageRevi
 import { ResponseReceivedCard, ResponseReceivedPreview } from '@/components/EventMessages';
 import { DecisionTrendChart, DeclinedOrdersPreview, DeclinedCsvButton } from '@/components/OrderFulfillment';
 import { OrderResponseReceivedCard, OrderResponseReceivedPreview } from '@/components/OrderWork';
-import type { QualityEvent } from '@/data/types';
+import type { AdditionalInfoRequest, QualityEvent } from '@/data/types';
 import type { Order } from '@/data/orders';
 import type { DateRange } from '@/components/DateRangeFilter';
 
@@ -49,12 +50,26 @@ function applyFilters(list: QualityEvent[], dateRange: DateRange | null, applied
   });
 }
 
-// Orders-view category filter predicate (orderStatus + decision).
-function matchesOrderFilters(o: Order, applied: Record<string, string[]>): boolean {
-  const decision = o.declined ? 'Declined' : o.approved ? 'Approved' : 'Pending';
-  const matchStatus   = !applied.orderStatus?.length || applied.orderStatus.includes(o.orderStatus);
-  const matchDecision = !applied.decision?.length    || applied.decision.includes(decision);
-  return matchStatus && matchDecision;
+// Orders-view category filter predicate (stage + assignment; the activity
+// category needs the event thread, supplied by the caller).
+function matchesOrderFilters(
+  o: Order,
+  applied: Record<string, string[]>,
+  threadOf?: (eventId: string) => AdditionalInfoRequest[] | undefined,
+): boolean {
+  const stage = o.declined ? 'Declined' : o.approved ? (o.orderStatus === 'Open' ? 'Approved' : 'Fulfilled') : 'Pending Decision';
+  const matchStage      = !applied.stage?.length      || applied.stage.includes(stage);
+  const matchAssignment = !applied.assignment?.length || applied.assignment.some(a =>
+    o.orderStatus === 'Open' && !!o.approved &&
+    (a === 'With Fulfillment' ? !!o.assignedToFulfillment : !o.assignedToFulfillment));
+  const matchActivity   = !applied.activity?.length   || applied.activity.some(a => {
+    if (o.orderStatus !== 'Open') return false;
+    const thread = threadOf?.(o.eventId);
+    return a === 'Request Pending'
+      ? partyAwaiting(thread, 'Customer Service')
+      : partyResponded(thread, 'Customer Service');
+  });
+  return matchStage && matchAssignment && matchActivity;
 }
 
 
@@ -431,15 +446,20 @@ function DashboardPageContent() {
     };
   }), [orders, orderMutations]);
 
+  const effEventMapForThreads = useEffectiveEventMap();
+  const threadOf = useCallback(
+    (eventId: string): AdditionalInfoRequest[] | undefined => effEventMapForThreads.get(eventId)?.additionalInfoRequests,
+    [effEventMapForThreads]);
+
   const filteredOrders = useMemo(() => {
     return effectiveOrders.filter(o => {
       if (dateRange) {
         const d = dayjs(o.lastUpdated, 'MM-DD-YYYY HH:mm');
         if (d.isBefore(dateRange[0], 'day') || d.isAfter(dateRange[1], 'day')) return false;
       }
-      return matchesOrderFilters(o, orderFilters);
+      return matchesOrderFilters(o, orderFilters, threadOf);
     });
-  }, [effectiveOrders, dateRange, orderFilters]);
+  }, [effectiveOrders, dateRange, orderFilters, threadOf]);
 
   const priorEvents = useMemo(() => {
     if (!dateRange) return null;
@@ -498,9 +518,9 @@ function DashboardPageContent() {
     return effectiveOrders.filter(o => {
       const d = dayjs(o.lastUpdated, 'MM-DD-YYYY HH:mm');
       if (d.isBefore(priorStart, 'day') || d.isAfter(priorEnd, 'day')) return false;
-      return matchesOrderFilters(o, orderFilters);
+      return matchesOrderFilters(o, orderFilters, threadOf);
     });
-  }, [effectiveOrders, dateRange, orderFilters]);
+  }, [effectiveOrders, dateRange, orderFilters, threadOf]);
 
   // The pipeline bar: Total, then the STATUS axis as two split cards whose
   // lanes are the stages. Open = Pending Decision + Approved; Closed =
@@ -525,20 +545,20 @@ function DashboardPageContent() {
 
   const openLanes: [KpiLane, KpiLane] = [
     { label: 'Pending Decision', count: liveOrders.filter(isPendingDecision).length, prior: priorLiveN(isPendingDecision), swatch: STATUS_COLORS.Reported,
-      href: buildKpiHref('/orders?orderStatus=Open&decision=Pending', dateRange, {}),
+      href: buildKpiHref('/orders?stage=Pending Decision', dateRange, {}),
       tooltip: 'Orders that are waiting for Customer Service to approve or decline.' },
     { label: 'Approved', count: liveOrders.filter(isApprovedOpen).length, prior: priorLiveN(isApprovedOpen), deltaTone: 'neutral',
       swatch: '#95de64',
-      href: buildKpiHref('/orders?orderStatus=Open&decision=Approved', dateRange, {}),
+      href: buildKpiHref('/orders?stage=Approved', dateRange, {}),
       tooltip: 'Orders that have been approved and are being fulfilled.' },
   ];
 
   const closedLanes: [KpiLane, KpiLane] = [
     { label: 'Fulfilled', count: liveOrders.filter(isFulfilled).length, prior: priorLiveN(isFulfilled), deltaTone: 'neutral', swatch: STATUS_COLORS.Validated,
-      href: buildKpiHref('/orders?orderStatus=Closed&decision=Approved', dateRange, {}),
+      href: buildKpiHref('/orders?stage=Fulfilled', dateRange, {}),
       tooltip: 'Orders that were approved and closed after the replacement order was placed.' },
     { label: 'Declined', count: liveOrders.filter(isDeclinedOrder).length, prior: priorLiveN(isDeclinedOrder), swatch: '#595959',
-      href: buildKpiHref('/orders?decision=Declined', dateRange, {}),
+      href: buildKpiHref('/orders?stage=Declined', dateRange, {}),
       tooltip: 'Orders that were declined and closed. Declined orders can be reopened if needed.' },
   ];
 

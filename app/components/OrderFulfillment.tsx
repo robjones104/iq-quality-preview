@@ -207,10 +207,7 @@ export function DecisionTrendChart({
         onSegmentClick={(datum) => {
           if (!datum?.stage) return;
           const params = new URLSearchParams();
-          if (datum.stage === 'Pending Decision') { params.set('orderStatus', 'Open'); params.set('decision', 'Pending'); }
-          else if (datum.stage === 'Approved') { params.set('orderStatus', 'Open'); params.set('decision', 'Approved'); }
-          else if (datum.stage === 'Fulfilled') { params.set('orderStatus', 'Closed'); params.set('decision', 'Approved'); }
-          else { params.set('decision', 'Declined'); }
+          params.set('stage', datum.stage);
           if (datum.weekStart && datum.weekEnd) { params.set('from', datum.weekStart); params.set('to', datum.weekEnd); }
           router.push('/orders?' + params.toString());
         }}
@@ -290,7 +287,7 @@ export function DeclinedOrdersPreview({ orders }: { orders: Order[] }) {
         <span style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary }}>
           {declinedItems.length} declined
         </span>
-        <Link href="/orders?decision=Declined" style={{ fontSize: token.fontSizeSM }}>
+        <Link href="/orders?stage=Declined" style={{ fontSize: token.fontSizeSM }}>
           View in Table ({declinedItems.length})
         </Link>
       </div>
