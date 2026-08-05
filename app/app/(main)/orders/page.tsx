@@ -344,7 +344,7 @@ function OrdersPageContent() {
           {record.eventId}
         </Link>
       ),
-      width: 130,
+      width: 102,
     },
     {
       title: 'Job No.',
@@ -373,7 +373,7 @@ function OrdersPageContent() {
       filters: evtColFilters('issue'),
       filteredValue: appliedFiltersLocal.issue ?? null,
       ellipsis: { showTitle: true },
-      width: 176,
+      width: 148,
     },
     {
       title: 'Component',
@@ -394,7 +394,7 @@ function OrdersPageContent() {
       filteredValue: appliedFiltersLocal.door ?? null,
       filterSearch: true,
       ellipsis: { showTitle: true },
-      width: 176,
+      width: 148,
     },
     {
       title: 'Reported By',
@@ -449,7 +449,9 @@ function OrdersPageContent() {
     },
     {
       title: 'Order Status',
-      // Key must match the filter-store slot the predicate reads.
+      // Key must match the filter-store slot the predicate reads. Pinned:
+      // the working column must never scroll off (Rob 2026-08-05).
+      fixed: 'right',
       key: 'stage',
       sorter: (a, b) => effectiveStatus(a).localeCompare(effectiveStatus(b)),
       filters: ['Pending Decision', 'Approved', 'Fulfilled', 'Declined'].map(v => ({ text: v, value: v })),

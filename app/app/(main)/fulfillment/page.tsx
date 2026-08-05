@@ -75,7 +75,7 @@ export default function FulfillmentPage() {
           {record.eventId}
         </Link>
       ),
-      width: 130,
+      width: 102,
     },
     {
       title: 'Job No.',
@@ -99,7 +99,7 @@ export default function FulfillmentPage() {
       key: 'issue',
       sorter: (a, b) => a.issue.localeCompare(b.issue),
       ellipsis: { showTitle: true },
-      width: 176,
+      width: 148,
     },
     {
       title: 'Component',
@@ -135,6 +135,7 @@ export default function FulfillmentPage() {
     {
       title: 'Order Status',
       key: 'orderStatus',
+      fixed: 'right',
       width: 150,
       // Everything in this queue is an assigned approved order until closed.
       render: (_, record) => (

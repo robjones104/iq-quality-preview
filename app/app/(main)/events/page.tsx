@@ -230,7 +230,7 @@ function EventsPageContent() {
       sorter: (a, b) => a.issue.localeCompare(b.issue),
       filters: colFilters('issue'),
       filteredValue: appliedFilters.issue ?? null,
-      width: 192,
+      width: 148,
       render: (issue: string, record) => (
         <div style={{ overflow: 'hidden' }}>
           <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
