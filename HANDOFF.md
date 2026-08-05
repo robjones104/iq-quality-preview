@@ -57,7 +57,7 @@ Reminders on unanswered info requests are SYSTEM-GENERATED (product ruling 2026-
 | Action | Semantics | Suggested endpoint |
 |---|---|---|
 | `createOrder(order)` | Order auto-created from a parts request on an orderless event | `POST /orders` (or a server-side effect of the parts-request mutation) |
-| `patchOrder(orderId, patch)` | Approve / decline / close / reopen / assign to procurement / replacement # | `PATCH /orders/:id` |
+| `patchOrder(orderId, patch)` | Approve / decline / close / reopen / assign to fulfillment / replacement # | `PATCH /orders/:id` |
 | `pushOrderLog(orderId, entry)` | Append to the order log | server-side effect of the mutation |
 
 ### escalationStore (`store/escalationStore.ts`, key `iq-escalations`)
@@ -92,13 +92,13 @@ Root causes and tags on the Categories screen are plain `useState` seeded from `
 
 Single source of truth: `lib/roles.ts` (`ROLES`, `RoleCapabilities`, `capabilitiesFor`). Enforcement is two-layer: nav hides links per capability (`components/SidebarNav.tsx`), and `components/RoleGuard.tsx` (mounted once in the `(main)` layout) hard-redirects direct URLs to the role's landing page. Action-level gating reads the same capabilities (`useCapabilities()` from `roleStore`), so a real backend should map auth claims onto the same `RoleCapabilities` shape and keep every gate working unchanged. Server-side enforcement of the same matrix is still required; the client gates are UX, not security.
 
-| Capability | Full Access | Field Quality | Customer Service | Procurement | Global (View-Only) | Branch (View-Only) |
+| Capability | Full Access | Field Quality | Customer Service | Fulfillment (role renamed from Procurement, 2026-08-05) | Global (View-Only) | Branch (View-Only) |
 |---|---|---|---|---|---|---|
 | dashboard | x | x | x | x | x | x |
 | events | x | x | x | | x | x |
 | orders | x | x | x | x | x | x |
 | escalations | x | x | | | x | |
-| procurementQueue | x | x | x | x | | |
+| fulfillmentQueue | x | x | x | x | | |
 | categories (manage) | x | x | | | | |
 | editEvents | x | x | | | | |
 | decideOrders | x | | x | | | |
@@ -106,7 +106,7 @@ Single source of truth: `lib/roles.ts` (`ROLES`, `RoleCapabilities`, `capabiliti
 | manageLists | x | x | | | | |
 | branchScoped | | | | | | x (Atlanta) |
 
-Landings: CS starts at `/dashboard?view=orders`, Procurement at `/procurement`, everyone else at `/dashboard`. Branch scoping is applied in `lib/useScopedData.ts` (events, orders, dashboard aggregate off the same scoped hooks). App Manager is deliberately absent (provisioning-only persona, no operational surface).
+Landings: CS starts at `/dashboard?view=orders`, Fulfillment at `/fulfillment`, everyone else at `/dashboard`. Branch scoping is applied in `lib/useScopedData.ts` (events, orders, dashboard aggregate off the same scoped hooks). App Manager is deliberately absent (provisioning-only persona, no operational surface).
 
 ## 4. Domain vocabulary (single sources of truth)
 
@@ -127,17 +127,17 @@ Business rules encoded in the UI worth knowing before schema design: order type 
 |---|---|
 | Open · No Decision | Awaiting approve/decline (the CS queue) |
 | Open · Approved · with Customer Service | CS closing it out: replacement # or handoff |
-| Open · Approved · with Procurement | Procurement sourcing the part |
+| Open · Approved · with Fulfillment | Fulfillment sourcing the part |
 | Closed · Approved | Fulfilled: replacement placed, tech updated |
 | Closed · Declined | Closed without fulfillment, documented reason |
 
-Transitions: approve (1→2), decline (1→5), assign to Procurement (2→3), return to CS (3→2), close with replacement (2→4 or 3→4), reopen (4→1 or 5→1, clears the decision). Impossible combinations, enforce server-side: Open · Declined (declining closes) and Closed · No Decision (closing requires a decision). The dashboard KPI bar renders exactly this machine (Total, then Open split into Pending Decision + Approved, Closed split into Fulfilled + Declined; Fulfilled is the UI label for Closed · Approved, matching the backend's order:fulfill action) and its tooltips state each lane's formal state; model the backend's order status as this enum or derive it from the three axes, but keep the invariants.
+Transitions: approve (1→2), decline (1→5), assign to Fulfillment (2→3), return to CS (3→2), close with replacement (2→4 or 3→4), reopen (4→1 or 5→1, clears the decision). Impossible combinations, enforce server-side: Open · Declined (declining closes) and Closed · No Decision (closing requires a decision). The dashboard KPI bar renders exactly this machine (Total, then Open split into Pending Decision + Approved, Closed split into Fulfilled + Declined; Fulfilled is the UI label for Closed · Approved, matching the backend's order:fulfill action) and its tooltips state each lane's formal state; model the backend's order status as this enum or derive it from the three axes, but keep the invariants.
 
-**Color constitution (see `lib/theme.ts`):** saturated chromatic fills are reserved for record lifecycle (event statuses; order decisions, with Approved in two green shades split by status); roles/identity are monochromatic; purple belongs to Procurement exclusively; gold is the accent/attention family. The Decision Trend chart uses `@antv/g2` directly (pinned to the version in the dependency tree) because the `@ant-design/plots` wrapper cannot express grouped-stacked columns in this version; every other chart uses the wrapper.
+**Color constitution (see `lib/theme.ts`):** saturated chromatic fills are reserved for record lifecycle (event statuses; order decisions, with Approved in two green shades split by status); roles/identity are monochromatic; purple belongs to Fulfillment exclusively; gold is the accent/attention family. The Decision Trend chart uses `@antv/g2` directly (pinned to the version in the dependency tree) because the `@ant-design/plots` wrapper cannot express grouped-stacked columns in this version; every other chart uses the wrapper.
 
 Fulfillment-loop rules (2026-07-27, demo walkthroughs in `STORIES.md`):
 
-- **Ship-to** is a property of the parts request, chosen by the tech at submission: `QualityEvent.shipTo` (`'branch'` default | `'address'`) plus `shipToAddress` (structured lite: street, city/state/zip). Surfaced on every orders screen; Procurement pastes it into shipping.
+- **Ship-to** is a property of the parts request, chosen by the tech at submission: `QualityEvent.shipTo` (`'branch'` default | `'address'`) plus `shipToAddress` (structured lite: street, city/state/zip). Surfaced on every orders screen; Fulfillment pastes it into shipping.
 - **Invalidation cascades**: invalidating an event declines and closes its open orders (decline reason "Event invalidated"). Approval is never blocked by an unanswered info request, but the UI warns first (`components/TechReplyWarning.tsx`).
 - **Same-SO sibling visibility**: the order detail surfaces other OPEN orders on the same SO (a popover off the status strip) so CS sees related demand on one install. It is read-only awareness; there is no merge action. Server-side this is a simple query: open orders sharing the `jobNo`, excluding the current order.
 
@@ -145,7 +145,7 @@ Fulfillment-loop rules (2026-07-27, demo walkthroughs in `STORIES.md`):
 
 Audited 2026-07-28 specifically for backend integration. These are the places where the prototype's architecture differs from what a production app does, in the order they will bite.
 
-**1. Ad-hoc effective-order merging (the one real structural gap).** Events have a single merge point: `lib/effectiveEvents.ts`. Orders never got the equivalent, so five files each merge `orderMutations` over static orders with their own field subsets: `dashboard/page.tsx` (an `effectiveOrders` memo with an explicit field list), `orders/page.tsx` (per-field helper functions), `procurement/page.tsx`, `orders/[id]/OrderDetailClient.tsx`, and `events/[id]/EventDetailClient.tsx`. The field lists have already drifted once (the dashboard merge had to be manually extended when a new order field landed). **For integration this is actually a simplification opportunity: replace all five sites with one orders query hook and the ad-hoc merging disappears entirely.** Do not replicate the five-site pattern server-side.
+**1. Ad-hoc effective-order merging (the one real structural gap).** Events have a single merge point: `lib/effectiveEvents.ts`. Orders never got the equivalent, so five files each merge `orderMutations` over static orders with their own field subsets: `dashboard/page.tsx` (an `effectiveOrders` memo with an explicit field list), `orders/page.tsx` (per-field helper functions), `fulfillment/page.tsx`, `orders/[id]/OrderDetailClient.tsx`, and `events/[id]/EventDetailClient.tsx`. The field lists have already drifted once (the dashboard merge had to be manually extended when a new order field landed). **For integration this is actually a simplification opportunity: replace all five sites with one orders query hook and the ad-hoc merging disappears entirely.** Do not replicate the five-site pattern server-side.
 
 **2. Screen-local optimistic state.** The two detail screens (`OrderDetailClient`, `EventDetailClient`) keep `useState` mirrors seeded from the persisted overlay (status, approved, replacement # / status, plant, parts, escalation) and every action writes both the local state and the store. This is the prototype's substitute for optimistic updates. With a real backend, replace both write paths with a mutation + cache-invalidation pattern (React Query or equivalent); do not port the double-write.
 
@@ -165,4 +165,4 @@ All runtime state lives in seven localStorage keys: `iq-event-mutations`, `iq-or
 - Dead code removed in the 2026-07-27 audit pass: `/prototype` (early dashboard draft) and `/logs` (unreachable route; `data/logs.ts` is still live, it seeds event activity logs).
 - Ant Design v6 deprecation warnings resolved; the dev console is clean.
 - Approved but unbuilt (see `AUDIT.md` "Still open"): P2 invalidation cascades decline+close to open orders; P3 approve-modal soft warning when the tech has not replied.
-- Route inventory is exactly what `pnpm build` prints: dashboard, events (+detail), orders (+detail), escalations (+detail), procurement, manage/{escalations,root-causes,tags}, account, login.
+- Route inventory is exactly what `pnpm build` prints: dashboard, events (+detail), orders (+detail), escalations (+detail), fulfillment, manage/{escalations,root-causes,tags}, account, login.

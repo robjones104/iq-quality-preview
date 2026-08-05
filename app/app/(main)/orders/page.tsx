@@ -45,7 +45,7 @@ const PROCUREMENT_CONTACTS = [
   { value: 'ptolemy.dunholm@allegion.com',   label: 'Ptolemy R. Dunholm — ptolemy.dunholm@allegion.com' },
   { value: 'leontine.foxmere@allegion.com',  label: 'Leontine M. Foxmere — leontine.foxmere@allegion.com' },
   { value: 'aldhelm.blackhill@allegion.com', label: 'Aldhelm V. Blackhill — aldhelm.blackhill@allegion.com' },
-  { value: 'procurement@allegion.com',       label: 'Procurement Team — procurement@allegion.com' },
+  { value: 'fulfillment@allegion.com',       label: 'Fulfillment Team — fulfillment@allegion.com' },
 ];
 
 const buildOrderRow = (o: Order, eventMap: Map<string, QualityEvent>): OrderRow => {
@@ -178,8 +178,8 @@ function OrdersPageContent() {
     orderMutations[row.id]?.approved ?? row.approved ?? false;
   const isDeclined = (row: OrderRow): boolean =>
     orderMutations[row.id]?.declined ?? row.declined ?? false;
-  const isWithProcurement = (row: OrderRow): boolean =>
-    orderMutations[row.id]?.assignedToProcurement ?? row.assignedToProcurement ?? false;
+  const isWithFulfillment = (row: OrderRow): boolean =>
+    orderMutations[row.id]?.assignedToFulfillment ?? row.assignedToFulfillment ?? false;
   const effectiveReplacementOrderNo = (row: OrderRow): string =>
     orderMutations[row.id]?.replacementOrderNo ?? row.replacementOrderNo ?? '';
 
@@ -236,7 +236,7 @@ function OrdersPageContent() {
     if (!activeOrderId) return;
     patchOrder(activeOrderId, { approved: true });
     if (approveAssign && approveEmail) {
-      patchOrder(activeOrderId, { assignedToProcurement: true });
+      patchOrder(activeOrderId, { assignedToFulfillment: true });
     }
     setApproveSuccess(true);
   };
@@ -258,7 +258,7 @@ function OrdersPageContent() {
 
   const handleReopen = () => {
     if (!activeOrderId || !reopenReason.trim()) return;
-    patchOrder(activeOrderId, { status: 'Open', approved: false, declined: false, assignedToProcurement: false });
+    patchOrder(activeOrderId, { status: 'Open', approved: false, declined: false, assignedToFulfillment: false });
     setReopenSuccess(true);
   };
 
@@ -292,10 +292,10 @@ function OrdersPageContent() {
       const d = dayjs(o.lastUpdated, 'MM-DD-YYYY HH:mm');
       if (d.isBefore(dateRange[0], 'day') || d.isAfter(dateRange[1], 'day')) return false;
     }
-    if (flagParam === 'procurement' && !(isApproved(o) && isWithProcurement(o))) return false;
+    if (flagParam === 'fulfillment' && !(isApproved(o) && isWithFulfillment(o))) return false;
     if (flagParam === 'info' && !(effectiveStatus(o) === 'Open' && awaitingTechReply(eventMap.get(o.eventId)?.additionalInfoRequests))) return false;
     if (flagParam === 'responded' && !(effectiveStatus(o) === 'Open' && replyReviewParty(eventMap.get(o.eventId)?.additionalInfoRequests) !== null)) return false;
-    if (flagParam === 'withCS' && !(effectiveStatus(o) === 'Open' && isApproved(o) && !isWithProcurement(o))) return false;
+    if (flagParam === 'withCS' && !(effectiveStatus(o) === 'Open' && isApproved(o) && !isWithFulfillment(o))) return false;
     const matchOrderStatus   = !appliedFiltersLocal.orderStatus?.length   || appliedFiltersLocal.orderStatus.includes(effectiveStatus(o));
     const matchDecision      = !appliedFiltersLocal.decision?.length      || appliedFiltersLocal.decision.some(d =>
       (d === 'Approved' && isApproved(o)) || (d === 'Declined' && isDeclined(o)) || (d === 'Pending' && !isApproved(o) && !isDeclined(o))
@@ -463,7 +463,7 @@ function OrdersPageContent() {
         open={approveOpen}
         onCancel={() => { setApproveOpen(false); resetApprove(); setApproveSuccess(false); }}
         onOk={handleConfirmApprove}
-        okText={approveAssign && approveEmail ? 'Approve & Notify Procurement' : 'Approve'}
+        okText={approveAssign && approveEmail ? 'Approve & Notify Fulfillment' : 'Approve'}
         okButtonProps={{ type: 'primary' }}
         footer={approveSuccess ? null : undefined}
         width={480}
@@ -491,14 +491,14 @@ function OrdersPageContent() {
               style={{ marginBottom: 12 }}
             />
             <Typography.Text style={{ display: 'block', marginBottom: 16, fontSize: token.fontSize, color: token.colorTextSecondary }}>
-              This marks the order as approved. You can assign it to procurement now or as a separate step after.
+              This marks the order as approved. You can assign it to fulfillment now or as a separate step after.
             </Typography.Text>
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               padding: '10px 12px', background: token.colorFillTertiary,
               borderRadius: token.borderRadiusSM, marginBottom: approveAssign ? 12 : 0,
             }}>
-              <Typography.Text style={{ fontSize: token.fontSize }}>Assign to Procurement</Typography.Text>
+              <Typography.Text style={{ fontSize: token.fontSize }}>Assign to Fulfillment</Typography.Text>
               <Switch
                 checked={approveAssign}
                 onChange={v => { setApproveAssign(v); if (!v) setApproveEmail(''); }}
@@ -508,7 +508,7 @@ function OrdersPageContent() {
               <Form layout="vertical" size="small" style={{ marginTop: 12 }}>
                 <Form.Item label="Notify" style={{ marginBottom: 0 }}>
                   <Select
-                    placeholder="Select procurement contact..."
+                    placeholder="Select fulfillment contact..."
                     value={approveEmail || undefined}
                     onChange={v => setApproveEmail(v)}
                     options={PROCUREMENT_CONTACTS}

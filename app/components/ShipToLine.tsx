@@ -10,7 +10,7 @@ const { Text } = Typography;
 
 // One-line ship-to summary for a parts request: the branch (normal path) or
 // the direct address the tech supplied at submission. Direct addresses get the
-// map-pin icon so CS and Procurement spot the non-standard destination.
+// map-pin icon so CS and Fulfillment spot the non-standard destination.
 export function ShipToLine({
   shipTo,
   address,

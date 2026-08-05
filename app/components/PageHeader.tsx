@@ -64,7 +64,7 @@ export function PageHeader({ left, middle, center, right, pageTitle }: Props) {
     if (pathname.startsWith('/events'))      return detail ? `Event ${detail}` : 'Events';
     if (pathname.startsWith('/orders'))      return detail ? `Order ${detail}` : 'Orders';
     if (pathname.startsWith('/escalations')) return detail ? `Escalation ${detail}` : 'Escalations';
-    if (pathname.startsWith('/procurement')) return 'Procurement';
+    if (pathname.startsWith('/fulfillment')) return 'Fulfillment';
     if (pathname.startsWith('/intake'))      return pathname.includes('/new') ? 'Report a Quality Event' : 'Intake Home';
     if (pathname.startsWith('/manage'))      return 'Categories';
     if (pathname.startsWith('/account'))     return 'Account';
@@ -77,7 +77,7 @@ export function PageHeader({ left, middle, center, right, pageTitle }: Props) {
     if (pathname.startsWith('/events'))       return '/events';
     if (pathname.startsWith('/orders'))       return '/orders';
     if (pathname.startsWith('/escalations'))  return '/escalations';
-    if (pathname.startsWith('/procurement'))  return '/procurement';
+    if (pathname.startsWith('/fulfillment'))  return '/fulfillment';
     if (pathname.startsWith('/intake'))       return '/intake';
     if (pathname.startsWith('/account'))      return 'edit-password';
     return '';
@@ -87,11 +87,11 @@ export function PageHeader({ left, middle, center, right, pageTitle }: Props) {
   // semantics for navigation); the Menu below keeps only action items.
   const navLinks = [
     ...(caps.intake           ? [{ key: '/intake',             icon: <HomeFilled />,      href: '/intake',             label: 'Home' }] : []),
-    ...(caps.dashboard        ? [{ key: '/dashboard',          icon: <HomeFilled />,      href: caps.landing,          label: 'Home' }] : []),
+    ...(caps.dashboard        ? [{ key: '/dashboard',          icon: <HomeFilled />,      href: caps.landing.startsWith('/dashboard') ? caps.landing : '/dashboard', label: 'Home' }] : []),
     ...(caps.events           ? [{ key: '/events',             icon: <CalendarFilled />,  href: navHref('/events'),    label: 'Events' }] : []),
     ...(caps.orders           ? [{ key: '/orders',             icon: <ShoppingFilled />,  href: navHref('/orders'),    label: 'Orders' }] : []),
     ...(caps.escalations      ? [{ key: '/escalations',        icon: <FlagFilled />,      href: '/escalations',        label: 'Escalations' }] : []),
-    ...(caps.procurementQueue ? [{ key: '/procurement',        icon: <ContainerFilled />, href: '/procurement',        label: 'Procurement' }] : []),
+    ...(caps.fulfillmentQueue ? [{ key: '/fulfillment',        icon: <ContainerFilled />, href: '/fulfillment',        label: 'Fulfillment' }] : []),
     ...(caps.categories       ? [{ key: '/manage/root-causes', icon: <DatabaseFilled />,  href: '/manage/root-causes', label: 'Categories' }] : []),
   ];
 

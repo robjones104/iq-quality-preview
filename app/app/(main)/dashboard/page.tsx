@@ -426,7 +426,7 @@ function DashboardPageContent() {
       approved:              m.approved ?? o.approved,
       declined:              m.declined ?? o.declined,
       declineReason:         m.declineReason ?? o.declineReason,
-      assignedToProcurement: m.assignedToProcurement ?? o.assignedToProcurement,
+      assignedToFulfillment: m.assignedToFulfillment ?? o.assignedToFulfillment,
       replacementOrderNo:    m.replacementOrderNo ?? o.replacementOrderNo,
     };
   }), [orders, orderMutations]);

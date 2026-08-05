@@ -10,7 +10,7 @@ export const NAV_TOP: NavItem[] = [
   { href: '/dashboard', label: 'Home' },
   { href: '/events', label: 'Events' },
   { href: '/orders', label: 'Orders' },
-  { href: '/procurement', label: 'Procurement' },
+  { href: '/fulfillment', label: 'Fulfillment' },
 ];
 
 export const NAV_MANAGE: NavItem[] = [

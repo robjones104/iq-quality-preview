@@ -49,7 +49,7 @@ const PROCUREMENT_CONTACTS = [
   { value: 'ptolemy.dunholm@allegion.com',   label: 'Ptolemy R. Dunholm — ptolemy.dunholm@allegion.com' },
   { value: 'leontine.foxmere@allegion.com',  label: 'Leontine M. Foxmere — leontine.foxmere@allegion.com' },
   { value: 'aldhelm.blackhill@allegion.com', label: 'Aldhelm V. Blackhill — aldhelm.blackhill@allegion.com' },
-  { value: 'procurement@allegion.com',       label: 'Procurement Team — procurement@allegion.com' },
+  { value: 'fulfillment@allegion.com',       label: 'Fulfillment Team — fulfillment@allegion.com' },
 ];
 
 const nowTs = (): string => nowStampUs();
@@ -89,17 +89,17 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
   const effEventMap = useEffectiveEventMap();
   const ordStored = orderMutations[order.id] ?? {};
 
-  // Role capabilities. Customer Service decides (approve/decline); CS + Procurement
+  // Role capabilities. Customer Service decides (approve/decline); CS + Fulfillment
   // close/assign/enter replacement #. Other roles get a read-only order view.
   const caps = useCapabilities();
   const role = useRoleStore(st => st.role);
   const canDecide = caps.decideOrders;
   const canClose = caps.closeOrders;
   const canActOnOrder = canDecide || canClose;
-  // Ownership context (Rob 2026-08-05): while an order sits with Procurement,
+  // Ownership context (Rob 2026-08-05): while an order sits with Fulfillment,
   // Customer Service gets no close/return actions; while unassigned,
-  // Procurement gets none. Full Access demos both sides.
-  const actsAsProcurement = role === 'Procurement' || role === 'Full Access';
+  // Fulfillment gets none. Full Access demos both sides.
+  const actsAsFulfillment = role === 'Fulfillment' || role === 'Full Access';
   const actsAsCs          = role === 'Customer Service' || role === 'Full Access';
 
   const [status, setStatus]             = useState<Status>(ordStored.status ?? (order.orderStatus as Status));
@@ -110,7 +110,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
   const declined = (ordStored.declined ?? order.declined) === true;
   const [parts, setParts]               = useState<OrderPart[]>([...order.parts]);
   const [activeTab, setActiveTab]       = useState('details');
-  const [assignedToProcurement, setAssignedToProcurement] = useState(ordStored.assignedToProcurement ?? order.assignedToProcurement ?? false);
+  const [assignedToFulfillment, setAssignedToFulfillment] = useState(ordStored.assignedToFulfillment ?? order.assignedToFulfillment ?? false);
   const [replacementOrderNo, setReplacementOrderNo]       = useState(ordStored.replacementOrderNo ?? '');
   const [editingReplacement, setEditingReplacement]       = useState(false);
   const [replacementDraft, setReplacementDraft]           = useState('');
@@ -130,15 +130,15 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
   // Modals
   const [approveOpen, setApproveOpen]                             = useState(false);
   const [approveAssign, setApproveAssign]                         = useState(false);
-  const [approveProcurementEmail, setApproveProcurementEmail]     = useState('');
+  const [approveFulfillmentEmail, setApproveFulfillmentEmail]     = useState('');
   const [closeOpen, setCloseOpen]                       = useState(false);
   const [closeReplacementOrderNo, setCloseReplacementOrderNo] = useState('');
   const [declineOpen, setDeclineOpen]                   = useState(false);
   const [declineReason, setDeclineReason]               = useState('');
   const [reopenOpen, setReopenOpen]                     = useState(false);
   const [reopenReason, setReopenReason]                 = useState('');
-  const [procurementOpen, setProcurementOpen]           = useState(false);
-  const [procurementEmail, setProcurementEmail]         = useState('');
+  const [fulfillmentOpen, setFulfillmentOpen]           = useState(false);
+  const [fulfillmentEmail, setFulfillmentEmail]         = useState('');
   const [returnOpen, setReturnOpen]                     = useState(false);
   const [returnComment, setReturnComment]               = useState('');
 
@@ -149,7 +149,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
   const [declineSuccess,     setDeclineSuccess]     = useState(false);
   const [closeSuccess,       setCloseSuccess]       = useState(false);
   const [reopenSuccess,      setReopenSuccess]      = useState(false);
-  const [procurementSuccess, setProcurementSuccess] = useState(false);
+  const [fulfillmentSuccess, setFulfillmentSuccess] = useState(false);
   const [returnSuccess,      setReturnSuccess]      = useState(false);
 
   const isMissingHardware = event.issue === 'Missing Hardware';
@@ -167,7 +167,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
       id: String(Date.now()),
       timestamp: nowTs(),
       role: role ?? (auto ? 'System' : 'Customer Service'),
-      employee: auto ? 'System' : capabilitiesFor(role === 'Procurement' ? 'Procurement' : 'Customer Service').displayName,
+      employee: auto ? 'System' : capabilitiesFor(role === 'Fulfillment' ? 'Fulfillment' : 'Customer Service').displayName,
       orderStatus: atStatus ?? status,
       submittedStatus: event.status,
       content,
@@ -185,10 +185,10 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
   const handleConfirmApprove = () => {
     setApproved(true);
     patchOrder(order.id, { approved: true });
-    if (approveAssign && approveProcurementEmail) {
-      setAssignedToProcurement(true);
-      patchOrder(order.id, { assignedToProcurement: true });
-      addLog(`Order approved. Assigned to Procurement. Notified: ${approveProcurementEmail}`, false);
+    if (approveAssign && approveFulfillmentEmail) {
+      setAssignedToFulfillment(true);
+      patchOrder(order.id, { assignedToFulfillment: true });
+      addLog(`Order approved. Assigned to Fulfillment. Notified: ${approveFulfillmentEmail}`, false);
     } else {
       addLog('Order approved.', false);
     }
@@ -207,19 +207,19 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
     if (!reopenReason.trim()) return;
     setStatus('Open');
     setApproved(false);
-    setAssignedToProcurement(false);
+    setAssignedToFulfillment(false);
     setReplacementOrderNo('');
-    patchOrder(order.id, { status: 'Open', approved: false, declined: false, assignedToProcurement: false, replacementOrderNo: '' });
+    patchOrder(order.id, { status: 'Open', approved: false, declined: false, assignedToFulfillment: false, replacementOrderNo: '' });
     addLog(`Order reopened. Reason: ${reopenReason}`, false, 'Open');
     setReopenSuccess(true);
   };
 
-  const handleAssignProcurement = () => {
-    if (!procurementEmail) return;
-    setAssignedToProcurement(true);
-    patchOrder(order.id, { assignedToProcurement: true });
-    addLog(`Assigned to Procurement. Notified: ${procurementEmail}`, false);
-    setProcurementSuccess(true);
+  const handleAssignFulfillment = () => {
+    if (!fulfillmentEmail) return;
+    setAssignedToFulfillment(true);
+    patchOrder(order.id, { assignedToFulfillment: true });
+    addLog(`Assigned to Fulfillment. Notified: ${fulfillmentEmail}`, false);
+    setFulfillmentSuccess(true);
   };
 
 
@@ -257,7 +257,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
         ? { shipToAddress: { street: shipToStreetDraft.trim(), cityStateZip: shipToCityDraft.trim() } }
         : {}),
     });
-    addLog(`Ship-to updated: ${summary}`, false, undefined, assignedToProcurement ? 'Procurement' : undefined);
+    addLog(`Ship-to updated: ${summary}`, false, undefined, assignedToFulfillment ? 'Fulfillment' : undefined);
     pushActivityLog(event.id, {
       id: `shipto_${Date.now()}`,
       eventId: event.id,
@@ -281,9 +281,9 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
 
   const handleReturnToCS = () => {
     if (!returnComment.trim()) return;
-    setAssignedToProcurement(false);
-    patchOrder(order.id, { assignedToProcurement: false });
-    addLog(`Returned to Customer Service. Reason: ${returnComment.trim()}`, false, undefined, 'Procurement');
+    setAssignedToFulfillment(false);
+    patchOrder(order.id, { assignedToFulfillment: false });
+    addLog(`Returned to Customer Service. Reason: ${returnComment.trim()}`, false, undefined, 'Fulfillment');
     setReturnSuccess(true);
   };
 
@@ -292,7 +292,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
     if (!val) return;
     setReplacementOrderNo(val);
     patchOrder(order.id, { replacementOrderNo: val });
-    addLog(`Replacement Order #: ${val}`, false, undefined, assignedToProcurement ? 'Procurement' : undefined);
+    addLog(`Replacement Order #: ${val}`, false, undefined, assignedToFulfillment ? 'Fulfillment' : undefined);
     setEditingReplacement(false);
   };
 
@@ -427,7 +427,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
       label: 'Approved',
       // Ownership note replaces the old header tag (Rob 2026-08-05).
       sublabel: status === 'Open' && stepIdx === 1 && !declined
-        ? (assignedToProcurement ? 'With Procurement' : 'With Customer Service')
+        ? (assignedToFulfillment ? 'With Fulfillment' : 'With Customer Service')
         : undefined,
       color: '#95de64',
       // Declined orders never passed Approved: the step renders unreached.
@@ -460,18 +460,18 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
           </Button>
         </>
       )}
-      {status === 'Open' && approved && canClose && !assignedToProcurement && actsAsCs && (
+      {status === 'Open' && approved && canClose && !assignedToFulfillment && actsAsCs && (
         <>
-          <Button icon={<SendOutlined />} onClick={() => setProcurementOpen(true)}>
-            Assign to Procurement
+          <Button icon={<SendOutlined />} onClick={() => setFulfillmentOpen(true)}>
+            Assign to Fulfillment
           </Button>
           <Button type="primary" icon={<CheckOutlined />} onClick={() => { setCloseReplacementOrderNo(replacementOrderNo); setCloseOpen(true); }}>
             Close Order
           </Button>
         </>
       )}
-      {status === 'Open' && approved && canClose && assignedToProcurement && (
-        actsAsProcurement ? (
+      {status === 'Open' && approved && canClose && assignedToFulfillment && (
+        actsAsFulfillment ? (
           <>
             <Button icon={<RollbackOutlined />} onClick={() => setReturnOpen(true)}>
               Return to Customer Service
@@ -482,7 +482,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
           </>
         ) : (
           <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary }}>
-            With Procurement
+            With Fulfillment
           </Text>
         )
       )}
@@ -499,13 +499,13 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
       { key: 'approve',  icon: <CheckOutlined />,  label: 'Approve',  onClick: handleApprove },
       { key: 'decline',  icon: <CloseOutlined />,  label: 'Decline',  onClick: () => setDeclineOpen(true) },
     ] : []),
-    ...(status === 'Open' && approved && !assignedToProcurement && canClose && actsAsCs ? [
-      { key: 'procurement', icon: <SendOutlined />, label: 'Assign to Procurement', onClick: () => setProcurementOpen(true) },
+    ...(status === 'Open' && approved && !assignedToFulfillment && canClose && actsAsCs ? [
+      { key: 'fulfillment', icon: <SendOutlined />, label: 'Assign to Fulfillment', onClick: () => setFulfillmentOpen(true) },
     ] : []),
-    ...(status === 'Open' && approved && assignedToProcurement && canClose && actsAsProcurement ? [
+    ...(status === 'Open' && approved && assignedToFulfillment && canClose && actsAsFulfillment ? [
       { key: 'return', icon: <RollbackOutlined />, label: 'Return to Customer Service', onClick: () => setReturnOpen(true) },
     ] : []),
-    ...(status === 'Open' && approved && canClose && (assignedToProcurement ? actsAsProcurement : actsAsCs) ? [
+    ...(status === 'Open' && approved && canClose && (assignedToFulfillment ? actsAsFulfillment : actsAsCs) ? [
       { key: 'close', icon: <CheckOutlined />, label: 'Close Order', onClick: () => { setCloseReplacementOrderNo(replacementOrderNo); setCloseOpen(true); } },
     ] : []),
     ...(status === 'Closed' && canDecide ? [
@@ -630,7 +630,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
             )}
             {/* Cross-link lives in the header beside the status chip so it is
                 consistently findable on both detail pages (Rob, 2026-08-04).
-                Roles without Events access (Procurement) get event context
+                Roles without Events access (Fulfillment) get event context
                 from the Event Details tab instead. */}
             {!isMobile && caps.events && (
               <Link href={`/events/${event.id}`} style={{ fontSize: token.fontSizeSM, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
@@ -679,7 +679,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
                   {stage.label}
                 </Text>
                 {(stage as { sublabel?: string }).sublabel && (
-                  <Text style={{ fontSize: token.fontSizeXS, fontWeight: 500, whiteSpace: 'nowrap', marginTop: 2, color: (stage as { sublabel?: string }).sublabel === 'With Procurement' ? (isDarkTheme ? OWNERSHIP_TEXT.dark : OWNERSHIP_TEXT.light) : (isDarkTheme ? AA_INACTIVE_LABEL.dark : AA_INACTIVE_LABEL.light) }}>
+                  <Text style={{ fontSize: token.fontSizeXS, fontWeight: 500, whiteSpace: 'nowrap', marginTop: 2, color: (stage as { sublabel?: string }).sublabel === 'With Fulfillment' ? (isDarkTheme ? OWNERSHIP_TEXT.dark : OWNERSHIP_TEXT.light) : (isDarkTheme ? AA_INACTIVE_LABEL.dark : AA_INACTIVE_LABEL.light) }}>
                     {(stage as { sublabel?: string }).sublabel}
                   </Text>
                 )}
@@ -1069,9 +1069,9 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
         title={approveSuccess ? <span className="sr-only">Approve Order</span> : 'Approve Order'}
         styles={{ header: approveSuccess ? { marginBottom: 0 } : undefined }}
         open={approveOpen}
-        onCancel={() => { setApproveOpen(false); setApproveAssign(false); setApproveProcurementEmail(''); setApproveSuccess(false); }}
+        onCancel={() => { setApproveOpen(false); setApproveAssign(false); setApproveFulfillmentEmail(''); setApproveSuccess(false); }}
         onOk={handleConfirmApprove}
-        okText={approveAssign && approveProcurementEmail ? 'Approve & Notify Procurement' : 'Approve'}
+        okText={approveAssign && approveFulfillmentEmail ? 'Approve & Notify Fulfillment' : 'Approve'}
         okButtonProps={{ type: 'primary' }}
         footer={approveSuccess ? null : undefined}
         width={480}
@@ -1084,19 +1084,19 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
             </div>
             <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
               {order.eventId} has been approved.{' '}
-              {approveAssign && approveProcurementEmail
-                ? `Email notifications sent to ${event.branch} branch and ${approveProcurementEmail}.`
+              {approveAssign && approveFulfillmentEmail
+                ? `Email notifications sent to ${event.branch} branch and ${approveFulfillmentEmail}.`
                 : `Email notification sent to ${event.branch} branch.`}
             </Text>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Button type="primary" onClick={() => { setApproveOpen(false); setApproveAssign(false); setApproveProcurementEmail(''); setApproveSuccess(false); }}>Done</Button>
+              <Button type="primary" onClick={() => { setApproveOpen(false); setApproveAssign(false); setApproveFulfillmentEmail(''); setApproveSuccess(false); }}>Done</Button>
             </div>
           </div>
         ) : (
           <>
             <TechReplyWarning thread={event.additionalInfoRequests} style={{ marginBottom: 12 }} />
             <Text style={{ display: 'block', marginBottom: 16, fontSize: token.fontSize, color: token.colorTextSecondary }}>
-              This marks the order as approved. You can assign it to procurement now or as a separate step after.
+              This marks the order as approved. You can assign it to fulfillment now or as a separate step after.
             </Text>
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -1105,10 +1105,10 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
               borderRadius: token.borderRadiusSM,
               marginBottom: approveAssign ? 12 : 0,
             }}>
-              <Text style={{ fontSize: token.fontSize }}>Assign to Procurement</Text>
+              <Text style={{ fontSize: token.fontSize }}>Assign to Fulfillment</Text>
               <Switch
                 checked={approveAssign}
-                onChange={v => { setApproveAssign(v); if (!v) setApproveProcurementEmail(''); }}
+                onChange={v => { setApproveAssign(v); if (!v) setApproveFulfillmentEmail(''); }}
               />
             </div>
             {approveAssign && (
@@ -1116,9 +1116,9 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
                 <Form.Item label="Notify" style={{ marginBottom: 0 }}>
                   <Select
                     aria-label="Notify"
-                    placeholder="Select procurement contact..."
-                    value={approveProcurementEmail || undefined}
-                    onChange={v => setApproveProcurementEmail(v)}
+                    placeholder="Select fulfillment contact..."
+                    value={approveFulfillmentEmail || undefined}
+                    onChange={v => setApproveFulfillmentEmail(v)}
                     options={PROCUREMENT_CONTACTS}
                     style={{ width: '100%' }}
                   />
@@ -1215,41 +1215,41 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
 
       {/* ASSIGN TO PROCUREMENT MODAL */}
       <Modal
-        title={procurementSuccess ? <span className="sr-only">Assign to Procurement</span> : 'Assign to Procurement'}
-        styles={{ header: procurementSuccess ? { marginBottom: 0 } : undefined }}
-        open={procurementOpen}
-        onCancel={() => { setProcurementOpen(false); setProcurementEmail(''); setProcurementSuccess(false); }}
-        onOk={handleAssignProcurement}
+        title={fulfillmentSuccess ? <span className="sr-only">Assign to Fulfillment</span> : 'Assign to Fulfillment'}
+        styles={{ header: fulfillmentSuccess ? { marginBottom: 0 } : undefined }}
+        open={fulfillmentOpen}
+        onCancel={() => { setFulfillmentOpen(false); setFulfillmentEmail(''); setFulfillmentSuccess(false); }}
+        onOk={handleAssignFulfillment}
         okText="Assign & Notify"
-        okButtonProps={{ type: 'primary', disabled: !procurementEmail }}
-        footer={procurementSuccess ? null : undefined}
+        okButtonProps={{ type: 'primary', disabled: !fulfillmentEmail }}
+        footer={fulfillmentSuccess ? null : undefined}
         width={480}
       >
-        {procurementSuccess ? (
+        {fulfillmentSuccess ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: token.fontSize }} />
-              <Text style={{ fontSize: token.fontSize, fontWeight: 600 }}>Assigned to Procurement</Text>
+              <Text style={{ fontSize: token.fontSize, fontWeight: 600 }}>Assigned to Fulfillment</Text>
             </div>
             <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
-              {order.eventId} has been assigned to procurement. Email notifications sent to {event.branch} branch and {procurementEmail}.
+              {order.eventId} has been assigned to fulfillment. Email notifications sent to {event.branch} branch and {fulfillmentEmail}.
             </Text>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Button type="primary" onClick={() => { setProcurementOpen(false); setProcurementEmail(''); setProcurementSuccess(false); }}>Done</Button>
+              <Button type="primary" onClick={() => { setFulfillmentOpen(false); setFulfillmentEmail(''); setFulfillmentSuccess(false); }}>Done</Button>
             </div>
           </div>
         ) : (
           <>
             <Text style={{ display: 'block', marginBottom: 16, fontSize: token.fontSize, color: token.colorTextSecondary }}>
-              Notify a procurement contact for this order.
+              Notify a fulfillment contact for this order.
             </Text>
             <Form layout="vertical" size="small">
               <Form.Item label="Notify" style={{ marginBottom: 0 }}>
                 <Select
                   aria-label="Notify"
-                  placeholder="Select procurement contact..."
-                  value={procurementEmail || undefined}
-                  onChange={v => setProcurementEmail(v)}
+                  placeholder="Select fulfillment contact..."
+                  value={fulfillmentEmail || undefined}
+                  onChange={v => setFulfillmentEmail(v)}
                   options={PROCUREMENT_CONTACTS}
                   style={{ width: '100%' }}
                 />
@@ -1386,7 +1386,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
         ) : (
           <>
             <Text style={{ display: 'block', marginBottom: 12, fontSize: token.fontSize, color: token.colorTextSecondary }}>
-              This order cannot be fulfilled by Procurement (e.g. discontinued parts). Please provide a comment explaining why it&apos;s being returned.
+              This order cannot be fulfilled by Fulfillment (e.g. discontinued parts). Please provide a comment explaining why it&apos;s being returned.
             </Text>
             <Input.TextArea
               aria-label="Reason for returning to Customer Service"

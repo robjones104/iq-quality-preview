@@ -3,7 +3,7 @@ import type { ActivityLog, EventStatus } from './types';
 const roles = [
   'Field Quality',
   'Customer Service',
-  'Procurement',
+  'Fulfillment',
   'Branch View-Only',
   'App Manager',
   'Field Technician',
@@ -141,7 +141,7 @@ const SEED_LOGS: ActivityLog[] = [
   { id: 'LOG_1118', eventId: 'QE_2397', date: '2026-06-18 07:55', role: 'Field Technician', employee: 'Ebenezer C. Moorwick', status: 'Reported', comment: 'Event reported via mobile field app. Door package delivered with RH operator. Job spec requires LH. Cannot proceed with installation. Customer has hard deadline.' },
   { id: 'LOG_1119', eventId: 'QE_2397', date: '2026-06-18 08:20', role: 'Field Quality', employee: 'Lysander H. Thorndale', status: 'Reported', comment: 'Order reviewed. Hand-of-door spec confirmed LH on original WO paperwork. Event logged as Incorrect Build and escalated to Under Investigation.' },
   { id: 'LOG_1120', eventId: 'QE_2397', date: '2026-06-18 08:45', role: 'Field Quality', employee: 'Lysander H. Thorndale', status: 'Under Investigation', comment: 'Additional info requested: photo of unit label as delivered and copy of delivery receipt confirming RH shipment for FAR build record.' },
-  { id: 'LOG_1121', eventId: 'QE_2397', date: '2026-06-18 10:00', role: 'Customer Service', employee: 'Chris A.', status: 'Under Investigation', comment: 'LH operator and guide rail order opened. Procurement flagged as urgent — customer installation deadline is end of this week.' },
+  { id: 'LOG_1121', eventId: 'QE_2397', date: '2026-06-18 10:00', role: 'Customer Service', employee: 'Chris A.', status: 'Under Investigation', comment: 'LH operator and guide rail order opened. Fulfillment flagged as urgent — customer installation deadline is end of this week.' },
   { id: 'LOG_1122', eventId: 'QE_2397', date: '2026-06-18 11:30', role: 'Field Quality', employee: 'Lysander H. Thorndale', status: 'Under Investigation', comment: 'Orlando branch manager notified of timeline risk. Escalation will be filed if replacement shipment is not confirmed by end of day.' },
 
   // QE_2398 — Detroit, Glass, Factory Issue (Validated)

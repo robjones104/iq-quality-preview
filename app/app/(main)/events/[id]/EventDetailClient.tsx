@@ -429,7 +429,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
 
   const caps = useCapabilities();
   const roleCanEdit = caps.editEvents;
-  // Read-only for roles without event-edit rights (CS, Procurement, view-only),
+  // Read-only for roles without event-edit rights (CS, Fulfillment, view-only),
   // and for terminal statuses. `locked` keeps the existing status-lock messaging;
   // `editable` additionally respects the current role and gates every edit
   // affordance below.

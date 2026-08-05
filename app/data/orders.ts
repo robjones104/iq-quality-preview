@@ -27,7 +27,7 @@ export interface Order {
   approved?: boolean;
   declined?: boolean;
   declineReason?: string;
-  assignedToProcurement?: boolean;
+  assignedToFulfillment?: boolean;
   replacementOrderNo?: string;
 }
 
@@ -111,7 +111,7 @@ function generateBulkOrders(): Order[] {
 
     const isApproved = isClosed ? r() < 0.77 : r() < 0.12;
     const isDeclined = !isApproved && isClosed;
-    const isProcurement = isApproved && r() < 0.58;
+    const isFulfillment = isApproved && r() < 0.58;
 
     // An order's job number is its linked event's job number, matching the
     // hand-authored orders. The two draws that used to mint an independent
@@ -141,7 +141,7 @@ function generateBulkOrders(): Order[] {
       lastUpdated,
       ...(isApproved    ? { approved: true }               : {}),
       ...(isDeclined    ? { declined: true, declineReason: pick(DECLINE_REASONS, r()) } : {}),
-      ...(isProcurement ? { assignedToProcurement: true }  : {}),
+      ...(isFulfillment ? { assignedToFulfillment: true }  : {}),
     });
   }
 
@@ -170,13 +170,13 @@ const HAND_CRAFTED_ORDERS: Order[] = [
     ],
   },
   {
-    id: 'QE_2388_Order', eventId: 'QE_2388', orderStatus: 'Closed', jobNo: 'SO109819034', lastUpdated: '06-03-2026 09:14', approved: true, assignedToProcurement: true,
+    id: 'QE_2388_Order', eventId: 'QE_2388', orderStatus: 'Closed', jobNo: 'SO109819034', lastUpdated: '06-03-2026 09:14', approved: true, assignedToFulfillment: true,
     parts: [
       { seqNo: 1, configId: 'SO109819034.1', dfoLineItem: 1, door: 'Dura_Glide 3000 Series', partNumber: '413858-3', quantityType: 'Piece', quantity: 1, partDescription: 'Motor Gearbox Assembly - (VARIANT A, 24V, NAR)' },
     ],
   },
   {
-    id: 'QE_2385_Order', eventId: 'QE_2385', orderStatus: 'Closed', jobNo: 'SO109816772', lastUpdated: '06-03-2026 14:55', approved: true, assignedToProcurement: true,
+    id: 'QE_2385_Order', eventId: 'QE_2385', orderStatus: 'Closed', jobNo: 'SO109816772', lastUpdated: '06-03-2026 14:55', approved: true, assignedToFulfillment: true,
     parts: [
       { seqNo: 1, configId: 'SO109816772.1', dfoLineItem: 1, door: 'Dura_Glide 3000 Series', partNumber: '421033-1', quantityType: 'Piece', quantity: 3, partDescription: 'Controller PCB Assembly - (STANDARD, 24VDC, NAR)' },
     ],
@@ -188,7 +188,7 @@ const HAND_CRAFTED_ORDERS: Order[] = [
     ],
   },
   {
-    id: 'QE_2379_Order', eventId: 'QE_2379', orderStatus: 'Closed', jobNo: 'SO109812088', lastUpdated: '06-02-2026 08:31', approved: true, assignedToProcurement: true,
+    id: 'QE_2379_Order', eventId: 'QE_2379', orderStatus: 'Closed', jobNo: 'SO109812088', lastUpdated: '06-02-2026 08:31', approved: true, assignedToFulfillment: true,
     parts: [
       { seqNo: 1, configId: 'SO109812088.1', dfoLineItem: 2, door: 'Procare 8500', partNumber: '430114-1', quantityType: 'Piece', quantity: 1, partDescription: 'Door Closer Spring - (STANDARD DUTY, SIZE 4, NAR)' },
       { seqNo: 2, configId: 'SO109812088.2', dfoLineItem: 2, door: 'Procare 8500', partNumber: '430114-2', quantityType: 'Piece', quantity: 1, partDescription: 'Strike Plate Assembly - (ANSI, SS, NAR)' },
@@ -201,7 +201,7 @@ const HAND_CRAFTED_ORDERS: Order[] = [
     ],
   },
   {
-    id: 'QE_2373_Order', eventId: 'QE_2373', orderStatus: 'Closed', jobNo: 'SO109807412', lastUpdated: '05-31-2026 17:19', approved: true, assignedToProcurement: true,
+    id: 'QE_2373_Order', eventId: 'QE_2373', orderStatus: 'Closed', jobNo: 'SO109807412', lastUpdated: '05-31-2026 17:19', approved: true, assignedToFulfillment: true,
     parts: [
       { seqNo: 1, configId: 'SO109807412.1', dfoLineItem: 3, door: 'All Glass 2000', partNumber: '440221-1', quantityType: 'Piece', quantity: 1, partDescription: 'Glass Panel - (TEMPERED, CLEAR, NAR)' },
     ],
@@ -232,7 +232,7 @@ const HAND_CRAFTED_ORDERS: Order[] = [
     ],
   },
   {
-    id: 'QE_2358_Order', eventId: 'QE_2358', orderStatus: 'Closed', jobNo: 'SO109795847', lastUpdated: '05-26-2026 11:05', approved: true, assignedToProcurement: true,
+    id: 'QE_2358_Order', eventId: 'QE_2358', orderStatus: 'Closed', jobNo: 'SO109795847', lastUpdated: '05-26-2026 11:05', approved: true, assignedToFulfillment: true,
     parts: [
       { seqNo: 1, configId: 'SO109795847.1', dfoLineItem: 2, door: 'Procare 8300', partNumber: '421034-1', quantityType: 'Piece', quantity: 24, partDescription: 'Controller PCB Assembly - (FIRMWARE V1.8, 24VDC, NAR)' },
     ],
@@ -278,7 +278,7 @@ const HAND_CRAFTED_ORDERS: Order[] = [
     ],
   },
   {
-    id: 'QE_2396_Order', eventId: 'QE_2396', orderStatus: 'Open', jobNo: 'SO110015901', lastUpdated: '06-17-2026 13:12', approved: true, assignedToProcurement: true,
+    id: 'QE_2396_Order', eventId: 'QE_2396', orderStatus: 'Open', jobNo: 'SO110015901', lastUpdated: '06-17-2026 13:12', approved: true, assignedToFulfillment: true,
     parts: [
       { seqNo: 1, hardwareKitInfo: 'Entire Hardware Kit', serialNumber: '519004-4', configId: 'SO110015901.1', dfoLineItem: 4, door: 'IS 10000', partNumber: '425902-1', quantityType: 'Piece', quantity: 1, partDescription: 'Activation Sensor Assembly - (IS 10000, STANDARD, NAR)' },
       { seqNo: 2, configId: 'SO110015901.1', dfoLineItem: 2, door: 'IS 10000', partNumber: '425902-1', quantityType: 'Piece', quantity: 1, partDescription: 'Activation Sensor Assembly - (IS 10000, STANDARD, NAR)' },
@@ -295,7 +295,7 @@ const HAND_CRAFTED_ORDERS: Order[] = [
     ],
   },
   {
-    id: 'QE_2398_Order', eventId: 'QE_2398', orderStatus: 'Closed', jobNo: 'SO110017512', lastUpdated: '06-18-2026 10:28', approved: true, assignedToProcurement: true,
+    id: 'QE_2398_Order', eventId: 'QE_2398', orderStatus: 'Closed', jobNo: 'SO110017512', lastUpdated: '06-18-2026 10:28', approved: true, assignedToFulfillment: true,
     parts: [
       { seqNo: 1, hardwareKitInfo: 'Components within Hardware Kit', serialNumber: '519006-2', configId: 'SO110017512.1', dfoLineItem: 2, door: 'All Glass 2000', partNumber: '440222-1', quantityType: 'Piece', quantity: 1, partDescription: 'Tempered Glass Panel - (ALL GLASS 2000, CLEAR, NAR)' },
       { seqNo: 2, configId: 'SO110017512.2', dfoLineItem: 2, door: 'All Glass 2000', partNumber: '440222-2', quantityType: 'Piece', quantity: 2, partDescription: 'Glass Retainer Clip - (STANDARD, SS, NAR)' },
@@ -327,7 +327,7 @@ const HAND_CRAFTED_ORDERS: Order[] = [
     ],
   },
   {
-    id: 'QE_2402_Order', eventId: 'QE_2402', orderStatus: 'Closed', jobNo: 'SO110021334', lastUpdated: '06-20-2026 11:32', approved: true, assignedToProcurement: true,
+    id: 'QE_2402_Order', eventId: 'QE_2402', orderStatus: 'Closed', jobNo: 'SO110021334', lastUpdated: '06-20-2026 11:32', approved: true, assignedToFulfillment: true,
     parts: [
       { seqNo: 1, hardwareKitInfo: 'Entire Hardware Kit', serialNumber: '519010-1', configId: 'SO110021334.1', dfoLineItem: 1, door: 'Duraguard 3000', partNumber: '450901-1', quantityType: 'Piece', quantity: 1, partDescription: 'Panel Assembly - (DURAGUARD 3000, ANODIZED, NAR)' },
       { seqNo: 2, configId: 'SO110021334.1', dfoLineItem: 2, door: 'Dura_Glide 5200', partNumber: '437110-1', quantityType: 'Piece', quantity: 1, partDescription: 'LH Operator Assembly - (DURA-GLIDE 5200, LH, NAR)' },

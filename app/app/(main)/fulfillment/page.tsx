@@ -34,7 +34,7 @@ const buildOrderRow = (o: Order, eventMap: Map<string, QualityEvent>): OrderRow 
   };
 };
 
-export default function ProcurementPage() {
+export default function FulfillmentPage() {
   const { token } = theme.useToken();
 
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
@@ -52,7 +52,7 @@ export default function ProcurementPage() {
     orderMutations[row.id]?.status ?? (row.orderStatus as OrderStatus);
 
   const queue = useMemo(() => orderRows.filter(o => {
-    const assigned = orderMutations[o.id]?.assignedToProcurement ?? o.assignedToProcurement ?? false;
+    const assigned = orderMutations[o.id]?.assignedToFulfillment ?? o.assignedToFulfillment ?? false;
     if (!assigned) return false;
     if (!showClosed && (orderMutations[o.id]?.status ?? o.orderStatus) !== 'Open') return false;
     if (dateRange) {
@@ -157,7 +157,7 @@ export default function ProcurementPage() {
       <div style={{ padding: '16px 20px' }}>
         <Card size="small" style={{ marginBottom: 12 }}>
           <Typography.Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
-            Orders assigned to Procurement by Customer Service. Close an order once the replacement has been placed in the ERP, or return it to Customer Service if it can&apos;t be fulfilled.
+            Orders assigned to Fulfillment by Customer Service. Close an order once the replacement has been placed in the ERP, or return it to Customer Service if it can&apos;t be fulfilled.
           </Typography.Text>
         </Card>
         <Table

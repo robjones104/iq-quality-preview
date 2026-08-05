@@ -111,7 +111,7 @@ export const DARK_SEED_OVERRIDES: ThemeConfig['token'] = {
 //                green, Declined red. Orange is Events-only.
 //   - Open/Closed containers are NEUTRAL chips on both record types.
 //   - ROLES/IDENTITY are monochromatic; names carry the meaning.
-//   - PURPLE = Procurement (location), exclusively.
+//   - PURPLE = Fulfillment (location), exclusively.
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------

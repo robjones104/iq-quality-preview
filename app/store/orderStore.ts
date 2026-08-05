@@ -18,7 +18,7 @@ type OrderMutations = {
   approved?: boolean;
   declined?: boolean;
   declineReason?: string;
-  assignedToProcurement?: boolean;
+  assignedToFulfillment?: boolean;
   replacementOrderNo?: string;
   logAdditions?: OrderLogEntry[];
 };

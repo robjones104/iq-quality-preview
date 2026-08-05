@@ -30,7 +30,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ style?: React.CSSProperties
   'Events': CalendarFilled,
   'Orders': ShoppingFilled,
   'Escalations': FlagFilled,
-  'Procurement': ContainerFilled,
+  'Fulfillment': ContainerFilled,
   'Categories': DatabaseFilled,
 };
 
@@ -55,11 +55,14 @@ export function SidebarNav() {
   // world (/intake); the role has no other operational surfaces.
   const visibleNav: { href: string; label: string }[] = [
     ...(caps.intake ? [{ href: '/intake', label: 'Home' }] : []),
-    ...(caps.dashboard ? [{ href: caps.landing, label: 'Home' }] : []),
+    // Home follows the landing only when it IS a dashboard (CS's orders
+    // view); queue-landing roles keep Home = dashboard so the queue nav item
+    // highlights alone on its page.
+    ...(caps.dashboard ? [{ href: caps.landing.startsWith('/dashboard') ? caps.landing : '/dashboard', label: 'Home' }] : []),
     ...(caps.events ? [{ href: '/events', label: 'Events' }] : []),
     ...(caps.orders ? [{ href: '/orders', label: 'Orders' }] : []),
     ...(caps.escalations ? [{ href: '/escalations', label: 'Escalations' }] : []),
-    ...(caps.procurementQueue ? [{ href: '/procurement', label: 'Procurement' }] : []),
+    ...(caps.fulfillmentQueue ? [{ href: '/fulfillment', label: 'Fulfillment' }] : []),
     ...(caps.categories ? [{ href: '/manage/root-causes', label: 'Categories' }] : []),
   ];
 
