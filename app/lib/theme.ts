@@ -166,8 +166,9 @@ export function stageFill(fill: string, isDark: boolean): string {
   return isDark && fill === '#595959' ? '#757575' : fill;
 }
 
-// Ownership sublabel text (order timeline): 9.0:1 light, 6.3:1 dark.
-export const OWNERSHIP_TEXT = { light: '#531DAB', dark: '#B37FEB' } as const;
+// Ownership sublabel text (order timeline): 9.0:1 light, 8.9:1 dark (the
+// brighter dark step matches the Beta tag's dark purple).
+export const OWNERSHIP_TEXT = { light: '#531DAB', dark: '#D3ADF7' } as const;
 
 export function aaLabelColor(fill: string, isDark: boolean): string {
   return (isDark ? AA_LABEL_TEXT.dark : AA_LABEL_TEXT.light)[fill] ?? fill;
