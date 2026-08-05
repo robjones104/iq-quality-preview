@@ -102,3 +102,9 @@ main {
     scroll-behavior: auto !important;
   }
 }
+
+/* Upload draggers sit flush against overflow containers on the detail
+   screens, clipping the top dashed border and hover ring. */
+.ant-upload-wrapper .ant-upload-drag {
+  margin-top: 2px;
+}

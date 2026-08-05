@@ -9,9 +9,7 @@ import { useCapabilities } from '@/store/roleStore';
 import { orders as allOrders } from '@/data/orders';
 import type { Order } from '@/data/orders';
 import {
-  Button, Card, Col, Divider, Drawer, Dropdown, Form, Grid, Input, InputNumber, message, Modal, Radio, Row,
-  Segmented, Select, Slider, Space, Switch, Table, Tooltip, Typography, Upload, theme,
-Image,
+  Button, Card, Col, Divider, Drawer, Dropdown, Form, Grid, Input, InputNumber, message, Modal, Radio, Row, Segmented, Select, Space, Switch, Table, Tooltip, Typography, Upload, theme, Image,
 } from 'antd';
 import {
   ArrowLeftOutlined, ArrowRightOutlined, CheckCircleFilled, CheckOutlined, CloseCircleFilled, CloseOutlined, DeleteOutlined, EditFilled, ExclamationCircleFilled,
@@ -35,6 +33,7 @@ import type { QualityEvent, EventStatus, ActivityLog } from '@/data/types';
 import { nowDate, nowStampIso, nowStampUs } from '@/lib/appTime';
 import { useThemeStore } from '@/store/themeStore';
 import { issuePhotoUri, seedPhotoCount } from '@/lib/demoMedia';
+import { PartPickerFields } from '@/components/PartPicker';
 const { Text, Paragraph } = Typography;
 
 const ROOT_CAUSE_OPTIONS = [
@@ -170,9 +169,9 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   const [editForm]                            = Form.useForm();
   const [partForm]                            = Form.useForm();
   const [partModalOpen, setPartModalOpen]     = useState(false);
+  const partModalDoor = Form.useWatch('door', partForm);
   const partModalKitInfo = Form.useWatch('hardwareKitInfo', partForm);
   const partModalShipTo  = Form.useWatch('shipTo', partForm);
-  const partModalQty     = (Form.useWatch('quantity', partForm) as number | undefined) ?? 1;
   const currentIssue             = evtStored.issue             ?? event.issue;
   const currentComponent         = evtStored.component         ?? event.component;
   const currentDoor             = evtStored.door              ?? event.door;
@@ -1951,34 +1950,6 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
               options={DOOR_OPTIONS.map(v => ({ value: v, label: v }))}
             />
           </Form.Item>
-          <Row gutter={8}>
-            <Col flex={1}>
-              <Form.Item label="Part #" name="partNumber" rules={[{ required: true }]} style={{ marginBottom: 10 }}>
-                <Select
-                  showSearch
-                  optionFilterProp="label"
-                  options={PART_CATALOG.map(p => ({ value: p.partNumber, label: p.partNumber }))}
-                  onChange={(v: string) => {
-                    const m = PART_CATALOG.find(p => p.partNumber === v);
-                    if (m) partForm.setFieldValue('partDescription', m.partDescription);
-                  }}
-                />
-              </Form.Item>
-            </Col>
-            <Col flex={1}>
-              <Form.Item label="Part Description" name="partDescription" rules={[{ required: true }]} style={{ marginBottom: 10 }}>
-                <Select
-                  showSearch
-                  optionFilterProp="label"
-                  options={PART_CATALOG.map(p => ({ value: p.partDescription, label: p.partDescription }))}
-                  onChange={(v: string) => {
-                    const m = PART_CATALOG.find(p => p.partDescription === v);
-                    if (m) partForm.setFieldValue('partNumber', m.partNumber);
-                  }}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
           {isMissingHardware && (
             <Row gutter={8}>
               <Col flex={1}>
@@ -1999,35 +1970,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
               )}
             </Row>
           )}
-          <Form.Item label="Quantity Type" name="quantityType" rules={[{ required: true }]} style={{ marginBottom: 10 }}>
-            <Radio.Group buttonStyle="solid" size="small">
-              <Radio.Button value="Piece">Piece</Radio.Button>
-              <Radio.Button value="Length">Length</Radio.Button>
-            </Radio.Group>
-          </Form.Item>
-          <Form.Item label="Quantity" style={{ marginBottom: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ flex: 1 }}>
-                <Slider
-                  min={1}
-                  max={100}
-                  value={partModalQty}
-                  onChange={(v) => partForm.setFieldValue('quantity', v)}
-                  marks={{ 1: '1', 25: '25', 50: '50', 75: '75', 100: '100' }}
-                />
-              </div>
-              <InputNumber
-                min={1}
-                max={100}
-                value={partModalQty}
-                onChange={(v) => partForm.setFieldValue('quantity', v ?? 1)}
-                style={{ width: 68 }}
-              />
-            </div>
-            <Form.Item name="quantity" noStyle rules={[{ required: true }]}>
-              <Input type="hidden" />
-            </Form.Item>
-          </Form.Item>
+          <PartPickerFields form={partForm} door={partModalDoor} component={currentComponent} />
           <Form.Item label="Ship To" name="shipTo" initialValue={currentShipTo} style={{ marginTop: 10, marginBottom: 10 }}>
             <Radio.Group buttonStyle="solid" size="small">
               <Radio.Button value="branch">Branch ({event.branch})</Radio.Button>

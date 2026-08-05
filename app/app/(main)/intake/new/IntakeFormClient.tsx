@@ -13,6 +13,7 @@ import { useCapabilities } from '@/store/roleStore';
 import { nowStampIso, nowStampUs, nowDateStr } from '@/lib/appTime';
 import { DOOR_OPTIONS, COMPONENT_OPTIONS, ISSUE_OPTIONS, PART_CATALOG } from '@/data/filterOptions';
 import { eligibleParts } from '@/data/partsCatalog';
+import { quantityProps, snapQuantity } from '@/components/PartPicker';
 import type { QualityEvent } from '@/data/types';
 import type { Order } from '@/data/orders';
 
@@ -461,17 +462,32 @@ export function IntakeFormClient() {
                                 name={[field.name, 'quantityType']}
                                 label="Quantity Type"
                                 rules={[{ required: true, message: 'Type' }]}
-                                style={{ flex: '0 1 130px', marginBottom: 0 }}
+                                style={{ flex: '0 1 150px', marginBottom: 0 }}
                               >
-                                <Select options={selectOpts(['Piece', 'Length'])} />
+                                <Radio.Group
+                                  buttonStyle="solid"
+                                  size="small"
+                                  onChange={e => {
+                                    const rows: PartRow[] = form.getFieldValue('parts') ?? [];
+                                    rows[field.name] = { ...rows[field.name], quantity: snapQuantity(rows[field.name]?.quantity, e.target.value) };
+                                    form.setFieldsValue({ parts: [...rows] });
+                                  }}
+                                >
+                                  <Radio.Button value="Piece">Piece</Radio.Button>
+                                  <Radio.Button value="Length">Length</Radio.Button>
+                                </Radio.Group>
                               </Form.Item>
-                              <Form.Item
-                                name={[field.name, 'quantity']}
-                                label="Quantity"
-                                rules={[{ required: true, message: 'Qty' }]}
-                                style={{ flex: '0 1 100px', marginBottom: 0 }}
-                              >
-                                <InputNumber min={1} max={999} style={{ width: '100%' }} />
+                              <Form.Item noStyle shouldUpdate={(pv, cv) => pv.parts?.[field.name]?.quantityType !== cv.parts?.[field.name]?.quantityType}>
+                                {({ getFieldValue }) => (
+                                  <Form.Item
+                                    name={[field.name, 'quantity']}
+                                    label="Quantity"
+                                    rules={[{ required: true, message: 'Qty' }]}
+                                    style={{ flex: '0 1 110px', marginBottom: 0 }}
+                                  >
+                                    <InputNumber {...quantityProps(getFieldValue(['parts', field.name, 'quantityType']))} max={999} style={{ width: '100%' }} />
+                                  </Form.Item>
+                                )}
                               </Form.Item>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

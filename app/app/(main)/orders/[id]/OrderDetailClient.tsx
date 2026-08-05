@@ -7,8 +7,7 @@ import { mergeEvent } from '@/lib/effectiveEvents';
 import { useOrderStore } from '@/store/orderStore';
 import { useCapabilities, useRoleStore } from '@/store/roleStore';
 import {
-  Button, Card, Col, Divider, Dropdown, Form, Grid, Image, Input, InputNumber, Modal,
-  Popover, Radio, Row, Segmented, Select, Slider, Switch, Table, Tag, Typography, theme,
+  Button, Card, Col, Divider, Dropdown, Form, Grid, Image, Input, InputNumber, Modal, Popover, Radio, Row, Segmented, Select, Switch, Table, Tag, Typography, theme,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -20,6 +19,7 @@ import { JobNoValue } from '@/components/JobNoValue';
 import { TechReplyWarning } from '@/components/TechReplyWarning';
 import { OrderStageTag } from '@/components/StatusTag';
 import { issuePhotoUri, labelScanUri, seedPhotoCount } from '@/lib/demoMedia';
+import { PartPickerFields } from '@/components/PartPicker';
 import { ShipToLine } from '@/components/ShipToLine';
 import { aaLabelColor, AA_INACTIVE_LABEL, stageFill } from '@/lib/theme';
 import { PageHeader } from '@/components/PageHeader';
@@ -28,7 +28,7 @@ import type { Order, OrderPart, OrderStatus } from '@/data/orders';
 import { orders as allOrders } from '@/data/orders';
 import { useEffectiveEventMap } from '@/lib/effectiveEvents';
 import type { QualityEvent } from '@/data/types';
-import { DOOR_OPTIONS, PART_CATALOG } from '@/data/filterOptions';
+import { DOOR_OPTIONS } from '@/data/filterOptions';
 import { nowStampUs } from '@/lib/appTime';
 import { capabilitiesFor } from '@/lib/roles';
 import { useThemeStore } from '@/store/themeStore';
@@ -165,7 +165,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
   const [partModalOpen, setPartModalOpen] = useState(false);
   const [editingSeqNo, setEditingSeqNo]   = useState<number | null>(null);
   const watchedKitInfo  = Form.useWatch('hardwareKitInfo', partForm);
-  const watchedQuantity = (Form.useWatch('quantity', partForm) as number | undefined) ?? 1;
+  const partModalDoor   = Form.useWatch('door', partForm);
 
   const addLog = (content: string, auto = true, atStatus?: Status, role?: string) => {
     const entry: LogEntry = {
@@ -1464,33 +1464,6 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
             />
           </Form.Item>
 
-          {/* Row 3 — Part # + Part Description */}
-          <Row gutter={8}>
-            <Col flex={1}>
-              <Form.Item label="Part #" name="partNumber" rules={[{ required: true, message: 'Required' }]} style={{ marginBottom: 10 }}>
-                <Select
-                  showSearch
-                  placeholder="Select part number"
-                  optionFilterProp="label"
-                  options={PART_CATALOG.map(p => ({ value: p.partNumber, label: p.partNumber }))}
-                  onChange={(v: string) => {
-                    const match = PART_CATALOG.find(p => p.partNumber === v);
-                    if (match) partForm.setFieldValue('partDescription', match.partDescription);
-                  }}
-                />
-              </Form.Item>
-            </Col>
-            <Col flex={1}>
-              <Form.Item label="Part Description" name="partDescription" rules={[{ required: true, message: 'Required' }]} style={{ marginBottom: 10 }}>
-                <Select
-                  showSearch
-                  placeholder="Select or auto-filled"
-                  optionFilterProp="label"
-                  options={PART_CATALOG.map(p => ({ value: p.partDescription, label: p.partDescription }))}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
 
           {/* Row 4 — Hardware Kit (only for Missing Hardware events) */}
           {isMissingHardware && (
@@ -1514,36 +1487,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
             </Row>
           )}
 
-          {/* Row 5 — Quantity Type + Quantity */}
-          <Form.Item label="Quantity Type" name="quantityType" rules={[{ required: true, message: 'Required' }]} style={{ marginBottom: 10 }}>
-            <Radio.Group buttonStyle="solid" size="small">
-              <Radio.Button value="Piece">Piece</Radio.Button>
-              <Radio.Button value="Length">Length</Radio.Button>
-            </Radio.Group>
-          </Form.Item>
-          <Form.Item label="Quantity" style={{ marginBottom: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ flex: 1 }}>
-                <Slider
-                  min={1}
-                  max={100}
-                  value={watchedQuantity}
-                  onChange={(v) => partForm.setFieldValue('quantity', v)}
-                  marks={{ 1: '1', 25: '25', 50: '50', 75: '75', 100: '100' }}
-                />
-              </div>
-              <InputNumber
-                min={1}
-                max={100}
-                value={watchedQuantity}
-                onChange={(v) => partForm.setFieldValue('quantity', v ?? 1)}
-                style={{ width: 68 }}
-              />
-            </div>
-            <Form.Item name="quantity" noStyle rules={[{ required: true, message: 'Required' }]}>
-              <Input type="hidden" />
-            </Form.Item>
-          </Form.Item>
+          <PartPickerFields form={partForm} door={partModalDoor} component={event.component} />
         </Form>
       </Modal>
 
