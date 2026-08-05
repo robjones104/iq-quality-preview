@@ -1,7 +1,7 @@
 'use client';
 
 import type { CSSProperties } from 'react';
-import { Alert } from 'antd';
+import { Alert, theme } from 'antd';
 import type { AdditionalInfoRequest } from '@/data/types';
 
 // The reporter side of a thread: the field tech (mobile app) or the branch's
@@ -61,14 +61,15 @@ export function replyReviewParty(thread?: AdditionalInfoRequest[]): OfficeParty 
 // approval, but CS should know before committing parts. Renders nothing when
 // the tech has replied or no request exists.
 export function TechReplyWarning({ thread, style }: { thread?: AdditionalInfoRequest[]; style?: CSSProperties }) {
+  const { token } = theme.useToken();
   if (!awaitingTechReply(thread)) return null;
+  // Single compact line: the two-tier Alert reads oversized inside modals.
   return (
     <Alert
       type="warning"
       showIcon
-      message="The field tech has not replied to the information request on this event."
-      description="You can still approve, or wait for the reply before committing parts."
-      style={style}
+      message="The field tech has not replied to the information request on this event. You can still approve, or wait for the reply."
+      style={{ fontSize: token.fontSizeSM, padding: '6px 10px', ...style }}
     />
   );
 }

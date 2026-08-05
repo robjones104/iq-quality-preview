@@ -72,7 +72,8 @@ export function EscalateModal({ open, onCancel, event, openEscalations, onCreate
 
   return (
     <Modal
-      title="Escalate Event"
+      title={result ? <span className="sr-only">Escalate Event</span> : 'Escalate Event'}
+      styles={{ header: result ? { marginBottom: 0 } : undefined }}
       open={open}
       onOk={handleOk}
       onCancel={handleCancel}

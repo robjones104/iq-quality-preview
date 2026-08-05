@@ -1638,7 +1638,8 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
 
       {/* VALIDATE MODAL */}
       <Modal
-        title="Validate Event"
+        title={validateSuccess ? <span className="sr-only">Validate Event</span> : 'Validate Event'}
+        styles={{ header: validateSuccess ? { marginBottom: 0 } : undefined }}
         open={validateOpen}
         onCancel={() => { setValidateOpen(false); setValidateNote(''); setValidateSuccess(false); }}
         footer={validateSuccess ? null : undefined}
@@ -1692,7 +1693,8 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
 
       {/* INVALIDATE MODAL */}
       <Modal
-        title="Invalidate Event"
+        title={invalidateSuccess ? <span className="sr-only">Invalidate Event</span> : 'Invalidate Event'}
+        styles={{ header: invalidateSuccess ? { marginBottom: 0 } : undefined }}
         open={invalidateOpen}
         onCancel={() => { setInvalidateOpen(false); setInvalidateNote(''); setInvalidateSuccess(false); }}
         footer={invalidateSuccess ? null : undefined}
@@ -1747,7 +1749,8 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
 
       {/* START INVESTIGATION MODAL */}
       <Modal
-        title="Start Investigation"
+        title={startInvSuccess ? <span className="sr-only">Start Investigation</span> : 'Start Investigation'}
+        styles={{ header: startInvSuccess ? { marginBottom: 0 } : undefined }}
         open={startInvOpen}
         onCancel={() => { setStartInvOpen(false); setStartInvNote(''); setStartInvReqInfo(true); setStartInvSuccess(false); }}
         footer={startInvSuccess ? null : undefined}
@@ -1808,7 +1811,8 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
 
       {/* REOPEN EVENT MODAL */}
       <Modal
-        title="Reopen Event"
+        title={reopenEvtSuccess ? <span className="sr-only">Reopen Event</span> : 'Reopen Event'}
+        styles={{ header: reopenEvtSuccess ? { marginBottom: 0 } : undefined }}
         open={reopenEvtOpen}
         onCancel={() => { setReopenEvtOpen(false); setReopenEvtSuccess(false); }}
         footer={reopenEvtSuccess ? null : undefined}

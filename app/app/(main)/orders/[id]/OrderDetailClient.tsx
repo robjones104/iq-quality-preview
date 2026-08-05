@@ -1048,7 +1048,8 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
 
       {/* APPROVE MODAL */}
       <Modal
-        title="Approve Order"
+        title={approveSuccess ? <span className="sr-only">Approve Order</span> : 'Approve Order'}
+        styles={{ header: approveSuccess ? { marginBottom: 0 } : undefined }}
         open={approveOpen}
         onCancel={() => { setApproveOpen(false); setApproveAssign(false); setApproveProcurementEmail(''); setApproveSuccess(false); }}
         onOk={handleConfirmApprove}
@@ -1112,7 +1113,8 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
 
       {/* DECLINE MODAL */}
       <Modal
-        title="Decline Order"
+        title={declineSuccess ? <span className="sr-only">Decline Order</span> : 'Decline Order'}
+        styles={{ header: declineSuccess ? { marginBottom: 0 } : undefined }}
         open={declineOpen}
         onCancel={() => { setDeclineOpen(false); setDeclineReason(''); setDeclineSuccess(false); }}
         onOk={handleDecline}
@@ -1153,7 +1155,8 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
 
       {/* REOPEN MODAL */}
       <Modal
-        title="Reopen Order"
+        title={reopenSuccess ? <span className="sr-only">Reopen Order</span> : 'Reopen Order'}
+        styles={{ header: reopenSuccess ? { marginBottom: 0 } : undefined }}
         open={reopenOpen}
         onCancel={() => { setReopenOpen(false); setReopenReason(''); setReopenSuccess(false); }}
         onOk={handleReopen}
@@ -1194,7 +1197,8 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
 
       {/* ASSIGN TO PROCUREMENT MODAL */}
       <Modal
-        title="Assign to Procurement"
+        title={procurementSuccess ? <span className="sr-only">Assign to Procurement</span> : 'Assign to Procurement'}
+        styles={{ header: procurementSuccess ? { marginBottom: 0 } : undefined }}
         open={procurementOpen}
         onCancel={() => { setProcurementOpen(false); setProcurementEmail(''); setProcurementSuccess(false); }}
         onOk={handleAssignProcurement}
@@ -1239,7 +1243,8 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
 
       {/* CLOSE ORDER MODAL */}
       <Modal
-        title="Close Order"
+        title={closeSuccess ? <span className="sr-only">Close Order</span> : 'Close Order'}
+        styles={{ header: closeSuccess ? { marginBottom: 0 } : undefined }}
         open={closeOpen}
         onCancel={() => { setCloseOpen(false); setCloseSuccess(false); setCloseReplacementOrderNo(''); }}
         onOk={handleClose}
@@ -1338,7 +1343,8 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
 
       {/* RETURN TO CUSTOMER SERVICE MODAL */}
       <Modal
-        title="Return to Customer Service"
+        title={returnSuccess ? <span className="sr-only">Return to Customer Service</span> : 'Return to Customer Service'}
+        styles={{ header: returnSuccess ? { marginBottom: 0 } : undefined }}
         open={returnOpen}
         onCancel={() => { setReturnOpen(false); setReturnComment(''); setReturnSuccess(false); }}
         onOk={handleReturnToCS}
