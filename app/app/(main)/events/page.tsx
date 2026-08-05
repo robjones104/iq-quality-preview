@@ -10,10 +10,11 @@ import { CopyableValue } from '@/components/CopyableValue';
 import Link from 'next/link';
 import { useEffectiveEvents } from '@/lib/effectiveEvents';
 import { useScopedEvents } from '@/lib/useScopedData';
+import { useCapabilities } from '@/store/roleStore';
 import { capabilitiesFor } from '@/lib/roles';
 import { orders } from '@/data/orders';
 import { awaitingFqResponse, respondedNeedsReview } from '@/components/EventMessages';
-import { partyAwaiting, partyResponded } from '@/components/TechReplyWarning';
+import { awaitingTechReply, hasTechReply, partyAwaiting, partyResponded } from '@/components/TechReplyWarning';
 import { StatusTag } from '@/components/StatusTag';
 import { EventCard } from '@/components/EventCard';
 
@@ -108,6 +109,7 @@ function EventsPageContent() {
   const [searchText, setSearchText] = useState('');
   // Branch (View-Only) roles see only their branch's events.
   const events = useScopedEvents(useEffectiveEvents());
+  const caps = useCapabilities();
 
   const searchOptions = useMemo(() => {
     const q = searchText.trim().toLowerCase();
@@ -175,10 +177,21 @@ function EventsPageContent() {
     }
     if (appliedFilters.activity?.length) {
       const active = e.status === 'Reported' || e.status === 'Under Investigation';
-      const hit = appliedFilters.activity.some(a =>
-        active && (a === 'Additional Requests'
-          ? partyAwaiting(e.additionalInfoRequests, 'Field Quality')
-          : partyResponded(e.additionalInfoRequests, 'Field Quality')));
+      // Viewer-relative (Rob 2026-08-05): Needs Your Response always means the
+      // ball is in YOUR court, matching the dashboard queue. For the Branch
+      // role that is the office's unanswered question; for office roles it is
+      // the reporter's reply awaiting review. Additional Requests is the
+      // mirror: an open request waiting on the other side.
+      const hit = appliedFilters.activity.some(a => {
+        if (!active) return false;
+        const t = e.additionalInfoRequests;
+        if (caps.intake) {
+          return a === 'Needs Your Response' ? awaitingTechReply(t) : hasTechReply(t);
+        }
+        return a === 'Additional Requests'
+          ? partyAwaiting(t, 'Field Quality')
+          : partyResponded(t, 'Field Quality');
+      });
       if (!hit) return false;
     }
     if (dateRange) {
