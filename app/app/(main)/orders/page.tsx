@@ -444,9 +444,7 @@ function OrdersPageContent() {
     },
     {
       title: 'Order Status',
-      // Key must match the filter-store slot the predicate reads. Pinned:
-      // the working column must never scroll off (Rob 2026-08-05).
-      fixed: 'right',
+      // Key must match the filter-store slot the predicate reads.
       key: 'stage',
       sorter: (a, b) => effectiveStatus(a).localeCompare(effectiveStatus(b)),
       filters: ['Pending Decision', 'Approved', 'Fulfilled', 'Declined'].map(v => ({ text: v, value: v })),
