@@ -142,13 +142,11 @@ function KpiDelta({ count, prior, deltaTone = 'inverse', dateRange }: {
   const isMobile = screens.md === false;
   const diff = prior !== null ? count - prior : null;
   const up   = diff !== null && diff > 0;
-  // AA text twins: raw colorError/colorSuccess are 2.3-3.3:1 as text.
-  const isDarkTheme = token.colorBgBase === '#000000';
-  const deltaBad  = isDarkTheme ? '#ff7875' : '#cf1322';
-  const deltaGood = isDarkTheme ? '#73d13d' : '#237804';
+  // Status-colored text reads the seeded *Text tokens (AA in both themes);
+  // the raw colorError/colorSuccess fills are 2.3-3.3:1 as text.
   const deltaColor = diff === null || diff === 0 || deltaTone === 'neutral'
     ? token.colorTextTertiary
-    : up ? deltaBad : deltaGood;
+    : up ? token.colorErrorText : token.colorSuccessText;
   const range = dateRange ?? null;
   const rangeName = range
     ? rangeLabelFor(range) ?? `${range[0].format('M/D/YY')} – ${range[1].format('M/D/YY')}`

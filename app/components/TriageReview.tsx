@@ -89,8 +89,7 @@ const isPoorSubmissionEdit = (entry: { field: string }) => entry.field !== 'Root
 // branch. Lives in the dashboard's bottom analysis row.
 export function EventsUpdatedByFqCard({ events }: { events: QualityEvent[] }) {
   const { token } = theme.useToken();
-  // AA text twin for warning-colored percentages (amber is 1.6:1 on white).
-  const warnText = token.colorBgBase === '#000000' ? token.colorWarning : '#AD4E00';
+
   const router    = useRouter();
 
   const allEdits = useMemo(() =>
@@ -163,7 +162,7 @@ export function EventsUpdatedByFqCard({ events }: { events: QualityEvent[] }) {
                               <Text style={{ fontSize: token.fontSizeSM }}>{branch}</Text>
                               <span>
                                 <Text style={{ fontSize: token.fontSizeXS, color: token.colorTextTertiary, marginRight: 6 }}>{editedCount} of {totalCount}</Text>
-                                <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600, color: pct >= 20 ? warnText : token.colorText }}>{pct}%</Text>
+                                <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600, color: pct >= 20 ? token.colorWarningText : token.colorText }}>{pct}%</Text>
                               </span>
                             </div>
                             <div style={{ height: 4, borderRadius: 2, background: token.colorFillSecondary, overflow: 'hidden' }}>
@@ -198,8 +197,7 @@ export function EventsUpdatedByFqCard({ events }: { events: QualityEvent[] }) {
 
 export function DataQualityChart({ events }: { events: QualityEvent[] }) {
   const { token } = theme.useToken();
-  // AA text twin for warning-colored percentages (amber is 1.6:1 on white).
-  const warnText = token.colorBgBase === '#000000' ? token.colorWarning : '#AD4E00';
+
   const router = useRouter();
 
   const allEdits = useMemo(() => events.flatMap(e => e.editHistory ?? []), [events]);
@@ -230,7 +228,7 @@ export function DataQualityChart({ events }: { events: QualityEvent[] }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-        <Text style={{ fontSize: token.fontSizeHeading2, fontWeight: 700, lineHeight: 1, color: reclassRate >= 20 ? warnText : token.colorText }}>
+        <Text style={{ fontSize: token.fontSizeHeading2, fontWeight: 700, lineHeight: 1, color: reclassRate >= 20 ? token.colorWarningText : token.colorText }}>
           {reclassRate}%
         </Text>
         <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>of events recategorized</Text>

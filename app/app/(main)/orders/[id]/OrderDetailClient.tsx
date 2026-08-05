@@ -19,7 +19,7 @@ import { CopyableValue } from '@/components/CopyableValue';
 import { JobNoValue } from '@/components/JobNoValue';
 import { TechReplyWarning } from '@/components/TechReplyWarning';
 import { ShipToLine } from '@/components/ShipToLine';
-import { aaLabelColor, AA_INACTIVE_LABEL } from '@/lib/theme';
+import { aaLabelColor, AA_INACTIVE_LABEL, stageFill, OWNERSHIP_TEXT } from '@/lib/theme';
 import { PageHeader } from '@/components/PageHeader';
 import { useInfoRequestThread, InfoRequestThreadPanel } from '@/components/InfoRequestThread';
 import type { Order, OrderPart, OrderStatus } from '@/data/orders';
@@ -439,7 +439,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
       label: decisionStage === 'Fulfilled' ? 'Fulfilled' : decisionStage === 'Declined' ? 'Declined' : 'Pending Closure',
       // Declined wears the Invalidated gray (Rob 2026-08-05): both records'
       // "ended in no" terminal is neutral, red stays reserved for attention.
-      color: decisionStage === 'Declined' ? '#595959' : '#389e0d',
+      color: stageFill(decisionStage === 'Declined' ? '#595959' : '#389e0d', isDarkTheme),
       reached: stepIdx === 2,
       isCurrent: stepIdx === 2,
     },
@@ -681,7 +681,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
                   {stage.label}
                 </Text>
                 {(stage as { sublabel?: string }).sublabel && (
-                  <Text style={{ fontSize: token.fontSizeXS, fontWeight: 500, whiteSpace: 'nowrap', marginTop: 2, color: (stage as { sublabel?: string }).sublabel === 'With Procurement' ? (isDarkTheme ? '#B37FEB' : '#531DAB') : (isDarkTheme ? '#999999' : '#6B6B6B') }}>
+                  <Text style={{ fontSize: token.fontSizeXS, fontWeight: 500, whiteSpace: 'nowrap', marginTop: 2, color: (stage as { sublabel?: string }).sublabel === 'With Procurement' ? (isDarkTheme ? OWNERSHIP_TEXT.dark : OWNERSHIP_TEXT.light) : (isDarkTheme ? AA_INACTIVE_LABEL.dark : AA_INACTIVE_LABEL.light) }}>
                     {(stage as { sublabel?: string }).sublabel}
                   </Text>
                 )}

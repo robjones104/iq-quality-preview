@@ -25,7 +25,7 @@ import { logs } from '@/data/logs';
 import { ISSUE_OPTIONS, DOOR_OPTIONS, PART_CATALOG, PLANT_OPTIONS, COMPONENT_OPTIONS } from '@/data/filterOptions';
 import { EscalateModal } from '@/components/EscalateModal';
 import { ShipToLine } from '@/components/ShipToLine';
-import { aaLabelColor, AA_INACTIVE_LABEL } from '@/lib/theme';
+import { aaLabelColor, AA_INACTIVE_LABEL, stageFill } from '@/lib/theme';
 import { useEffectiveEvents } from '@/lib/effectiveEvents';
 import { useEffectiveEscalations } from '@/lib/effectiveEscalations';
 import { useEscalationStore } from '@/store/escalationStore';
@@ -448,9 +448,9 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   const thirdReached = status === 'Validated' || status === 'Invalidated';
 
   const stages = [
-    { label: 'Reported',            color: STATUS_COLORS['Reported'],              reached: true,         isCurrent: stepIdx === 0 },
-    { label: 'Under Investigation', color: STATUS_COLORS['Under Investigation'],   reached: stepIdx >= 1, isCurrent: stepIdx === 1 },
-    { label: thirdLabel,            color: thirdColor ?? token.colorBorderSecondary, reached: thirdReached, isCurrent: false },
+    { label: 'Reported',            color: stageFill(STATUS_COLORS['Reported'], isDarkTheme),            reached: true,         isCurrent: stepIdx === 0 },
+    { label: 'Under Investigation', color: stageFill(STATUS_COLORS['Under Investigation'], isDarkTheme),  reached: stepIdx >= 1, isCurrent: stepIdx === 1 },
+    { label: thirdLabel,            color: thirdColor ? stageFill(thirdColor, isDarkTheme) : token.colorBorderSecondary, reached: thirdReached, isCurrent: false },
   ];
 
   const handleGenerateInsights = () => {

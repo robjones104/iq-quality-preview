@@ -9,6 +9,13 @@ import type { ThemeConfig } from 'antd';
 export const SEED_TOKENS: ThemeConfig['token'] = {
   // 4.9:1 on white inputs (antd default #bfbfbf is 1.8:1).
   colorTextPlaceholder: '#6B6B6B',
+  // Semantic TEXT tokens, seeded to AA twins (the base status colors are
+  // fills; antd's derived *Text values do not clear 4.5:1). Components must
+  // read token.colorErrorText etc. for status-colored text, never the fill.
+  colorErrorText:   '#cf1322',
+  colorSuccessText: '#237804',
+  colorWarningText: '#AD4E00',
+  colorInfoText:    '#0958D9',
   // Figma Interactive/Primary. WCAG AA verified via antd's own getDesignToken():
   // colorPrimary/colorPrimaryText 7.96:1, colorPrimaryTextHover 5.61:1 on white — all pass.
   // #1677FF (AntD default) failed at 4.10:1 (large-text only) and its hover state failed at 2.99:1.
@@ -40,6 +47,11 @@ export const SEED_TOKENS: ThemeConfig['token'] = {
 export const DARK_SEED_OVERRIDES: ThemeConfig['token'] = {
   // 5.6:1 on dark inputs.
   colorTextPlaceholder: '#8C8C8C',
+  // AA text twins on dark surfaces: 7.2 / 9.6 / 9.7 / 6.2 on #141414.
+  colorErrorText:   '#ff7875',
+  colorSuccessText: '#73d13d',
+  colorWarningText: '#faad14',
+  colorInfoText:    '#4096ff',
   colorPrimary:         '#FFD20B',
   colorTextLightSolid:  '#141414',
   // Brand link teal, raw (Rob, 2026-08-03). WCAG AA on #141414: base 6.08:1,
@@ -141,14 +153,27 @@ export const AA_LABEL_TEXT: { light: Record<string, string>; dark: Record<string
     '#595959': '#595959',
   },
   dark: {
-    '#595959': '#8C8C8C',
+    // Measured on #141414 (worst common surface): 6.2 / 9.7 / 8.1 / 6.5.
+    '#1677ff': '#4096ff',
+    '#d46b08': '#ffa940',
+    '#389e0d': '#52c41a',
+    '#595959': '#999999',
   },
 };
+// Non-text fills are held to 3:1: the only failure is the terminal gray in
+// dark (#595959 = 2.6:1 on #141414); its dark fill twin measures 4.2:1.
+export function stageFill(fill: string, isDark: boolean): string {
+  return isDark && fill === '#595959' ? '#757575' : fill;
+}
+
+// Ownership sublabel text (order timeline): 9.0:1 light, 6.3:1 dark.
+export const OWNERSHIP_TEXT = { light: '#531DAB', dark: '#B37FEB' } as const;
+
 export function aaLabelColor(fill: string, isDark: boolean): string {
   return (isDark ? AA_LABEL_TEXT.dark : AA_LABEL_TEXT.light)[fill] ?? fill;
 }
 // Inactive/disabled step labels: 4.9:1 light, 5.6:1 dark.
-export const AA_INACTIVE_LABEL = { light: '#6B6B6B', dark: '#8C8C8C' } as const;
+export const AA_INACTIVE_LABEL = { light: '#6B6B6B', dark: '#999999' } as const;
 
 export const SEMANTIC = {
   light: {

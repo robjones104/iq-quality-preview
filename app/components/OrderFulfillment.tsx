@@ -6,6 +6,7 @@ import { Button, Tag, Typography, theme } from 'antd';
 
 import { Chart as G2Chart } from '@antv/g2';
 import { isDailyRange } from './FieldIntake';
+import { stageFill } from '@/lib/theme';
 import type { DateRange } from './DateRangeFilter';
 import { ExportOutlined, ShoppingCartOutlined } from '@ant-design/icons';
 import Link from 'next/link';
@@ -193,7 +194,7 @@ export function DecisionTrendChart({
       <GroupedStackTrend
         data={trendData}
         stages={STAGES}
-        colors={['#1677ff', '#95de64', '#389e0d', '#595959']}
+        colors={['#1677ff', '#95de64', '#389e0d', stageFill('#595959', isDark)]}
         plotTheme={plotTheme}
         legendGroups={[
           { label: 'Open', stages: ['Pending Decision', 'Approved'] },

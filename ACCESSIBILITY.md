@@ -51,6 +51,8 @@ All values verified against WCAG AA (4.5:1 text, 3:1 non-text). The full color c
 - **State grammar**: blue = start, green = "ended in yes" (Validated / Fulfilled), gray `#595959` = "ended in no" (Invalidated / Declined). Red is reserved for genuine attention and is not used for routine terminals.
 - **Thread avatars**: explicit white initials on `#434343` / `#595959` (office) and `#ad6800` / `#7A5200` (reporter side) - 4.4:1 minimum. Never token-derive avatar text color: dark mode sets `colorTextLightSolid` near-black for gold buttons.
 - **Attention gold**: `#D48806` (`BRAND.colorGoldDeep`) for flag icons (direct-address ship-to pin); brand gold `#FFD20B` (`BRAND.colorGold`) for chart bar fills whose values are always printed as adjacent text.
+- **Semantic text tokens are the law for status-colored text**: `colorErrorText`, `colorSuccessText`, `colorWarningText`, `colorInfoText` are seeded to AA twins in both themes in the ConfigProvider (`app/lib/theme.ts` SEED_TOKENS / DARK_SEED_OVERRIDES). Components read the `*Text` token for any status-colored text and never the base fill token (the fills measure 2.3-3.3:1 as text).
+- **Label twins**: any text set in a status fill color uses `aaLabelColor(fill, isDark)`; light twins darken (#0958D9 / #AD4E00 / #237804), dark twins brighten (#4096ff / #ffa940 / #52c41a / #999999) - all measured 4.9:1+ on their worst common surface. Inactive labels: `AA_INACTIVE_LABEL`. Non-text fills are held to 3:1 via `stageFill` (the terminal gray brightens to #757575 in dark).
 - **CVD**: chart series are luminance-ladders, verified under Machado protanopia/deuteranopia/tritanopia matrices. The two-green Approved/Fulfilled pair sits in different columns; Declined is gray, not red, partly for this reason.
 
 ## 6. Charts
