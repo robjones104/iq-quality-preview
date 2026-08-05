@@ -47,20 +47,24 @@ const solidBadgeStyle = (status: EventStatus, isDark: boolean): CSSProperties =>
 // interaction teal stays reserved. Declined shares the terminal gray with
 // Invalidated (brighter in dark for the chip boundary).
 export type OrderStage = 'Pending Decision' | 'Approved' | 'Fulfilled' | 'Declined';
+// Approved is LIGHT teal with near-black text (8.5:1), the one dark-text
+// chip: distinguishes the state teal from the darker cursor/link teal
+// (#277FA0). Same precedent as gold buttons wearing dark labels.
 const ORDER_STAGE_BG: Record<'light' | 'dark', Record<OrderStage, string>> = {
   light: {
     'Pending Decision': '#0958D9',
-    Approved:           '#006d75',
+    Approved:           '#13c2c2',
     Fulfilled:          '#237804',
     Declined:           '#595959',
   },
   dark: {
     'Pending Decision': '#0958D9',
-    Approved:           '#006d75',
+    Approved:           '#13c2c2',
     Fulfilled:          '#237804',
     Declined:           '#757575',
   },
 };
+const ORDER_STAGE_TEXT = (stage: OrderStage): string => stage === 'Approved' ? '#141414' : '#FFFFFF';
 
 export function OrderStageTag({ stage, assigned, additionalInfoRequested, responseReceived, awaitingTooltip, respondedTooltip }: {
   stage: OrderStage;
@@ -80,7 +84,7 @@ export function OrderStageTag({ stage, assigned, additionalInfoRequested, respon
         alignItems: 'center',
         gap: 4,
         background: ORDER_STAGE_BG[isDark ? 'dark' : 'light'][stage],
-        color: '#FFFFFF',
+        color: ORDER_STAGE_TEXT(stage),
         borderColor: 'transparent',
       }}
     >

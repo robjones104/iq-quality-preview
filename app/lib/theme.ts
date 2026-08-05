@@ -146,7 +146,7 @@ export const BRAND = {
 // #8C8C8C 5.6. Fills already passing (#595959 light 6.4) map to themselves.
 export const AA_LABEL_TEXT: { light: Record<string, string>; dark: Record<string, string> } = {
   light: {
-    '#006d75': '#006d75',
+    '#13c2c2': '#006d75',
     '#1677ff': '#0958D9',
     '#d46b08': '#AD4E00',
     '#389e0d': '#237804',
@@ -155,7 +155,7 @@ export const AA_LABEL_TEXT: { light: Record<string, string>; dark: Record<string
   dark: {
     // Measured on #141414 (worst common surface): 6.2 / 9.7 / 8.1 / 6.5;
     // teal 8.5.
-    '#006d75': '#13c2c2',
+    '#13c2c2': '#13c2c2',
     '#1677ff': '#4096ff',
     '#d46b08': '#ffa940',
     '#389e0d': '#52c41a',

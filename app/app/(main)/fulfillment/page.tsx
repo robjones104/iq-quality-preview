@@ -7,6 +7,7 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { JobNoValue } from '@/components/JobNoValue';
+import { OrderStageTag } from '@/components/StatusTag';
 import Link from 'next/link';
 import { orders } from '@/data/orders';
 import { useEffectiveEventMap } from '@/lib/effectiveEvents';
@@ -75,20 +76,20 @@ export default function FulfillmentPage() {
       width: 130,
     },
     {
-      title: 'Branch',
-      dataIndex: 'branch',
-      key: 'branch',
-      sorter: (a, b) => a.branch.localeCompare(b.branch),
-      ellipsis: { showTitle: true },
-      width: 138,
-    },
-    {
       title: 'Job No.',
       dataIndex: 'jobNo',
       key: 'jobNo',
       sorter: (a, b) => a.jobNo.localeCompare(b.jobNo),
       width: 148,
       render: (jobNo: string, record) => <JobNoValue jobNo={jobNo} manualEntry={record.jobNoManualEntry} />,
+    },
+    {
+      title: 'Branch',
+      dataIndex: 'branch',
+      key: 'branch',
+      sorter: (a, b) => a.branch.localeCompare(b.branch),
+      ellipsis: { showTitle: true },
+      width: 138,
     },
     {
       title: 'Issue',
@@ -123,19 +124,23 @@ export default function FulfillmentPage() {
       width: 148,
     },
     {
-      title: 'Status',
-      key: 'orderStatus',
-      sorter: (a, b) => effectiveStatus(a).localeCompare(effectiveStatus(b)),
-      width: 120,
-      // Neutral chip; the event lifecycle has its own labeled column.
-      render: (_, record) => <Tag>{effectiveStatus(record)}</Tag>,
-    },
-    {
       title: 'Event Status',
       key: 'eventStatus',
       sorter: (a, b) => a.status.localeCompare(b.status),
       width: 170,
       render: (_, record) => <Tag style={{ margin: 0 }}>{record.status}</Tag>,
+    },
+    {
+      title: 'Order Status',
+      key: 'orderStatus',
+      width: 150,
+      // Everything in this queue is an assigned approved order until closed.
+      render: (_, record) => (
+        <OrderStageTag
+          stage={effectiveStatus(record) === 'Open' ? 'Approved' : 'Fulfilled'}
+          assigned={effectiveStatus(record) === 'Open'}
+        />
+      ),
     },
   ];
 

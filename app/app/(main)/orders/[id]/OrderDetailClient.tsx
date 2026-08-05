@@ -431,7 +431,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
       sublabel: status === 'Open' && stepIdx === 1 && !declined
         ? (assignedToFulfillment ? 'With Fulfillment' : 'With Customer Service')
         : undefined,
-      color: '#006d75',
+      color: '#13c2c2',
       // Declined orders never passed Approved: the step renders unreached.
       reached: stepIdx >= 1 && !declined,
       isCurrent: stepIdx === 1,

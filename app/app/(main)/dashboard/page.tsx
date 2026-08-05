@@ -548,7 +548,7 @@ function DashboardPageContent() {
       href: buildKpiHref('/orders?stage=Pending Decision', dateRange, {}),
       tooltip: 'Orders that are waiting for Customer Service to approve or decline.' },
     { label: 'Approved', count: liveOrders.filter(isApprovedOpen).length, prior: priorLiveN(isApprovedOpen), deltaTone: 'neutral',
-      swatch: '#006d75',
+      swatch: '#13c2c2',
       href: buildKpiHref('/orders?stage=Approved', dateRange, {}),
       tooltip: 'Orders that have been approved and are being fulfilled.' },
   ];
