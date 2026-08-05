@@ -33,6 +33,7 @@ Everything clickable is reachable and operable by keyboard. House patterns:
 - **Icon tooltips that carry material information are focusable** (`tabIndex={0}` on the icon): thread-state icons in badges, the manual-entry signature flag, metric info icons. antd tooltips open on focus.
 - Focus visibility relies on antd v6's 3px outlines - verified passing; do not suppress outlines in production CSS.
 - Modals and drawers trap focus and return it on close (antd default - keep it).
+- **Reduced motion**: `prefers-reduced-motion: reduce` collapses all DOM transitions/animations (global CSS), disables antd's motion system, and turns off canvas chart entrance animations (`useReducedMotion` hook). Production must keep all three layers: CSS alone cannot reach canvas.
 
 ## 4. Target size (WCAG 2.5.8, 24x24 floor)
 
@@ -72,7 +73,6 @@ Canvas charts are opaque to assistive tech, so:
 - Stepper/timeline label text on tinted backgrounds is below AA in places (fix approved in principle: darkened AA-safe label variants).
 - antd Select placeholder gray fails AA app-wide (`colorTextPlaceholder` seed pending).
 - A few preset Tags (cyan Replacement, dark Beta) sit near 3.4:1.
-- `prefers-reduced-motion` gate not yet applied to transitions/shimmer/chart animation.
 - Chart drill-down clicks have no keyboard equivalent (mitigated: all destinations reachable via table filters).
 - Intake tracker rows and Categories drill-in rows are click-only (equivalent links exist for the primary flows).
 - Detail-page Tabs render action buttons inside `role="tablist"` via `tabBarExtraContent` (antd structural; needs a clean v6 route).

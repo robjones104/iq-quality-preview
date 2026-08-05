@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { App, ConfigProvider, theme as antdTheme } from 'antd';
+import { useReducedMotion } from '@/lib/useReducedMotion';
 import { useThemeStore } from '@/store/themeStore';
 import { SEED_TOKENS, DARK_SEED_OVERRIDES, LIGHT_COMPONENT_TOKENS, DARK_COMPONENT_TOKENS } from '@/lib/theme';
 import { useLargeScreen } from '@/hooks/useLargeScreen';
@@ -19,6 +20,7 @@ function BodyBackground() {
 }
 
 export function AntdProvider({ children }: { children: React.ReactNode }) {
+  const reducedMotion = useReducedMotion();
   const { darkMode } = useThemeStore();
   const isLarge = useLargeScreen();
   const baseFontSize = isLarge ? 17 : 14;
@@ -27,7 +29,7 @@ export function AntdProvider({ children }: { children: React.ReactNode }) {
     <ConfigProvider
       theme={{
         algorithm: darkMode ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
-        token: { ...SEED_TOKENS, fontSize: baseFontSize, fontSizeXS: baseFontSize - 4, ...(darkMode && DARK_SEED_OVERRIDES) },
+        token: { ...SEED_TOKENS, fontSize: baseFontSize, fontSizeXS: baseFontSize - 4, ...(darkMode && DARK_SEED_OVERRIDES), ...(reducedMotion && { motion: false }) },
         components: darkMode ? DARK_COMPONENT_TOKENS : LIGHT_COMPONENT_TOKENS,
       }}
     >

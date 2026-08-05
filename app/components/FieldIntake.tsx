@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Card, Col, Row, Segmented, Tooltip, Typography, theme } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { Line, Bar, Pie } from '@ant-design/plots';
+import { useReducedMotion } from '@/lib/useReducedMotion';
 import dayjs from 'dayjs';
 import type { QualityEvent } from '@/data/types';
 import type { DateRange } from '@/components/DateRangeFilter';
@@ -86,6 +87,7 @@ export function FieldIntake({
   // colorBgBase is '#000000' in dark algorithm, '#ffffff' in light
   const isDark = token.colorBgBase === '#000000';
   const plotTheme = isDark ? 'classicDark' : 'classic';
+  const reducedMotion = useReducedMotion();
   const axisStyle = {
     labelFill:      token.colorText,
     labelFontSize:  token.fontSizeSM,
@@ -283,7 +285,7 @@ export function FieldIntake({
                 height={276}
                 theme={plotTheme}
                 label={false}
-                animate={{ enter: { type: 'waveIn', duration: 600 } }}
+                animate={reducedMotion ? false : { enter: { type: 'waveIn', duration: 600 } }}
                 interaction={{ elementHighlight: true }}
                 state={{ active: { opacity: 1 }, inactive: { opacity: 0.15 } }}
                 legend={{
@@ -330,6 +332,7 @@ export function EventsDonutCard({ events }: { events: QualityEvent[] }) {
   const { token } = theme.useToken();
   const isDark = token.colorBgBase === '#000000';
   const plotTheme = isDark ? 'classicDark' : 'classic';
+  const reducedMotion = useReducedMotion();
 
   const issueData = useMemo(() =>
     Object.entries(countBy(events, e => e.issue))
@@ -376,7 +379,7 @@ export function EventsDonutCard({ events }: { events: QualityEvent[] }) {
           height={276}
           theme={plotTheme}
           label={false}
-          animate={{ enter: { type: 'waveIn', duration: 600 } }}
+          animate={reducedMotion ? false : { enter: { type: 'waveIn', duration: 600 } }}
           interaction={{ elementHighlight: true }}
           state={{ active: { opacity: 1 }, inactive: { opacity: 0.15 } }}
           legend={{
@@ -503,6 +506,7 @@ export function EventsByIssueChart({
   const router = useRouter();
   const isDark = token.colorBgBase === '#000000';
   const plotTheme = isDark ? 'classicDark' : 'classic';
+  const reducedMotion = useReducedMotion();
 
   const issueData = useMemo(() => {
     const counts = events.reduce<Record<string, number>>((a, e) => { a[e.issue] = (a[e.issue] ?? 0) + 1; return a; }, {});
@@ -531,7 +535,7 @@ export function EventsByIssueChart({
         height={height}
         theme={plotTheme}
         label={false}
-        animate={{ enter: { type: 'waveIn', duration: 600 } }}
+        animate={reducedMotion ? false : { enter: { type: 'waveIn', duration: 600 } }}
         interaction={{ elementHighlight: true }}
         state={{ active: { opacity: 1 }, inactive: { opacity: 0.15 } }}
         legend={{ color: { position: 'bottom', itemLabelFill: token.colorText, itemLabelFontSize: token.fontSizeSM, itemLabelFormatter: (v: string) => v.length > 18 ? v.slice(0, 17) + '…' : v, rows: 6 } }}
