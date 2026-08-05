@@ -71,8 +71,10 @@ export function EscalationsClient() {
       dataIndex: 'status',
       key: 'status',
       width: 80,
+      // Open/Closed is the neutral container axis (state grammar): no
+      // pastel presets.
       render: (status: string) => (
-        <Tag color={status === 'Closed' ? 'green' : 'blue'} style={{ fontSize: token.fontSizeSM }}>
+        <Tag style={{ fontSize: token.fontSizeSM }}>
           {status}
         </Tag>
       ),
@@ -102,7 +104,7 @@ export function EscalationsClient() {
       title: 'Created By',
       dataIndex: 'createdBy',
       key: 'createdBy',
-      width: 140,
+      ellipsis: true,
       render: (name: string) => <Text style={{ fontSize: token.fontSizeSM }}>{name}</Text>,
     },
     {
@@ -142,7 +144,7 @@ export function EscalationsClient() {
       <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 12 }}>
           <Segmented
-            options={['All', 'Open', 'Closed']}
+            options={['Open', 'Closed', 'All']}
             value={statusFilter}
             onChange={(v) => setStatusFilter(v as 'All' | 'Open' | 'Closed')}
           />

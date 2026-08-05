@@ -216,6 +216,7 @@ export function ManageListsClient({
       title: 'Name',
       dataIndex: 'name',
       key: 'name',
+      ellipsis: { showTitle: true },
       sorter: (a, b) => a.name.localeCompare(b.name),
       render: (name: string) => <Text style={{ fontSize: token.fontSize }}>{name}</Text>,
     },
