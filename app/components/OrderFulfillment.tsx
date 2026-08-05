@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { Fragment, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button, Tag, Typography, theme } from 'antd';
 
@@ -39,11 +39,16 @@ function exportToCsv(filename: string, headers: string[], rows: (string | number
 }
 
 
-function GroupedStackTrend({ data, stages, colors, plotTheme, onSegmentClick }: {
+function GroupedStackTrend({ data, stages, colors, plotTheme, stageTooltips, legendGroups, ariaLabel, onSegmentClick }: {
   data: Record<string, string | number>[];
   stages: readonly string[];
   colors: string[];
   plotTheme: string;
+  // Plain-language tooltip line per stage (KPI-bar voice, Rob 2026-08-05).
+  stageTooltips: Record<string, string>;
+  // HTML legend grouped by series so Open/Closed membership is explicit.
+  legendGroups: { label: string; stages: string[] }[];
+  ariaLabel: string;
   onSegmentClick: (datum: { stage?: string; weekStart?: string; weekEnd?: string }) => void;
 }) {
   const { token } = theme.useToken();
@@ -61,20 +66,29 @@ function GroupedStackTrend({ data, stages, colors, plotTheme, onSegmentClick }: 
       data,
       encode: { x: 'week', y: 'count', color: 'stage', series: 'status' },
       transform: [{ type: 'stackY', groupBy: ['x', 'series'] }, { type: 'dodgeX' }],
-      scale: { color: { domain: [...stages], range: colors } },
+      // Consistent air: paddingInner spaces the week groups; the series scale
+      // spaces the Open/Closed pair inside each week.
+      scale: {
+        color: { domain: [...stages], range: colors },
+        x: { paddingInner: 0.35, paddingOuter: 0.08 },
+        series: { paddingInner: 0.12 },
+      },
       theme: plotTheme,
       // Reserve right-edge room so the final week's bars/label are not
       // clipped by the canvas edge (A3).
       paddingRight: 24,
       animate: false,
       axis: {
-        x: { labelFill: token.colorText, labelFontSize: token.fontSizeSM, line: false, tickStroke: token.colorBorderSecondary },
-        y: { labelFill: token.colorText, labelFontSize: token.fontSizeSM, gridStroke: token.colorBorderSecondary, gridLineWidth: 1, tickCount: 4 },
+        x: { title: false, labelFill: token.colorText, labelFontSize: token.fontSizeSM, line: false, tickStroke: token.colorBorderSecondary },
+        y: { title: false, labelFill: token.colorText, labelFontSize: token.fontSizeSM, gridStroke: token.colorBorderSecondary, gridLineWidth: 1, tickCount: 4 },
       },
-      legend: { color: { position: 'bottom', itemLabelFill: token.colorText, itemLabelFontSize: token.fontSizeSM } },
+      legend: false,
       tooltip: {
-        title: (d: Record<string, string>) => `${d.week} \u00b7 ${d.status}`,
-        items: [(d: Record<string, string | number>) => ({ name: String(d.stage), value: String(d.count) })],
+        title: (d: Record<string, string>) => `Week of ${d.week} \u00b7 ${d.status} orders`,
+        items: [(d: Record<string, string | number>) => ({
+          name: stageTooltips[String(d.stage)] ?? String(d.stage),
+          value: String(d.count),
+        })],
       },
       state: { active: { opacity: 1 }, inactive: { opacity: 0.15 } },
       interaction: { elementHighlight: true },
@@ -88,7 +102,29 @@ function GroupedStackTrend({ data, stages, colors, plotTheme, onSegmentClick }: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, plotTheme, token.colorText, token.colorBorderSecondary]);
 
-  return <div ref={container} style={{ width: '100%', height: '100%', cursor: 'pointer' }} />;
+  return (
+    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      <div ref={container} role="img" aria-label={ariaLabel} style={{ width: '100%', flex: 1, minHeight: 0, cursor: 'pointer' }} />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, flexWrap: 'wrap', paddingTop: 6 }}>
+        {legendGroups.map((group, gi) => (
+          <Fragment key={group.label}>
+            {gi > 0 && (
+              <span aria-hidden style={{ width: 1, height: 12, background: token.colorBorder, display: 'inline-block' }} />
+            )}
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600 }}>{group.label}</Text>
+              {group.stages.map(stage => (
+                <span key={stage} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <span aria-hidden style={{ width: 8, height: 8, borderRadius: 2, background: colors[stages.indexOf(stage)], display: 'inline-block' }} />
+                  <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextSecondary }}>{stage}</Text>
+                </span>
+              ))}
+            </span>
+          </Fragment>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 
@@ -154,8 +190,20 @@ export function DecisionTrendChart({
       <GroupedStackTrend
         data={trendData}
         stages={STAGES}
-        colors={['#1677ff', '#95de64', '#389e0d', '#cf1322']}
+        colors={['#1677ff', '#95de64', '#389e0d', '#ff4d4f']}
         plotTheme={plotTheme}
+        stageTooltips={{
+          'Pending Decision': 'Waiting for Customer Service to approve or decline',
+          Approved: 'Approved and being fulfilled',
+          Fulfilled: 'Approved and closed after the replacement order was placed',
+          Declined: 'Declined and closed',
+        }}
+        legendGroups={[
+          { label: 'Open', stages: ['Pending Decision', 'Approved'] },
+          { label: 'Closed', stages: ['Fulfilled', 'Declined'] },
+        ]}
+        ariaLabel="Decision trend: weekly order counts, one Open column (pending decision plus approved) beside one Closed column (fulfilled plus declined) per week"
+
         onSegmentClick={(datum) => {
           if (!datum?.stage) return;
           const params = new URLSearchParams();

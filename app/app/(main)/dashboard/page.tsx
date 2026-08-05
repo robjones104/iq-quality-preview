@@ -524,7 +524,7 @@ function DashboardPageContent() {
     { label: 'Fulfilled', count: liveOrders.filter(isFulfilled).length, prior: priorLiveN(isFulfilled), deltaTone: 'neutral', swatch: STATUS_COLORS.Validated,
       href: buildKpiHref('/orders?orderStatus=Closed&decision=Approved', dateRange, {}),
       tooltip: 'Orders that were approved and closed after the replacement order was placed.' },
-    { label: 'Declined', count: liveOrders.filter(isDeclinedOrder).length, prior: priorLiveN(isDeclinedOrder), swatch: '#cf1322',
+    { label: 'Declined', count: liveOrders.filter(isDeclinedOrder).length, prior: priorLiveN(isDeclinedOrder), swatch: '#ff4d4f',
       href: buildKpiHref('/orders?decision=Declined', dateRange, {}),
       tooltip: 'Orders that were declined and closed. Declined orders can be reopened if needed.' },
   ];
