@@ -41,13 +41,11 @@ function exportToCsv(filename: string, headers: string[], rows: (string | number
 }
 
 
-function GroupedStackTrend({ data, stages, colors, plotTheme, stageTooltips, legendGroups, daily = false, ariaLabel, onSegmentClick }: {
+function GroupedStackTrend({ data, stages, colors, plotTheme, legendGroups, daily = false, ariaLabel, onSegmentClick }: {
   data: Record<string, string | number>[];
   stages: readonly string[];
   colors: string[];
   plotTheme: string;
-  // Plain-language tooltip line per stage (KPI-bar voice, Rob 2026-08-05).
-  stageTooltips: Record<string, string>;
   // HTML legend grouped by series so Open/Closed membership is explicit.
   legendGroups: { label: string; stages: string[] }[];
   // Daily buckets drop the "Week of" tooltip prefix.
@@ -89,10 +87,7 @@ function GroupedStackTrend({ data, stages, colors, plotTheme, stageTooltips, leg
       legend: false,
       tooltip: {
         title: (d: Record<string, string>) => `${daily ? '' : 'Week of '}${d.week} \u00b7 ${d.status} orders`,
-        items: [(d: Record<string, string | number>) => ({
-          name: stageTooltips[String(d.stage)] ?? String(d.stage),
-          value: String(d.count),
-        })],
+        items: [(d: Record<string, string | number>) => ({ name: String(d.stage), value: String(d.count) })],
       },
       state: { active: { opacity: 1 }, inactive: { opacity: 0.15 } },
       interaction: { elementHighlight: true },
@@ -200,12 +195,6 @@ export function DecisionTrendChart({
         stages={STAGES}
         colors={['#1677ff', '#95de64', '#389e0d', '#595959']}
         plotTheme={plotTheme}
-        stageTooltips={{
-          'Pending Decision': 'Waiting for Customer Service to approve or decline',
-          Approved: 'Approved and being fulfilled',
-          Fulfilled: 'Approved and closed after the replacement order was placed',
-          Declined: 'Declined and closed',
-        }}
         legendGroups={[
           { label: 'Open', stages: ['Pending Decision', 'Approved'] },
           { label: 'Closed', stages: ['Fulfilled', 'Declined'] },
