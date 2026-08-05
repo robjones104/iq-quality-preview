@@ -11,6 +11,7 @@ import type { Order } from '@/data/orders';
 import {
   Button, Card, Col, Divider, Drawer, Dropdown, Form, Grid, Input, InputNumber, message, Modal, Radio, Row,
   Segmented, Select, Slider, Space, Switch, Table, Tooltip, Typography, Upload, theme,
+Image,
 } from 'antd';
 import {
   ArrowLeftOutlined, ArrowRightOutlined, CheckCircleFilled, CheckOutlined, CloseCircleFilled, CloseOutlined, DeleteOutlined, EditFilled, ExclamationCircleFilled,
@@ -158,7 +159,6 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   const [reopenEvtSuccess,  setReopenEvtSuccess]  = useState(false);
   const [pendingEscalation, setPendingEscalation] = useState<string | null>(null);
   const [escConfirmOpen,    setEscConfirmOpen]    = useState(false);
-  const [expandedImg,       setExpandedImg]       = useState<number | null>(null);
   const [analysisDrawerOpen, setAnalysisDrawerOpen] = useState(false);
   const [analysisTab, setAnalysisTab]         = useState<'analysis' | 'messages'>('messages');
   const eventSeedLogs = logs.filter(l => l.eventId === event.id);
@@ -218,7 +218,8 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   // to 10 with a visible N/10 counter; PDFs (cutsheets) ride the same picker
   // into their own list and do not count against the photo cap.
   const MAX_PHOTOS = 10;
-  const [uploadedPhotos, setUploadedPhotos] = useState<{ name: string; url: string }[]>([]);
+  const [uploadedPhotos, setUploadedPhotos] = useState<{ name: string; url: string; by: string }[]>([]);
+  const [selectedPhoto, setSelectedPhoto] = useState(0);
   const [cutsheets, setCutsheets] = useState<{ name: string; blobUrl: string }[]>([]);
   const handlePhotoFilesSelected = (e: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
@@ -227,7 +228,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
     const room = Math.max(0, MAX_PHOTOS - uploadedPhotos.length);
     const accepted = imgs.slice(0, room);
     if (accepted.length) {
-      setUploadedPhotos(prev => [...prev, ...accepted.map(f => ({ name: f.name, url: URL.createObjectURL(f) }))]);
+      setUploadedPhotos(prev => [...prev, ...accepted.map(f => ({ name: f.name, url: URL.createObjectURL(f), by: caps.displayName }))]);
     }
     if (imgs.length > accepted.length) {
       message.warning(`Photo limit is ${MAX_PHOTOS}. ${imgs.length - accepted.length} photo${imgs.length - accepted.length === 1 ? ' was' : 's were'} not added.`);
@@ -259,7 +260,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
             style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary }}
             onClick={() => photoInputRef.current?.click()}
           >
-            {atPhotoCap ? 'Add Cutsheet PDF' : 'Add Photos / PDFs'}
+            {atPhotoCap ? 'Add PDF' : 'Add Photos / PDFs'}
           </Button>
         )}
       </div>
@@ -279,38 +280,51 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
           {...(canAugment ? {
             onClick: () => photoInputRef.current?.click(),
             role: 'button' as const, tabIndex: 0,
-            'aria-label': 'Add photos or cutsheet PDFs',
+            'aria-label': 'Add photos or PDFs',
             onKeyDown: (e: React.KeyboardEvent) => { if (e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); photoInputRef.current?.click(); },
           } : {})}
         >
           <PictureFilled style={{ fontSize: token.fontSizeHeading3, color: token.colorTextQuaternary }} />
           <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No photos attached</Text>
-          {canAugment && <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Click to add photos or PDF cutsheets (up to {MAX_PHOTOS} photos)</Text>}
+          {canAugment && <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Click to add photos or PDFs (up to {MAX_PHOTOS} photos)</Text>}
         </div>
       ) : (
         <>
-          {/* Main viewer keeps the panel's full height and shows the photo
-              uncropped: field photos are phone portraits (Rob 2026-08-05). */}
-          <div
-            onClick={() => setExpandedImg(0)} role="button" tabIndex={0} aria-label="Expand photo 1"
-            onKeyDown={e => { if (e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); setExpandedImg(0); }}
-            style={{
-              flex: 1, minHeight: minEmptyHeight,
-              background: token.colorFillTertiary,
-              borderRadius: token.borderRadiusSM,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              overflow: 'hidden', cursor: 'pointer', marginBottom: 8,
-            }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={uploadedPhotos[0].url} alt={uploadedPhotos[0].name} style={{ maxWidth: '100%', maxHeight: minEmptyHeight + 140, objectFit: 'contain', display: 'block' }} />
+          {/* Evidence viewer: filmstrip selects, the viewer opens the
+              lightbox (PM ask). Portraits render uncropped. */}
+          <div style={{
+            flex: 1, minHeight: minEmptyHeight,
+            background: token.colorFillTertiary,
+            borderRadius: token.borderRadiusSM,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            overflow: 'hidden', marginBottom: 6,
+          }}>
+            <Image.PreviewGroup
+              items={uploadedPhotos.map(ph => ph.url)}
+              preview={{ current: selectedPhoto, onChange: (idx: number) => setSelectedPhoto(idx) }}
+            >
+              <Image
+                src={uploadedPhotos[selectedPhoto]?.url}
+                alt={uploadedPhotos[selectedPhoto]?.name}
+                height={minEmptyHeight}
+                style={{ maxWidth: '100%', objectFit: 'contain' }}
+              />
+            </Image.PreviewGroup>
           </div>
+          <Text type="secondary" style={{ fontSize: token.fontSizeSM, marginBottom: 6 }}>
+            Photo {selectedPhoto + 1} of {uploadedPhotos.length} · added by {uploadedPhotos[selectedPhoto]?.by}
+          </Text>
           {uploadedPhotos.length > 1 && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
-              {uploadedPhotos.slice(1).map((ph, i) => (
-                <div key={ph.url} onClick={() => setExpandedImg(i + 1)} role="button" tabIndex={0} aria-label={`Expand photo ${i + 2}`}
-                  onKeyDown={e => { if (e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); setExpandedImg(i + 1); }}
-                  style={{ aspectRatio: '3 / 4', borderRadius: token.borderRadiusSM, overflow: 'hidden', cursor: 'pointer', border: `1px solid ${token.colorBorderSecondary}`, background: token.colorFillTertiary }}>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {uploadedPhotos.map((ph, i) => (
+                <div key={ph.url} onClick={() => setSelectedPhoto(i)} role="button" tabIndex={0}
+                  aria-label={`Show photo ${i + 1}`} aria-current={selectedPhoto === i}
+                  onKeyDown={e => { if (e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); setSelectedPhoto(i); }}
+                  style={{
+                    width: 44, aspectRatio: '3 / 4', borderRadius: token.borderRadiusSM, overflow: 'hidden', cursor: 'pointer',
+                    border: `2px solid ${selectedPhoto === i ? token.colorPrimary : token.colorBorderSecondary}`,
+                    background: token.colorFillTertiary,
+                  }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={ph.url} alt={ph.name} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
                 </div>
@@ -322,7 +336,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
       {cutsheets.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }}>
           {cutsheets.map(f => (
-            <div key={f.blobUrl} onClick={() => setPreviewFile(f)} role="button" tabIndex={0} aria-label={`Preview cutsheet ${f.name}`}
+            <div key={f.blobUrl} onClick={() => setPreviewFile(f)} role="button" tabIndex={0} aria-label={`Preview PDF ${f.name}`}
               onKeyDown={e => { if (e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); setPreviewFile(f); }}
               style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: token.colorFillTertiary, borderRadius: token.borderRadiusSM, cursor: 'pointer' }}>
               <FilePdfOutlined style={{ fontSize: token.fontSize, color: token.colorErrorText }} />
@@ -2095,35 +2109,6 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
             </>
           )}
         </Form>
-      </Modal>
-
-      {/* IMAGE EXPAND MODAL */}
-      <Modal
-        open={expandedImg !== null}
-        onCancel={() => setExpandedImg(null)}
-        footer={null}
-        width={560}
-        title="Photo"
-        centered
-      >
-        {expandedImg !== null && uploadedPhotos[expandedImg] ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={uploadedPhotos[expandedImg].url}
-            alt={uploadedPhotos[expandedImg].name}
-            style={{ width: '100%', maxHeight: '78vh', objectFit: 'contain', display: 'block', borderRadius: token.borderRadiusSM }}
-          />
-        ) : (
-        <div style={{
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          height: '78vh', gap: 12,
-          background: token.colorFillTertiary,
-          borderRadius: token.borderRadiusSM,
-        }}>
-          <PictureFilled style={{ fontSize: 48, color: token.colorTextQuaternary }} />
-          <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No photo attached</Text>
-        </div>
-        )}
       </Modal>
 
     </div>
