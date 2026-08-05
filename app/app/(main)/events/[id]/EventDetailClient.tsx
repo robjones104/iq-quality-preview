@@ -723,6 +723,13 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
             <span style={{ color: token.colorBorderSecondary, fontSize: token.fontSizeLG, lineHeight: 1 }}>|</span>
             <span style={{ fontSize: token.fontSizeLG, fontWeight: 600, color: token.colorText }}>{event.id}</span>
             <StatusTag status={status} />
+            {/* Cross-link lives in the header beside the status badge so it is
+                consistently findable on both detail pages (Rob, 2026-08-04). */}
+            {effectiveOrderId && caps.orders && (
+              <Link href={`/orders/${effectiveOrderId}`} style={{ fontSize: token.fontSizeSM, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                View Order <ArrowRightOutlined style={{ fontSize: token.fontSizeXS }} />
+              </Link>
+            )}
           </div>
         }
         right={
@@ -940,11 +947,6 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                               </Space>
                             ) },
                           { label: 'Date',        node: <Text style={{ fontSize: token.fontSizeSM }}>{reportedDate}</Text> },
-                          ...(effectiveOrderId ? [{ label: ' ', node: (
-                            <Link href={`/orders/${effectiveOrderId}`} style={{ fontSize: token.fontSizeSM, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                              View Order <ArrowRightOutlined style={{ fontSize: token.fontSizeXS }} />
-                            </Link>
-                          ) }] : []),
                         ] as { label: string; node: React.ReactNode }[]).map(({ label, node }, i, arr) => (
                           <Fragment key={label}>
                             <div>

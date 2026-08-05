@@ -79,6 +79,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
   const evtMutations = useEventStore(s => s.mutations);
   const event = useMemo(() => mergeEvent(eventProp, evtMutations[eventProp.id]), [eventProp, evtMutations]);
   const { token } = theme.useToken();
+  const isDark = token.colorBgContainer !== '#ffffff';
   const screens = Grid.useBreakpoint();
   const isMobile = !screens.md;
   const { mutations: orderMutations, createdOrders, patchOrder, pushOrderLog } = useOrderStore();
@@ -709,13 +710,25 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
             <span style={{ fontSize: token.fontSizeLG, fontWeight: 600, color: token.colorText }}>{order.eventId}</span>
             <Tag style={{ margin: 0 }}>{status}</Tag>
             {!isMobile && approved && status === 'Open' && (
-              <Tag color="green" style={{ margin: 0 }}>Approved</Tag>
+              // Gold/Teal laws leave substates chromatic-with-text; the pastel
+              // green preset failed AA in light (3.37:1), so light mode uses
+              // the solid Validated-green fill (white text, 5.59:1).
+              <Tag color={isDark ? 'green' : undefined} style={{ margin: 0, ...(isDark ? {} : { background: '#237804', color: '#FFFFFF', borderColor: 'transparent' }) }}>Approved</Tag>
             )}
             {!isMobile && assignedToProcurement && (
               <Tag color="purple" style={{ margin: 0 }}>Assigned to Procurement</Tag>
             )}
             {!isMobile && replacementOrderNo && (
               <Tag color="cyan" style={{ margin: 0 }}>Replacement: {replacementOrderNo}</Tag>
+            )}
+            {/* Cross-link lives in the header beside the status chip so it is
+                consistently findable on both detail pages (Rob, 2026-08-04).
+                Roles without Events access (Procurement) get event context
+                from the Event Details tab instead. */}
+            {!isMobile && caps.events && (
+              <Link href={`/events/${event.id}`} style={{ fontSize: token.fontSizeSM, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                View Event <ArrowRightOutlined style={{ fontSize: token.fontSizeXS }} />
+              </Link>
             )}
           </div>
         }
@@ -912,13 +925,6 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
                     { label: 'Plant',        node: <Text style={{ fontSize: token.fontSizeSM }}>{event.plant.split(' ')[0]}</Text> },
                     { label: 'Reported By',  node: <Text style={{ fontSize: token.fontSizeSM }}>{event.reportedBy}</Text> },
                     { label: 'Last Updated', node: <Text style={{ fontSize: token.fontSizeSM }}>{order.lastUpdated}</Text> },
-                    // Roles without Events access (Procurement) get event context
-                    // from the Event Details tab instead of a cross-screen link.
-                    ...(caps.events ? [{ label: ' ', node: (
-                      <Link href={`/events/${event.id}`} style={{ fontSize: token.fontSizeSM, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        View Event <ArrowRightOutlined style={{ fontSize: token.fontSizeXS }} />
-                      </Link>
-                    ) }] : []),
                     ...(approved ? [{
                       label: 'Replacement Order #',
                       node: status === 'Open' && editingReplacement ? (
