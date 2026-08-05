@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useEventStore } from '@/store/eventStore';
 import { mergeEvent } from '@/lib/effectiveEvents';
 import { useOrderStore } from '@/store/orderStore';
-import { useCapabilities } from '@/store/roleStore';
+import { useCapabilities, useRoleStore } from '@/store/roleStore';
 import {
   Button, Card, Col, Divider, Dropdown, Form, Grid, Input, InputNumber, Modal,
   Popover, Radio, Row, Segmented, Select, Slider, Switch, Table, Tag, Typography, theme,
@@ -19,6 +19,7 @@ import { CopyableValue } from '@/components/CopyableValue';
 import { JobNoValue } from '@/components/JobNoValue';
 import { TechReplyWarning } from '@/components/TechReplyWarning';
 import { ShipToLine } from '@/components/ShipToLine';
+import { aaLabelColor, AA_INACTIVE_LABEL } from '@/lib/theme';
 import { PageHeader } from '@/components/PageHeader';
 import { useInfoRequestThread, InfoRequestThreadPanel } from '@/components/InfoRequestThread';
 import type { Order, OrderPart, OrderStatus } from '@/data/orders';
@@ -79,6 +80,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
   const evtMutations = useEventStore(s => s.mutations);
   const event = useMemo(() => mergeEvent(eventProp, evtMutations[eventProp.id]), [eventProp, evtMutations]);
   const { token } = theme.useToken();
+  const isDarkTheme = token.colorBgBase === '#000000';
   const isDark = token.colorBgContainer !== '#ffffff';
   const screens = Grid.useBreakpoint();
   const isMobile = !screens.md;
@@ -91,9 +93,15 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
   // Role capabilities. Customer Service decides (approve/decline); CS + Procurement
   // close/assign/enter replacement #. Other roles get a read-only order view.
   const caps = useCapabilities();
+  const role = useRoleStore(st => st.role);
   const canDecide = caps.decideOrders;
   const canClose = caps.closeOrders;
   const canActOnOrder = canDecide || canClose;
+  // Ownership context (Rob 2026-08-05): while an order sits with Procurement,
+  // Customer Service gets no close/return actions; while unassigned,
+  // Procurement gets none. Full Access demos both sides.
+  const actsAsProcurement = role === 'Procurement' || role === 'Full Access';
+  const actsAsCs          = role === 'Customer Service' || role === 'Full Access';
 
   const [status, setStatus]             = useState<Status>(ordStored.status ?? (order.orderStatus as Status));
   const [approved, setApproved]         = useState(ordStored.approved ?? order.approved ?? (order.orderStatus === 'Closed'));
@@ -418,6 +426,10 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
     },
     {
       label: 'Approved',
+      // Ownership note replaces the old header tag (Rob 2026-08-05).
+      sublabel: status === 'Open' && stepIdx === 1 && !declined
+        ? (assignedToProcurement ? 'With Procurement' : 'With Customer Service')
+        : undefined,
       color: '#95de64',
       // Declined orders never passed Approved: the step renders unreached.
       reached: stepIdx >= 1 && !declined,
@@ -449,22 +461,31 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
           </Button>
         </>
       )}
-      {status === 'Open' && approved && canClose && (
+      {status === 'Open' && approved && canClose && !assignedToProcurement && actsAsCs && (
         <>
-          {!assignedToProcurement && (
-            <Button icon={<SendOutlined />} onClick={() => setProcurementOpen(true)}>
-              Assign to Procurement
-            </Button>
-          )}
-          {assignedToProcurement && (
-            <Button icon={<RollbackOutlined />} onClick={() => setReturnOpen(true)}>
-              Return to Customer Service
-            </Button>
-          )}
+          <Button icon={<SendOutlined />} onClick={() => setProcurementOpen(true)}>
+            Assign to Procurement
+          </Button>
           <Button type="primary" icon={<CheckOutlined />} onClick={() => { setCloseReplacementOrderNo(replacementOrderNo); setCloseOpen(true); }}>
             Close Order
           </Button>
         </>
+      )}
+      {status === 'Open' && approved && canClose && assignedToProcurement && (
+        actsAsProcurement ? (
+          <>
+            <Button icon={<RollbackOutlined />} onClick={() => setReturnOpen(true)}>
+              Return to Customer Service
+            </Button>
+            <Button type="primary" icon={<CheckOutlined />} onClick={() => { setCloseReplacementOrderNo(replacementOrderNo); setCloseOpen(true); }}>
+              Close Order
+            </Button>
+          </>
+        ) : (
+          <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary }}>
+            With Procurement
+          </Text>
+        )
       )}
       {status === 'Closed' && canDecide && (
         <Button icon={<RollbackOutlined />} onClick={() => setReopenOpen(true)}>
@@ -479,13 +500,13 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
       { key: 'approve',  icon: <CheckOutlined />,  label: 'Approve',  onClick: handleApprove },
       { key: 'decline',  icon: <CloseOutlined />,  label: 'Decline',  onClick: () => setDeclineOpen(true) },
     ] : []),
-    ...(status === 'Open' && approved && !assignedToProcurement && canClose ? [
+    ...(status === 'Open' && approved && !assignedToProcurement && canClose && actsAsCs ? [
       { key: 'procurement', icon: <SendOutlined />, label: 'Assign to Procurement', onClick: () => setProcurementOpen(true) },
     ] : []),
-    ...(status === 'Open' && approved && assignedToProcurement && canClose ? [
+    ...(status === 'Open' && approved && assignedToProcurement && canClose && actsAsProcurement ? [
       { key: 'return', icon: <RollbackOutlined />, label: 'Return to Customer Service', onClick: () => setReturnOpen(true) },
     ] : []),
-    ...(status === 'Open' && approved && canClose ? [
+    ...(status === 'Open' && approved && canClose && (assignedToProcurement ? actsAsProcurement : actsAsCs) ? [
       { key: 'close', icon: <CheckOutlined />, label: 'Close Order', onClick: () => { setCloseReplacementOrderNo(replacementOrderNo); setCloseOpen(true); } },
     ] : []),
     ...(status === 'Closed' && canDecide ? [
@@ -609,12 +630,6 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
               // the solid Validated-green fill (white text, 5.59:1).
               <Tag color={isDark ? 'green' : undefined} style={{ margin: 0, ...(isDark ? {} : { background: '#237804', color: '#FFFFFF', borderColor: 'transparent' }) }}>Approved</Tag>
             )}
-            {!isMobile && assignedToProcurement && (
-              <Tag color="purple" style={{ margin: 0 }}>Assigned to Procurement</Tag>
-            )}
-            {!isMobile && replacementOrderNo && (
-              <Tag color="cyan" style={{ margin: 0 }}>Replacement: {replacementOrderNo}</Tag>
-            )}
             {/* Cross-link lives in the header beside the status chip so it is
                 consistently findable on both detail pages (Rob, 2026-08-04).
                 Roles without Events access (Procurement) get event context
@@ -662,9 +677,14 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
                     <CheckOutlined style={{ fontSize: token.fontSizeXS, color: '#fff' }} />
                   )}
                 </div>
-                <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600, whiteSpace: 'nowrap', color: stage.reached ? stage.color : token.colorTextQuaternary }}>
+                <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600, whiteSpace: 'nowrap', color: stage.reached ? aaLabelColor(stage.color, isDarkTheme) : (isDarkTheme ? AA_INACTIVE_LABEL.dark : AA_INACTIVE_LABEL.light) }}>
                   {stage.label}
                 </Text>
+                {(stage as { sublabel?: string }).sublabel && (
+                  <Text style={{ fontSize: token.fontSizeXS, fontWeight: 500, whiteSpace: 'nowrap', marginTop: 2, color: (stage as { sublabel?: string }).sublabel === 'With Procurement' ? (isDarkTheme ? '#B37FEB' : '#531DAB') : (isDarkTheme ? '#999999' : '#6B6B6B') }}>
+                    {(stage as { sublabel?: string }).sublabel}
+                  </Text>
+                )}
               </div>
               {i < stages.length - 1 && (
                 <div style={{ flex: 1, paddingBottom: 18, margin: '0 8px' }}>

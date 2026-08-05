@@ -149,6 +149,7 @@ export function AiSummary({
   dateRange: DateRange | null;
 }) {
   const { token } = theme.useToken();
+  const isDark = token.colorBgBase === '#000000';
   const [ready, setReady] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
@@ -180,7 +181,7 @@ export function AiSummary({
           <RobotFilled style={{ color: token.colorPrimary }} />
           <span style={{ fontSize: token.fontSizeSM, fontWeight: 600 }}>AI Summary</span>
           <Tooltip title="AI-generated from the events in the current filters — review before acting on it.">
-            <Tag color="purple" style={{ fontSize: token.fontSizeXS, lineHeight: '16px', padding: '0 4px', marginLeft: 2, cursor: 'help' }}>Beta</Tag>
+            <Tag color="purple" style={{ fontSize: token.fontSizeXS, lineHeight: '16px', padding: '0 4px', marginLeft: 2, cursor: 'help', ...(isDark ? { color: '#d3adf7' } : {}) }}>Beta</Tag>
           </Tooltip>
         </span>
       }

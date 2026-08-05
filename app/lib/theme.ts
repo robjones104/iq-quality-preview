@@ -7,6 +7,8 @@ import type { ThemeConfig } from 'antd';
 // backgrounds. Never override map tokens here — it breaks dark mode.
 // ---------------------------------------------------------------------------
 export const SEED_TOKENS: ThemeConfig['token'] = {
+  // 4.9:1 on white inputs (antd default #bfbfbf is 1.8:1).
+  colorTextPlaceholder: '#6B6B6B',
   // Figma Interactive/Primary. WCAG AA verified via antd's own getDesignToken():
   // colorPrimary/colorPrimaryText 7.96:1, colorPrimaryTextHover 5.61:1 on white — all pass.
   // #1677FF (AntD default) failed at 4.10:1 (large-text only) and its hover state failed at 2.99:1.
@@ -36,6 +38,8 @@ export const SEED_TOKENS: ThemeConfig['token'] = {
 // Overrides applied on top of SEED_TOKENS in dark mode only.
 // Uses Ant Design palette mid-range values — bright enough to read on dark surfaces.
 export const DARK_SEED_OVERRIDES: ThemeConfig['token'] = {
+  // 5.6:1 on dark inputs.
+  colorTextPlaceholder: '#8C8C8C',
   colorPrimary:         '#FFD20B',
   colorTextLightSolid:  '#141414',
   // Brand link teal, raw (Rob, 2026-08-03). WCAG AA on #141414: base 6.08:1,
@@ -49,8 +53,9 @@ export const DARK_SEED_OVERRIDES: ThemeConfig['token'] = {
   // colorInfo was previously unset here, so it fell back to the light-mode seed (#006BB2),
   // which the dark algorithm derives at 2.69:1 on #141414 (fails). #4096ff passes at 4.78:1.
   colorInfo:            '#4096ff',
-  // WCAG AA: #595959 on dark card #141414 = 2.63:1 (fails). #8C8C8C = 5.48:1 ✅
-  colorTextTertiary:    '#8C8C8C',
+  // WCAG AA: #595959 on dark card #141414 = 2.63:1 (fails). #8C8C8C passed on
+  // cards but sat 4.4:1 on raised fills (#272727); #999999 clears 5.2:1 there.
+  colorTextTertiary:    '#999999',
 };
 
 // ---------------------------------------------------------------------------
@@ -123,6 +128,28 @@ export const BRAND = {
 // AntD component internals (Button, Tag, Input, etc.) are handled by the
 // algorithm — don't duplicate those here.
 // ---------------------------------------------------------------------------
+// AA-safe TEXT twins for chromatic fills. Node dots and chart fills keep the
+// grammar hue; any LABEL TEXT in that hue must use its twin. Ratios on
+// #f5f5f5 (light) / #141414 (dark): #0958D9 5.6, #AD4E00 4.9, #237804 5.1,
+// #8C8C8C 5.6. Fills already passing (#595959 light 6.4) map to themselves.
+export const AA_LABEL_TEXT: { light: Record<string, string>; dark: Record<string, string> } = {
+  light: {
+    '#1677ff': '#0958D9',
+    '#d46b08': '#AD4E00',
+    '#95de64': '#237804',
+    '#389e0d': '#237804',
+    '#595959': '#595959',
+  },
+  dark: {
+    '#595959': '#8C8C8C',
+  },
+};
+export function aaLabelColor(fill: string, isDark: boolean): string {
+  return (isDark ? AA_LABEL_TEXT.dark : AA_LABEL_TEXT.light)[fill] ?? fill;
+}
+// Inactive/disabled step labels: 4.9:1 light, 5.6:1 dark.
+export const AA_INACTIVE_LABEL = { light: '#6B6B6B', dark: '#8C8C8C' } as const;
+
 export const SEMANTIC = {
   light: {
     colorBgPage:        '#F5F5F5',  // outermost layout background

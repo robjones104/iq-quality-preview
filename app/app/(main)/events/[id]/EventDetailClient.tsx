@@ -25,6 +25,7 @@ import { logs } from '@/data/logs';
 import { ISSUE_OPTIONS, DOOR_OPTIONS, PART_CATALOG, PLANT_OPTIONS, COMPONENT_OPTIONS } from '@/data/filterOptions';
 import { EscalateModal } from '@/components/EscalateModal';
 import { ShipToLine } from '@/components/ShipToLine';
+import { aaLabelColor, AA_INACTIVE_LABEL } from '@/lib/theme';
 import { useEffectiveEvents } from '@/lib/effectiveEvents';
 import { useEffectiveEscalations } from '@/lib/effectiveEscalations';
 import { useEscalationStore } from '@/store/escalationStore';
@@ -217,6 +218,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
     e.target.value = '';
   };
   const { token } = theme.useToken();
+  const isDarkTheme = token.colorBgBase === '#000000';
   const router = useRouter();
   const screens = Grid.useBreakpoint();
   const isMobile = !screens.md;
@@ -856,7 +858,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                 <Text style={{
                   fontSize: token.fontSizeSM,
                   fontWeight: 600,
-                  color: stage.reached ? stage.color : token.colorTextQuaternary,
+                  color: stage.reached ? aaLabelColor(stage.color, isDarkTheme) : (isDarkTheme ? AA_INACTIVE_LABEL.dark : AA_INACTIVE_LABEL.light),
                   whiteSpace: 'nowrap',
                 }}>
                   {stage.label}
