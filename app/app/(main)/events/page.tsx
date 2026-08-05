@@ -284,7 +284,7 @@ function EventsPageContent() {
       key: 'plant',
       sorter: (a, b) => a.plant.localeCompare(b.plant),
       render: (plant: string) => plant.split(' ')[0],
-      ellipsis: { showTitle: true },
+      width: 76,
     },
     {
       title: 'Event Status',
@@ -293,7 +293,6 @@ function EventsPageContent() {
       sorter: (a, b) => a.status.localeCompare(b.status),
       filters: colFilters('status'),
       filteredValue: appliedFilters.status ?? null,
-      width: 160,
       render: (_: EventStatus, record) => {
         // Ownership split (Rob, 2026-08-04): the event badge carries FQ-owned
         // conversation state only; CS-owned state lives on the order chip on
@@ -311,6 +310,7 @@ function EventsPageContent() {
           />
         );
       },
+      width: 208,
     },
   ];
 

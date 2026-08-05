@@ -408,7 +408,7 @@ function OrdersPageContent() {
       key: 'plant',
       sorter: (a, b) => a.plant.localeCompare(b.plant),
       render: (plant: string) => plant.split(' ')[0],
-      ellipsis: { showTitle: true },
+      width: 76,
     },
     {
       title: 'Last Updated',
@@ -422,7 +422,6 @@ function OrdersPageContent() {
       title: 'Event Status',
       key: 'eventStatus',
       sorter: (a, b) => a.status.localeCompare(b.status),
-      width: 170,
       render: (_, record) => {
         // Event lifecycle is context here, not the working object: neutral
         // chip, colors stay unique to the order pipeline (Rob 2026-08-05).
@@ -441,6 +440,7 @@ function OrdersPageContent() {
           </Tag>
         );
       },
+      width: 208,
     },
     {
       title: 'Order Status',
@@ -449,7 +449,6 @@ function OrdersPageContent() {
       sorter: (a, b) => effectiveStatus(a).localeCompare(effectiveStatus(b)),
       filters: ['Pending Decision', 'Approved', 'Fulfilled', 'Declined'].map(v => ({ text: v, value: v })),
       filteredValue: appliedFiltersLocal.stage ?? null,
-      width: 178,
       render: (_, record) => {
         // Pipeline-first (Rob, 2026-08-05): on order surfaces the ORDER wears
         // the color, showing its stage directly (Open/Closed is derivable:
@@ -472,6 +471,7 @@ function OrdersPageContent() {
           />
         );
       },
+      width: 196,
     },
   ];
 
