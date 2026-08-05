@@ -13,7 +13,7 @@ import { useCapabilities } from '@/store/roleStore';
 import { nowStampIso, nowStampUs, nowDateStr } from '@/lib/appTime';
 import { DOOR_OPTIONS, COMPONENT_OPTIONS, ISSUE_OPTIONS, PART_CATALOG } from '@/data/filterOptions';
 import { eligibleParts } from '@/data/partsCatalog';
-import { quantityProps, snapQuantity } from '@/components/PartPicker';
+import { QuantitySliderField, snapQuantity } from '@/components/PartPicker';
 import type { QualityEvent } from '@/data/types';
 import type { Order } from '@/data/orders';
 
@@ -477,18 +477,11 @@ export function IntakeFormClient() {
                                   <Radio.Button value="Length">Length</Radio.Button>
                                 </Radio.Group>
                               </Form.Item>
-                              <Form.Item noStyle shouldUpdate={(pv, cv) => pv.parts?.[field.name]?.quantityType !== cv.parts?.[field.name]?.quantityType}>
-                                {({ getFieldValue }) => (
-                                  <Form.Item
-                                    name={[field.name, 'quantity']}
-                                    label="Quantity"
-                                    rules={[{ required: true, message: 'Qty' }]}
-                                    style={{ flex: '0 1 110px', marginBottom: 0 }}
-                                  >
-                                    <InputNumber {...quantityProps(getFieldValue(['parts', field.name, 'quantityType']))} max={999} style={{ width: '100%' }} />
-                                  </Form.Item>
-                                )}
-                              </Form.Item>
+                              <QuantitySliderField
+                                form={form}
+                                name={['parts', field.name, 'quantity']}
+                                style={{ flex: '1 1 100%' }}
+                              />
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <Form.Item name={[field.name, 'manual']} valuePropName="checked" noStyle>

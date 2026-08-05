@@ -1,6 +1,7 @@
 'use client';
 
-import { Checkbox, Col, Form, Input, InputNumber, Radio, Row, Select, Typography, theme } from 'antd';
+import { Checkbox, Col, Form, Input, InputNumber, Radio, Row, Select, Slider, Typography, theme } from 'antd';
+import type { NamePath } from 'antd/es/form/interface';
 import type { FormInstance } from 'antd';
 import { eligibleParts } from '@/data/partsCatalog';
 
@@ -12,6 +13,55 @@ export function quantityProps(quantityType?: string) {
   return quantityType === 'Length'
     ? { min: 0.25, step: 0.25, precision: 2 }
     : { min: 1, step: 1, precision: 0 };
+}
+
+const SLIDER_PROPS: Record<'Piece' | 'Length', { min: number; max: number; step: number; marks: Record<number, string> }> = {
+  Piece:  { min: 1,    max: 100, step: 1,    marks: { 1: '1', 25: '25', 50: '50', 75: '75', 100: '100' } },
+  Length: { min: 0.25, max: 50,  step: 0.25, marks: { 0.25: '0.25', 12.5: '12.5', 25: '25', 50: '50' } },
+};
+
+// Slider + number pair (the "timeline", Rob 2026-08-05), unit-aware: Piece
+// slides whole units, Length quarter units. Bound to the form value so either
+// control moves the other.
+export function QuantitySliderField({ form, name, label = 'Quantity', style }: {
+  form: FormInstance;
+  name: NamePath;
+  label?: string;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <Form.Item noStyle shouldUpdate>
+      {({ getFieldValue }) => {
+        const qt: 'Piece' | 'Length' = getFieldValue(Array.isArray(name) ? [...name.slice(0, -1), 'quantityType'] : 'quantityType') === 'Length' ? 'Length' : 'Piece';
+        const sp = SLIDER_PROPS[qt];
+        const value: number = getFieldValue(name) ?? sp.min;
+        return (
+          <Form.Item label={label} style={{ marginBottom: 0, ...style }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <Slider
+                  min={sp.min} max={sp.max} step={sp.step} marks={sp.marks}
+                  value={value}
+                  onChange={(v: number) => form.setFieldValue(name, v)}
+                />
+              </div>
+              <InputNumber
+                {...quantityProps(qt)}
+                max={sp.max}
+                value={value}
+                onChange={(v) => form.setFieldValue(name, v ?? sp.min)}
+                style={{ width: 84 }}
+                aria-label={label}
+              />
+            </div>
+            <Form.Item name={name} noStyle rules={[{ required: true, message: 'Qty' }]}>
+              <Input type="hidden" />
+            </Form.Item>
+          </Form.Item>
+        );
+      }}
+    </Form.Item>
+  );
 }
 
 /** Snap an existing value onto the new unit's grid when the type flips. */
@@ -87,13 +137,7 @@ export function PartPickerFields({ form, door, component }: {
           <Radio.Button value="Length">Length</Radio.Button>
         </Radio.Group>
       </Form.Item>
-      <Form.Item noStyle shouldUpdate={(p, c) => p.quantityType !== c.quantityType}>
-        {({ getFieldValue }) => (
-          <Form.Item label="Quantity" name="quantity" rules={[{ required: true, message: 'Qty' }]} style={{ marginBottom: 0 }}>
-            <InputNumber {...quantityProps(getFieldValue('quantityType'))} max={999} style={{ width: 140 }} />
-          </Form.Item>
-        )}
-      </Form.Item>
+      <QuantitySliderField form={form} name="quantity" />
     </>
   );
 }
