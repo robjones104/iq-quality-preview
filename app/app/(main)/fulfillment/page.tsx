@@ -38,7 +38,8 @@ export default function FulfillmentPage() {
   const { token } = theme.useToken();
 
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
-  const [showClosed, setShowClosed] = useState(false);
+  // Queue defaults to the working set; Closed shows fulfilled history.
+  const [containerView, setContainerView] = useState<'open' | 'closed' | 'all'>('open');
 
   const { mutations: orderMutations, createdOrders } = useOrderStore();
   const eventMap = useEffectiveEventMap();
@@ -54,13 +55,14 @@ export default function FulfillmentPage() {
   const queue = useMemo(() => orderRows.filter(o => {
     const assigned = orderMutations[o.id]?.assignedToFulfillment ?? o.assignedToFulfillment ?? false;
     if (!assigned) return false;
-    if (!showClosed && (orderMutations[o.id]?.status ?? o.orderStatus) !== 'Open') return false;
+    const isOpen = (orderMutations[o.id]?.status ?? o.orderStatus) === 'Open';
+    if (containerView !== 'all' && (containerView === 'open') !== isOpen) return false;
     if (dateRange) {
       const d = dayjs(o.lastUpdated, 'MM-DD-YYYY HH:mm');
       if (d.isBefore(dateRange[0], 'day') || d.isAfter(dateRange[1], 'day')) return false;
     }
     return true;
-  }), [orderRows, orderMutations, showClosed, dateRange]);
+  }), [orderRows, orderMutations, containerView, dateRange]);
 
   const columns: ColumnsType<OrderRow> = [
     {
@@ -151,11 +153,12 @@ export default function FulfillmentPage() {
         right={
           <Segmented
             options={[
-              { label: 'Open Only', value: 'open' },
+              { label: 'Open', value: 'open' },
+              { label: 'Closed', value: 'closed' },
               { label: 'All', value: 'all' },
             ]}
-            value={showClosed ? 'all' : 'open'}
-            onChange={v => setShowClosed(v === 'all')}
+            value={containerView}
+            onChange={v => setContainerView(v as 'open' | 'closed' | 'all')}
           />
         }
       />

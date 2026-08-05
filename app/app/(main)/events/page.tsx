@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import dayjs from 'dayjs';
-import { AutoComplete, Input, Pagination, Table, Button, Tag, Typography, theme, Grid } from 'antd';
+import { AutoComplete, Input, Pagination, Table, Button, Tag, Typography, theme, Grid, Segmented } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { CloseOutlined, SearchOutlined, ArrowLeftOutlined, ExportOutlined } from '@ant-design/icons';
 import { CopyableValue } from '@/components/CopyableValue';
@@ -164,7 +164,14 @@ function EventsPageContent() {
   const tagFilter = tagParam?.split(',').filter(Boolean) ?? [];
   const idsFilter = idsParam?.split(',').filter(Boolean) ?? [];
 
+  // Coarse container lens shared by every table (Rob 2026-08-05):
+  // open = Reported + Under Investigation, closed = Validated + Invalidated.
+  const [containerView, setContainerView] = useState<'open' | 'closed' | 'all'>('all');
   const filtered = events.filter((e) => {
+    if (containerView !== 'all') {
+      const isOpen = e.status === 'Reported' || e.status === 'Under Investigation';
+      if (containerView === 'open' ? !isOpen : isOpen) return false;
+    }
     if (dateRange) {
       const d = dayjs(e.date);
       if (d.isBefore(dateRange[0], 'day') || d.isAfter(dateRange[1], 'day')) return false;
@@ -341,11 +348,22 @@ function EventsPageContent() {
           )
         }
         right={
-          <FilterPanel
-            categories={EVENT_FILTER_CATEGORIES}
-            applied={appliedFilters}
-            onApply={setAppliedFilters}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Segmented
+              options={[
+                { label: 'Open', value: 'open' },
+                { label: 'Closed', value: 'closed' },
+                { label: 'All', value: 'all' },
+              ]}
+              value={containerView}
+              onChange={v => setContainerView(v as 'open' | 'closed' | 'all')}
+            />
+            <FilterPanel
+              categories={EVENT_FILTER_CATEGORIES}
+              applied={appliedFilters}
+              onApply={setAppliedFilters}
+            />
+          </div>
         }
       />
 

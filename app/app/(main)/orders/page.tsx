@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, Suspense } from 'react';
 import dayjs from 'dayjs';
 import {
   AutoComplete, Form, Input, Modal, Pagination, Select,
-  Switch, Table, Button, Tag, Typography, theme, Grid,
+  Segmented, Switch, Table, Button, Tag, Typography, theme, Grid,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { MenuProps } from 'antd';
@@ -291,7 +291,11 @@ function OrdersPageContent() {
     return items;
   };
 
+  // Coarse container lens: open = Pending Decision + Approved,
+  // closed = Fulfilled + Declined.
+  const [containerView, setContainerView] = useState<'open' | 'closed' | 'all'>('all');
   const filtered = orderRows.filter(o => {
+    if (containerView !== 'all' && (containerView === 'open') !== (effectiveStatus(o) === 'Open')) return false;
     if (dateRange) {
       const d = dayjs(o.lastUpdated, 'MM-DD-YYYY HH:mm');
       if (d.isBefore(dateRange[0], 'day') || d.isAfter(dateRange[1], 'day')) return false;
@@ -677,11 +681,22 @@ function OrdersPageContent() {
           </AutoComplete>
         }
         right={
-          <FilterPanel
-            categories={ORDER_STATUS_FILTER}
-            applied={appliedFiltersLocal}
-            onApply={setAppliedFilters}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Segmented
+              options={[
+                { label: 'Open', value: 'open' },
+                { label: 'Closed', value: 'closed' },
+                { label: 'All', value: 'all' },
+              ]}
+              value={containerView}
+              onChange={v => setContainerView(v as 'open' | 'closed' | 'all')}
+            />
+            <FilterPanel
+              categories={ORDER_STATUS_FILTER}
+              applied={appliedFiltersLocal}
+              onApply={setAppliedFilters}
+            />
+          </div>
         }
       />
 
