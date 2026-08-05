@@ -677,10 +677,12 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
           ))}
         </div>
 
-        {/* Quiet fact, no diagnosis: sibling open orders on this SO may or may
-            not be one larger issue. The list is a click away. */}
-        {sameSoOpenSiblings.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {/* Order context, top right: where it ships (the CTA lives here so it
+            reads on first scan), plus the quiet same-SO sibling fact. Sibling
+            open orders may or may not be one larger issue; the list is a
+            click away. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          {sameSoOpenSiblings.length > 0 && (
             <Popover
               trigger="click"
               placement="bottomRight"
@@ -704,8 +706,20 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
                 {sameSoOpenSiblings.length} more open order{sameSoOpenSiblings.length === 1 ? '' : 's'} on this SO
               </Text>
             </Popover>
+          )}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '5px 12px',
+            border: `1px solid ${token.colorBorder}`,
+            borderRadius: token.borderRadiusSM,
+            background: token.colorBgContainer,
+          }}>
+            <ShipToLine shipTo={event.shipTo} address={event.shipToAddress} branch={event.branch} />
+            {canActOnOrder && (
+              <Button size="small" onClick={openShipToEdit}>Change</Button>
+            )}
           </div>
-        )}
+        </div>
         </div>
 
         {/* Main content row: tabbed card + scan card */}
@@ -820,25 +834,13 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
                   ))}
                 </div>
 
-                {/* Parts / Ship to Branch + Label Scans */}
+                {/* Parts + Label Scans */}
                 <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 16, flex: 1, minHeight: isMobile ? undefined : 0 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
 
                 {/* Parts header */}
-                <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-                  {sectionLabel(event.shipTo === 'address' ? 'Parts / Ship to Address' : 'Parts / Ship to Branch')}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <ShipToLine shipTo={event.shipTo} address={event.shipToAddress} branch={event.branch} />
-                    {canActOnOrder && (
-                      <Button
-                        type="text"
-                        size="small"
-                        icon={<EditFilled />}
-                        onClick={openShipToEdit}
-                        style={{ color: token.colorTextTertiary }}
-                      />
-                    )}
-                  </div>
+                <div style={{ marginBottom: 10 }}>
+                  {sectionLabel('Parts')}
                 </div>
 
                 {/* Parts list */}
