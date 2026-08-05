@@ -182,6 +182,19 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   const isMissingHardware = currentIssue === 'Missing Hardware';
   const isSO              = !currentJobNo.startsWith('WO');
   const [partsState, setPartsState] = useState(evtStored.partsRequest ?? event.partsRequest ?? []);
+
+  // Ship-to edit, mirroring the order detail exactly: same modal, same event
+  // write (single source of truth), same activity trail.
+  const [shipToEditOpen, setShipToEditOpen]       = useState(false);
+  const [shipToDraft, setShipToDraft]             = useState<'branch' | 'address'>('branch');
+  const [shipToStreetDraft, setShipToStreetDraft] = useState('');
+  const [shipToCityDraft, setShipToCityDraft]     = useState('');
+  const openShipToEdit = () => {
+    setShipToDraft(currentShipTo === 'address' ? 'address' : 'branch');
+    setShipToStreetDraft(currentShipToAddress?.street ?? '');
+    setShipToCityDraft(currentShipToAddress?.cityStateZip ?? '');
+    setShipToEditOpen(true);
+  };
   const lastSavedValues = useRef({
     issue:            currentIssue,
     component:        currentComponent,
@@ -228,6 +241,21 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
 
   const logEditEntry = (field: string, from: string | null, to: string | null) => {
     addToActivityLog(`${field} updated`, undefined, from ?? '—', to ?? '—');
+  };
+
+  const handleSaveShipTo = () => {
+    if (shipToDraft === 'address' && (!shipToStreetDraft.trim() || !shipToCityDraft.trim())) return;
+    const summary = shipToDraft === 'address'
+      ? `${shipToStreetDraft.trim()}, ${shipToCityDraft.trim()}`
+      : `${event.branch} Branch`;
+    patchEvent(event.id, {
+      shipTo: shipToDraft,
+      ...(shipToDraft === 'address'
+        ? { shipToAddress: { street: shipToStreetDraft.trim(), cityStateZip: shipToCityDraft.trim() } }
+        : {}),
+    });
+    addToActivityLog(`Ship-to updated: ${summary}`);
+    setShipToEditOpen(false);
   };
 
   const thread = useInfoRequestThread(event, 'Field Quality', { onActivity: addToActivityLog });
@@ -1046,19 +1074,31 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
 
                       {/* Parts Request + Hardware Kit */}
                       <Divider style={{ margin: '16px 0 12px' }} />
+                      {/* Section header spans the card so the ship-to pill sits
+                          hard right, beside the photos panel (Rob 2026-08-04). */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                        <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600, color: token.colorText }}>
+                          Parts Request
+                        </Text>
+                        {partsState.length > 0 && (
+                          <div style={{
+                            display: 'flex', alignItems: 'center', gap: 10,
+                            padding: '5px 12px',
+                            border: `1px solid ${token.colorBorder}`,
+                            borderRadius: token.borderRadiusSM,
+                            background: token.colorBgContainer,
+                          }}>
+                            <ShipToLine shipTo={currentShipTo} address={currentShipToAddress} branch={event.branch} />
+                            {editable && (
+                              <Button size="small" onClick={openShipToEdit}>Change</Button>
+                            )}
+                          </div>
+                        )}
+                      </div>
                       <Row gutter={[16, 12]} style={{ flex: 1, alignItems: 'stretch', minHeight: 0 }}>
                         <Col xs={24} sm={12} style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-                          <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600, color: token.colorText, display: 'block', marginBottom: 10 }}>
-                            Parts Request
-                          </Text>
                           {partsState.length > 0 ? (
                             <>
-                              <ShipToLine
-                                shipTo={currentShipTo}
-                                address={currentShipToAddress}
-                                branch={event.branch}
-                                style={{ marginBottom: 10 }}
-                              />
                               {partsState.length > 1 && (
                                 <div style={{ marginBottom: 10 }}>
                                   <Select
@@ -1938,6 +1978,60 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                 </Form.Item>
               </Col>
             </Row>
+          )}
+        </Form>
+      </Modal>
+
+      {/* SHIP-TO EDIT MODAL */}
+      <Modal
+        title="Edit Ship To"
+        open={shipToEditOpen}
+        onCancel={() => setShipToEditOpen(false)}
+        width={440}
+        footer={
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <Button onClick={() => setShipToEditOpen(false)}>Cancel</Button>
+            <Button
+              type="primary"
+              disabled={shipToDraft === 'address' && (!shipToStreetDraft.trim() || !shipToCityDraft.trim())}
+              onClick={handleSaveShipTo}
+            >
+              Save
+            </Button>
+          </div>
+        }
+      >
+        <Form layout="vertical" size="small" style={{ marginTop: 8 }}>
+          <Form.Item label="Ship To" style={{ marginBottom: 10 }}>
+            <Radio.Group
+              buttonStyle="solid"
+              size="small"
+              value={shipToDraft}
+              onChange={e => setShipToDraft(e.target.value)}
+            >
+              <Radio.Button value="branch">Branch ({event.branch})</Radio.Button>
+              <Radio.Button value="address">Direct Address</Radio.Button>
+            </Radio.Group>
+          </Form.Item>
+          {shipToDraft === 'address' && (
+            <>
+              <Form.Item label="Street Address" required style={{ marginBottom: 10 }}>
+                <Input
+                  placeholder="e.g. 4821 Commerce Park Dr"
+                  value={shipToStreetDraft}
+                  onChange={e => setShipToStreetDraft(e.target.value)}
+                  autoFocus
+                />
+              </Form.Item>
+              <Form.Item label="City, State ZIP" required style={{ marginBottom: 0 }}>
+                <Input
+                  placeholder="e.g. Marietta, GA 30060"
+                  value={shipToCityDraft}
+                  onChange={e => setShipToCityDraft(e.target.value)}
+                  onPressEnter={handleSaveShipTo}
+                />
+              </Form.Item>
+            </>
           )}
         </Form>
       </Modal>

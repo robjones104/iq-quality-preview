@@ -91,7 +91,7 @@ export function FilterPanel({ categories, applied, onApply }: Props) {
     return (
       <>
         <Badge count={totalApplied} size="small" color={token.colorLink}>
-          <Button type="primary" icon={<FilterFilled />} onClick={handleOpen} aria-label="Open filters" />
+          <Button icon={<FilterFilled />} onClick={handleOpen} aria-label="Open filters" />
         </Badge>
 
         <Drawer
@@ -299,7 +299,6 @@ export function FilterPanel({ categories, applied, onApply }: Props) {
       styles={{ content: { padding: 0 } }}
     >
       <Button
-        type="primary"
         icon={<FilterFilled />}
         onClick={handleOpen}
       >
