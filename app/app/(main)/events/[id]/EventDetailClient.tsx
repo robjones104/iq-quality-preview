@@ -1492,7 +1492,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 12, minHeight: 0 }}>
               <Card
                 size="small"
-                title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Messages</span>}
+                title={<span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Additional Information Requests</span>}
                 style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
                 styles={{ body: { flex: 1, overflow: 'auto', padding: 16, minHeight: 0 } }}
               >
@@ -1567,7 +1567,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
               value={analysisTab}
               onChange={v => setAnalysisTab(v as 'analysis' | 'messages')}
               options={[
-                { label: 'Messages', value: 'messages' },
+                { label: 'Info Requests', value: 'messages' },
                 { label: 'Assessment', value: 'analysis' },
               ]}
               style={{ marginBottom: 12 }}

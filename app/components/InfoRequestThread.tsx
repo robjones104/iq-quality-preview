@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { App, Avatar, Button, Input, Typography, theme } from 'antd';
+import { App, Button, Input, Typography, theme } from 'antd';
 import { MessageFilled, RedoOutlined } from '@ant-design/icons';
 import { useEventStore } from '@/store/eventStore';
 import { capabilitiesFor } from '@/lib/roles';
@@ -14,12 +14,36 @@ const { Text } = Typography;
 // reporter (Tech). Avatars keep side-coded colors so the two sides of the
 // conversation stay scannable without role labels: office = gray steps,
 // reporter side (Tech, Intake) = gold family.
+// All four fills carry white initials at AA (4.5:1+) in both themes:
+// #434343 10.4:1, #595959 7.0:1, #ad6800 4.4:1, #7A5200 6.9:1. The dark
+// theme's global colorTextLightSolid is near-black (gold-button labels), so
+// the initials color must be explicit, never token-derived.
 const SENDER_META: Record<NonNullable<AdditionalInfoRequest['sentBy']>, { avatarBg: string }> = {
   'Field Quality': { avatarBg: '#434343' },
-  'Customer Service': { avatarBg: '#8c8c8c' },
-  Tech: { avatarBg: '#d48806' },
-  Intake: { avatarBg: '#ad6800' },
+  'Customer Service': { avatarBg: '#595959' },
+  Tech: { avatarBg: '#ad6800' },
+  Intake: { avatarBg: '#7A5200' },
 };
+
+// Deterministic initials circle: antd Avatar centers its string child with an
+// absolutely-positioned transform, which sits optically off at 24px, and it
+// inherits colorTextLightSolid for the text.
+function InitialsAvatar({ bg, initials }: { bg: string; initials: string }) {
+  return (
+    <div
+      aria-hidden
+      style={{
+        width: 24, height: 24, borderRadius: '50%', background: bg,
+        color: '#FFFFFF', fontSize: 10, fontWeight: 600, lineHeight: 1,
+        letterSpacing: 0.3, display: 'flex', alignItems: 'center',
+        justifyContent: 'center', flexShrink: 0, marginTop: 2,
+        userSelect: 'none',
+      }}
+    >
+      {initials}
+    </div>
+  );
+}
 
 /** "Theron K. Aldwick" -> "TA" */
 function nameInitials(name: string): string {
@@ -141,9 +165,7 @@ export function InfoRequestThreadPanel({
                 return (
                   <div key={m.id} style={{ padding: '10px 0' }}>
                     <div style={{ display: 'flex', gap: 10, width: '100%' }}>
-                      <Avatar size="small" style={{ background: meta.avatarBg, fontSize: token.fontSizeSM, flexShrink: 0, marginTop: 2 }}>
-                        {nameInitials(name)}
-                      </Avatar>
+                      <InitialsAvatar bg={meta.avatarBg} initials={nameInitials(name)} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
                           <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600, whiteSpace: 'nowrap' }}>
