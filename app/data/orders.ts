@@ -20,9 +20,6 @@ export interface OrderPart {
 export interface Order {
   id: string;
   eventId: string;
-  // All events this order serves. Absent means just `eventId`; a consolidated
-  // survivor carries every merged event (runtime copies live in orderStore).
-  eventIds?: string[];
   orderStatus: OrderStatus;
   jobNo: string;
   parts: OrderPart[];
@@ -30,9 +27,6 @@ export interface Order {
   approved?: boolean;
   declined?: boolean;
   declineReason?: string;
-  // Closed by same-SO consolidation into another order (distinct from declined).
-  consolidated?: boolean;
-  consolidatedInto?: string;
   assignedToProcurement?: boolean;
   replacementOrderNo?: string;
 }
@@ -364,8 +358,8 @@ const HAND_CRAFTED_ORDERS: Order[] = [
     ],
   },
 
-  // ── Same-SO cluster (consolidation demo): three open orders on SO110030001,
-  //    one per event, all really one damaged door ─────────────────────────────
+  // ── Same-SO cluster: three open orders on SO110030001, one per event.
+  //    Demo for same-SO sibling visibility on the order detail. ──────────────
   {
     id: 'QE_2690_Order', eventId: 'QE_2690', orderStatus: 'Open', jobNo: 'SO110030001', lastUpdated: '06-07-2026 08:22',
     parts: [

@@ -214,7 +214,7 @@ export const STATUS_OPTIONS = [
 // vocabulary the /orders list page reads (orderStatus, decision).
 export const ORDER_FILTER_CATEGORIES: FilterCategory[] = [
   { key: 'orderStatus', label: 'Order Status', options: ['Open', 'Closed'] },
-  { key: 'decision',    label: 'Decision',     options: ['Pending', 'Approved', 'Declined', 'Consolidated'] },
+  { key: 'decision',    label: 'Decision',     options: ['Pending', 'Approved', 'Declined'] },
 ];
 
 export const EVENT_FILTER_CATEGORIES: FilterCategory[] = [

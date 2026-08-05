@@ -610,7 +610,7 @@ const MESSAGE_THREAD_SEEDS_2: QualityEvent[] = [
 
 // Same-SO cluster: one install (SO110030001) reported piecemeal by the same
 // tech. Three events, three auto-created orders, one real fix (a complete
-// door). This is the consolidation demo story.
+// door). This is the same-SO sibling demo story.
 const SAME_SO_CLUSTER: QualityEvent[] = [
   {
     id: 'QE_2690', date: '2026-06-07', jobNo: 'SO110030001', dfo: 1, elLine: 1,

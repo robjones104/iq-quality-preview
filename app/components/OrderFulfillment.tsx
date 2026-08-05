@@ -113,7 +113,6 @@ export function DecisionTrendChart({
   // carry tall Open columns — the gap is the backlog aging.
   const trendData = useMemo(() => {
     const stageOf = (o: Order): typeof STAGES[number] | null => {
-      if (o.consolidated) return null;
       if (o.declined) return 'Declined';
       if (o.approved) return o.orderStatus === 'Closed' ? 'Fulfilled' : 'Approved';
       return o.orderStatus === 'Open' ? 'Pending Decision' : null;

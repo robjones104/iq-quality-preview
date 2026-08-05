@@ -18,8 +18,6 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { orders } from '@/data/orders';
 import { useEffectiveEventMap } from '@/lib/effectiveEvents';
-import { useEventStore } from '@/store/eventStore';
-import { nowStampUs } from '@/lib/appTime';
 import { useCapabilities } from '@/store/roleStore';
 import { capabilitiesFor } from '@/lib/roles';
 import { FilterPanel } from '@/components/FilterPanel';
@@ -74,7 +72,6 @@ function OrdersPageContent() {
   const caps = useCapabilities();
   const createdOrders = useOrderStore((s) => s.createdOrders);
   const eventMap = useEffectiveEventMap();
-  const pushActivityLog = useEventStore(s => s.pushActivityLog);
   const orderRows = useMemo(() => {
     // Runtime-created orders (parts request on an orderless event) merge in
     // ahead of the static set so the newest work appears.
@@ -183,8 +180,6 @@ function OrdersPageContent() {
     orderMutations[row.id]?.declined ?? row.declined ?? false;
   const isWithProcurement = (row: OrderRow): boolean =>
     orderMutations[row.id]?.assignedToProcurement ?? row.assignedToProcurement ?? false;
-  const isConsolidated = (row: OrderRow): boolean =>
-    orderMutations[row.id]?.consolidated ?? false;
   const effectiveReplacementOrderNo = (row: OrderRow): string =>
     orderMutations[row.id]?.replacementOrderNo ?? row.replacementOrderNo ?? '';
 
@@ -303,7 +298,7 @@ function OrdersPageContent() {
     if (flagParam === 'withCS' && !(effectiveStatus(o) === 'Open' && isApproved(o) && !isWithProcurement(o))) return false;
     const matchOrderStatus   = !appliedFiltersLocal.orderStatus?.length   || appliedFiltersLocal.orderStatus.includes(effectiveStatus(o));
     const matchDecision      = !appliedFiltersLocal.decision?.length      || appliedFiltersLocal.decision.some(d =>
-      (d === 'Approved' && isApproved(o)) || (d === 'Declined' && isDeclined(o)) || (d === 'Consolidated' && isConsolidated(o)) || (d === 'Pending' && !isApproved(o) && !isDeclined(o) && !isConsolidated(o))
+      (d === 'Approved' && isApproved(o)) || (d === 'Declined' && isDeclined(o)) || (d === 'Pending' && !isApproved(o) && !isDeclined(o))
     );
     const matchEventStatus   = !appliedFiltersLocal.status?.length        || appliedFiltersLocal.status.includes(o.status);
     const matchIssue         = !appliedFiltersLocal.issue?.length         || appliedFiltersLocal.issue.includes(o.issue);

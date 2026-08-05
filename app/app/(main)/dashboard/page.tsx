@@ -51,7 +51,7 @@ function applyFilters(list: QualityEvent[], dateRange: DateRange | null, applied
 
 // Orders-view category filter predicate (orderStatus + decision).
 function matchesOrderFilters(o: Order, applied: Record<string, string[]>): boolean {
-  const decision = o.declined ? 'Declined' : o.approved ? 'Approved' : o.consolidated ? 'Consolidated' : 'Pending';
+  const decision = o.declined ? 'Declined' : o.approved ? 'Approved' : 'Pending';
   const matchStatus   = !applied.orderStatus?.length || applied.orderStatus.includes(o.orderStatus);
   const matchDecision = !applied.decision?.length    || applied.decision.includes(decision);
   return matchStatus && matchDecision;
@@ -415,8 +415,6 @@ function DashboardPageContent() {
       declineReason:         m.declineReason ?? o.declineReason,
       assignedToProcurement: m.assignedToProcurement ?? o.assignedToProcurement,
       replacementOrderNo:    m.replacementOrderNo ?? o.replacementOrderNo,
-      consolidated:          m.consolidated ?? o.consolidated,
-      consolidatedInto:      m.consolidatedInto ?? o.consolidatedInto,
     };
   }), [orders, orderMutations]);
 
@@ -493,11 +491,10 @@ function DashboardPageContent() {
 
   // The pipeline bar: Total, then the STATUS axis as two split cards whose
   // lanes are the stages. Open = Pending Decision + Approved; Closed =
-  // Fulfilled + Declined. Lanes partition live demand (consolidated sources
-  // excluded; the surviving order carries their demand). Grid: 1 + 2 + 2
-  // columns, so each lane is exactly one Events-card wide.
-  const liveOrders  = useMemo(() => filteredOrders.filter(o => !o.consolidated), [filteredOrders]);
-  const priorLive   = priorOrders ? priorOrders.filter(o => !o.consolidated) : null;
+  // Fulfilled + Declined. Grid: 1 + 2 + 2 columns, so each lane is exactly
+  // one Events-card wide.
+  const liveOrders  = filteredOrders;
+  const priorLive   = priorOrders;
   const priorLiveN  = (fn: (o: Order) => boolean) => priorLive ? priorLive.filter(fn).length : null;
   const isPendingDecision = (o: Order) => o.orderStatus === 'Open' && !o.approved && !o.declined;
   const isApprovedOpen    = (o: Order) => o.orderStatus === 'Open' && !!o.approved;
@@ -509,7 +506,7 @@ function DashboardPageContent() {
     count: liveOrders.length,
     prior: priorLive?.length ?? null,
     href: buildKpiHref('/orders', dateRange, {}),
-    tooltip: 'Total count of orders in the selected time period. Orders merged during consolidation are counted once, under the surviving order.',
+    tooltip: 'Total count of orders in the selected time period.',
     swatch: token.colorText,
   };
 

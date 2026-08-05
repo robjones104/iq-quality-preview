@@ -106,10 +106,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   // Orders created at runtime for this event (parts request on an orderless
   // event). Server only knows static orders, so resolve the link client-side.
   const [runtimeOrderId, setRuntimeOrderId] = useState<string | null>(null);
-  // A consolidated source order redirects to its surviving order: the event's
-  // fulfillment now lives there.
-  const effectiveOrderId = (orderId ? orderMutations[orderId]?.consolidatedInto : undefined)
-    ?? orderId
+  const effectiveOrderId = orderId
     ?? runtimeOrderId
     ?? Object.values(createdOrders).find(o => o.eventId === event.id)?.id
     ?? null;
@@ -291,10 +288,9 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   // An event's parts request drives order creation (pipeline rule): if the
   // event has no open order when a parts request is added, one is created for
   // Customer Service review. Existing open orders are left to CS to amend.
-  // A consolidated survivor serves several events (eventIds); match those too.
   const findOpenOrderIds = (): string[] =>
     [...allOrders, ...Object.values(createdOrders)]
-      .filter(o => o.eventId === event.id || (orderMutations[o.id]?.eventIds ?? o.eventIds ?? []).includes(event.id))
+      .filter(o => o.eventId === event.id)
       .filter(o => (orderMutations[o.id]?.status ?? o.orderStatus) === 'Open')
       .map(o => o.id);
 

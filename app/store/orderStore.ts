@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Order, OrderPart } from '@/data/orders';
+import type { Order } from '@/data/orders';
 
 export type OrderLogEntry = {
   id: string;
@@ -20,14 +20,6 @@ type OrderMutations = {
   declineReason?: string;
   assignedToProcurement?: boolean;
   replacementOrderNo?: string;
-  // Same-SO consolidation. Source orders close with `consolidated` (a distinct
-  // disposition, deliberately not `declined`) pointing at the surviving order;
-  // the survivor gets the merged `eventIds` and its parts replaced by
-  // `partsOverride` (the single real fix, e.g. a complete door).
-  consolidated?: boolean;
-  consolidatedInto?: string;
-  eventIds?: string[];
-  partsOverride?: OrderPart[];
   logAdditions?: OrderLogEntry[];
 };
 

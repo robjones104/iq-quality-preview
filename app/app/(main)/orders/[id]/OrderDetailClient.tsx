@@ -7,13 +7,13 @@ import { mergeEvent } from '@/lib/effectiveEvents';
 import { useOrderStore } from '@/store/orderStore';
 import { useCapabilities } from '@/store/roleStore';
 import {
-  Alert, Button, Card, Checkbox, Col, Divider, Dropdown, Form, Grid, Input, InputNumber, Modal,
-  Popover, Radio, Row, Segmented, Select, Slider, Switch, Table, Tag, Tooltip, Typography, theme,
+  Button, Card, Col, Divider, Dropdown, Form, Grid, Input, InputNumber, Modal,
+  Popover, Radio, Row, Segmented, Select, Slider, Switch, Table, Tag, Typography, theme,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
   ArrowLeftOutlined, ArrowRightOutlined, BarcodeOutlined, CheckCircleFilled, CheckOutlined, CloseCircleFilled, CloseOutlined,
-  EditFilled, MergeCellsOutlined, MoreOutlined, PictureFilled, PlusOutlined, RollbackOutlined, SendOutlined,
+  EditFilled, MoreOutlined, PictureFilled, PlusOutlined, RollbackOutlined, SendOutlined,
 } from '@ant-design/icons';
 import { CopyableValue } from '@/components/CopyableValue';
 import { JobNoValue } from '@/components/JobNoValue';
@@ -101,7 +101,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
   // this stays reactive); checked first in the stepper, so the legacy
   // "closed implies approved" default above cannot mislabel a declined order.
   const declined = (ordStored.declined ?? order.declined) === true;
-  const [parts, setParts]               = useState<OrderPart[]>([...(ordStored.partsOverride ?? order.parts)]);
+  const [parts, setParts]               = useState<OrderPart[]>([...order.parts]);
   const [activeTab, setActiveTab]       = useState('details');
   const [assignedToProcurement, setAssignedToProcurement] = useState(ordStored.assignedToProcurement ?? order.assignedToProcurement ?? false);
   const [replacementOrderNo, setReplacementOrderNo]       = useState(ordStored.replacementOrderNo ?? '');
@@ -263,91 +263,14 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
     setShipToEditOpen(false);
   };
 
-  // ── Same-SO consolidation ─────────────────────────────────────────────────
-  // Several events on one install (one SO) each auto-create an order; when CS
-  // recognizes they are really one larger replacement, the sibling orders fold
-  // into this one. Sources close as Consolidated (not Declined) and this
-  // order's parts become the single real fix.
-  const isConsolidatedSource = ordStored.consolidated ?? order.consolidated ?? false;
-  const consolidatedIntoId   = ordStored.consolidatedInto ?? order.consolidatedInto;
-  const consolidatedEventIds = ordStored.eventIds ?? order.eventIds;
+  // ── Same-SO siblings ──────────────────────────────────────────────────────
+  // Several events on one install (one SO) each auto-create an order. The
+  // sibling list keeps CS aware of related open demand on the same job.
   const sameSoOpenSiblings = useMemo(() =>
     [...allOrders, ...Object.values(createdOrders)]
       .filter(o => o.id !== order.id && o.jobNo === order.jobNo)
       .filter(o => (orderMutations[o.id]?.status ?? o.orderStatus) === 'Open'),
     [createdOrders, orderMutations, order.id, order.jobNo]);
-  const canConsolidate = canDecide && status === 'Open' && isSO && !isConsolidatedSource && sameSoOpenSiblings.length > 0;
-
-  const [consolidateOpen, setConsolidateOpen]       = useState(false);
-  const [consolidateSuccess, setConsolidateSuccess] = useState(false);
-  const [consSelectedIds, setConsSelectedIds]       = useState<string[]>([]);
-  const [consPartNumber, setConsPartNumber]         = useState('');
-  const [consPartDescription, setConsPartDescription] = useState('');
-  const [consQuantity, setConsQuantity]             = useState(1);
-
-  const resetConsolidate = () => {
-    setConsSelectedIds([]); setConsPartNumber(''); setConsPartDescription(''); setConsQuantity(1);
-  };
-
-  const handleConsolidate = () => {
-    const sources = sameSoOpenSiblings.filter(o => consSelectedIds.includes(o.id));
-    if (!sources.length || !consPartNumber.trim() || !consPartDescription.trim()) return;
-    const csName = capabilitiesFor('Customer Service').displayName;
-    const mergedEventIds = [...new Set([order.eventId, ...sources.map(s => s.eventId)])];
-    const newPart: OrderPart = {
-      seqNo: 1,
-      configId: `${order.jobNo}.1`,
-      dfoLineItem: event.dfo ?? 1,
-      ...(isSO && event.elLine != null ? { elLineItem: event.elLine } : {}),
-      door: event.door,
-      partNumber: consPartNumber.trim(),
-      quantityType: 'Piece',
-      quantity: consQuantity,
-      partDescription: consPartDescription.trim(),
-    };
-
-    patchOrder(order.id, { eventIds: mergedEventIds, partsOverride: [newPart] });
-    setParts([newPart]);
-    addLog(
-      `Consolidated ${sources.length} order${sources.length === 1 ? '' : 's'} on ${order.jobNo} into this order (${sources.map(s => s.id).join(', ')}). Parts replaced with: ${consPartDescription.trim()} (${consPartNumber.trim()}), qty ${consQuantity}.`,
-      false,
-    );
-    pushActivityLog(event.id, {
-      id: `cons_${event.id}_${Date.now()}`,
-      eventId: event.id,
-      date: nowStampUs(),
-      role: 'Customer Service',
-      employee: csName,
-      status: event.status,
-      comment: `Order ${order.id} now covers ${mergedEventIds.length} events on ${order.jobNo} after consolidation.`,
-    });
-
-    sources.forEach(src => {
-      const srcEvent = effEventMap.get(src.eventId);
-      patchOrder(src.id, { status: 'Closed', consolidated: true, consolidatedInto: order.id });
-      pushOrderLog(src.id, {
-        id: `cons_${src.id}_${Date.now()}`,
-        timestamp: nowStampUs(),
-        role: 'Customer Service',
-        employee: csName,
-        orderStatus: 'Closed',
-        submittedStatus: srcEvent?.status ?? event.status,
-        content: `Order consolidated into ${order.id} on ${order.jobNo}. Fulfillment continues there.`,
-        auto: false,
-      });
-      pushActivityLog(src.eventId, {
-        id: `cons_${src.eventId}_${Date.now()}`,
-        eventId: src.eventId,
-        date: nowStampUs(),
-        role: 'System',
-        employee: 'System',
-        status: srcEvent?.status ?? event.status,
-        comment: `Parts order consolidated into ${order.id} (${order.jobNo}).`,
-      });
-    });
-
-    setConsolidateSuccess(true);
-  };
 
   const handleReturnToCS = () => {
     if (!returnComment.trim()) return;
@@ -711,7 +634,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: isMobile ? '0 12px 16px' : '0 20px 16px', minHeight: 0 }}>
 
-        {/* Status strip + same-SO consolidation CTA */}
+        {/* Status strip + same-SO sibling awareness */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '16px 0 12px', flexShrink: 0, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', flex: '1 1 320px', maxWidth: 480 }}>
           {stages.map((stage, i) => (
@@ -755,9 +678,8 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
         </div>
 
         {/* Quiet fact, no diagnosis: sibling open orders on this SO may or may
-            not be one larger issue. The list is a click away; consolidation is
-            an explicit choice. */}
-        {sameSoOpenSiblings.length > 0 && !isConsolidatedSource && (
+            not be one larger issue. The list is a click away. */}
+        {sameSoOpenSiblings.length > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <Popover
               trigger="click"
@@ -782,11 +704,6 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
                 {sameSoOpenSiblings.length} more open order{sameSoOpenSiblings.length === 1 ? '' : 's'} on this SO
               </Text>
             </Popover>
-            {canConsolidate && (
-              <Button size="small" icon={<MergeCellsOutlined />} onClick={() => setConsolidateOpen(true)}>
-                Consolidate
-              </Button>
-            )}
           </div>
         )}
         </div>
@@ -818,40 +735,6 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
             {activeTab === 'details' && (
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
 
-                {/* Consolidation banners */}
-                {isConsolidatedSource && consolidatedIntoId && (
-                  <Alert
-                    type="info"
-                    showIcon
-                    icon={<MergeCellsOutlined />}
-                    style={{ marginBottom: 14 }}
-                    message={
-                      <Text style={{ fontSize: token.fontSizeSM }}>
-                        This order was consolidated into{' '}
-                        <Link href={`/orders/${consolidatedIntoId}`} style={{ fontWeight: 600 }}>{consolidatedIntoId}</Link>
-                        {' '}on {order.jobNo}. Fulfillment continues there.
-                      </Text>
-                    }
-                  />
-                )}
-                {consolidatedEventIds && consolidatedEventIds.length > 1 && (
-                  <Alert
-                    type="info"
-                    showIcon
-                    icon={<MergeCellsOutlined />}
-                    style={{ marginBottom: 14 }}
-                    message={
-                      <Text style={{ fontSize: token.fontSizeSM }}>
-                        Consolidated order covering {consolidatedEventIds.length} events on {order.jobNo}
-                        {caps.events
-                          ? <>: {consolidatedEventIds.map((id, i) => (
-                              <Fragment key={id}>{i > 0 && ', '}<Link href={`/events/${id}`}>{id}</Link></Fragment>
-                            ))}</>
-                          : `: ${consolidatedEventIds.join(', ')}`}.
-                      </Text>
-                    }
-                  />
-                )}
                 {/* Metadata strip */}
                 <div style={{
                   display: 'flex', gap: 24, marginBottom: 14,
@@ -1435,117 +1318,6 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
             </>
           )}
         </Form>
-      </Modal>
-
-      {/* CONSOLIDATE MODAL */}
-      <Modal
-        title={consolidateSuccess ? null : `Consolidate Orders on ${order.jobNo}`}
-        open={consolidateOpen}
-        onCancel={() => { setConsolidateOpen(false); setConsolidateSuccess(false); resetConsolidate(); }}
-        width={620}
-        footer={consolidateSuccess ? null : (
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-            <Button onClick={() => { setConsolidateOpen(false); resetConsolidate(); }}>Cancel</Button>
-            <Button
-              type="primary"
-              icon={<MergeCellsOutlined />}
-              disabled={!consSelectedIds.length || !consPartNumber.trim() || !consPartDescription.trim()}
-              onClick={handleConsolidate}
-            >
-              Consolidate {consSelectedIds.length || ''} Order{consSelectedIds.length === 1 ? '' : 's'}
-            </Button>
-          </div>
-        )}
-      >
-        {consolidateSuccess ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: token.fontSize }} />
-              <Text style={{ fontSize: token.fontSize, fontWeight: 600 }}>Orders Consolidated</Text>
-            </div>
-            <Text style={{ fontSize: token.fontSize, color: token.colorTextSecondary }}>
-              This order now covers all selected events on {order.jobNo}. The merged orders were closed as Consolidated,
-              and this order&apos;s parts were replaced with {consPartDescription.trim()} ({consPartNumber.trim()}).
-            </Text>
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Button type="primary" onClick={() => { setConsolidateOpen(false); setConsolidateSuccess(false); resetConsolidate(); }}>Done</Button>
-            </div>
-          </div>
-        ) : (
-          <>
-            <Text style={{ display: 'block', marginBottom: 12, fontSize: token.fontSize, color: token.colorTextSecondary }}>
-              Select the sibling orders to fold into this one. They close as <strong>Consolidated</strong> (not declined),
-              their events link to this order, and this order&apos;s parts are replaced with the single replacement entered below.
-            </Text>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 4 }}>
-              {sameSoOpenSiblings.map(o => {
-                const ev = effEventMap.get(o.eventId);
-                const isApprovedSibling = orderMutations[o.id]?.approved ?? o.approved ?? false;
-                return (
-                  <label
-                    key={o.id}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      padding: '8px 12px',
-                      background: token.colorFillTertiary,
-                      borderRadius: token.borderRadiusSM,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <Checkbox
-                      checked={consSelectedIds.includes(o.id)}
-                      onChange={e => setConsSelectedIds(prev =>
-                        e.target.checked ? [...prev, o.id] : prev.filter(id => id !== o.id))}
-                    />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600, display: 'block' }}>
-                        {o.id} · {ev?.issue ?? '—'}
-                      </Text>
-                      <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
-                        {ev?.component ?? '—'} · {o.parts.length} part{o.parts.length === 1 ? '' : 's'} requested
-                      </Text>
-                    </div>
-                    {isApprovedSibling && (
-                      <Tooltip title="Already approved. Consolidating will supersede that approval.">
-                        <Tag color="orange" style={{ margin: 0, fontSize: token.fontSizeXS }}>Approved</Tag>
-                      </Tooltip>
-                    )}
-                  </label>
-                );
-              })}
-            </div>
-            <Divider style={{ margin: '12px 0' }} />
-            <Form layout="vertical" size="small">
-              <Row gutter={8}>
-                <Col flex={1}>
-                  <Form.Item label="Replacement Part #" required style={{ marginBottom: 10 }}>
-                    <Input
-                      placeholder="e.g. 913087-3"
-                      value={consPartNumber}
-                      onChange={e => setConsPartNumber(e.target.value)}
-                    />
-                  </Form.Item>
-                </Col>
-                <Col style={{ width: 90 }}>
-                  <Form.Item label="Qty" required style={{ marginBottom: 10 }}>
-                    <InputNumber min={1} max={100} value={consQuantity} onChange={v => setConsQuantity(v ?? 1)} style={{ width: '100%' }} />
-                  </Form.Item>
-                </Col>
-              </Row>
-              <Form.Item
-                label="Part Description" required
-                extra="The single replacement that supersedes the merged requests, e.g. a complete door package."
-                style={{ marginBottom: 0 }}
-              >
-                <Input
-                  placeholder={`e.g. Complete Door Package - ${event.door}`}
-                  value={consPartDescription}
-                  onChange={e => setConsPartDescription(e.target.value)}
-                />
-              </Form.Item>
-            </Form>
-          </>
-        )}
       </Modal>
 
       {/* RETURN TO CUSTOMER SERVICE MODAL */}
