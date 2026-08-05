@@ -268,6 +268,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
         // the role can, or just states the fact when it cannot.
         <div
           style={{
+            flex: 1,
             minHeight: minEmptyHeight,
             background: token.colorFillTertiary,
             border: `1px dashed ${token.colorBorderSecondary}`,
@@ -287,16 +288,36 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
           {canAugment && <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Click to add photos or PDF cutsheets (up to {MAX_PHOTOS} photos)</Text>}
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
-          {uploadedPhotos.map((ph, i) => (
-            <div key={ph.url} onClick={() => setExpandedImg(i)} role="button" tabIndex={0} aria-label={`Expand photo ${i + 1}`}
-              onKeyDown={e => { if (e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); setExpandedImg(i); }}
-              style={{ aspectRatio: '1', borderRadius: token.borderRadiusSM, overflow: 'hidden', cursor: 'pointer', border: `1px solid ${token.colorBorderSecondary}` }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={ph.url} alt={ph.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        <>
+          {/* Main viewer keeps the panel's full height and shows the photo
+              uncropped: field photos are phone portraits (Rob 2026-08-05). */}
+          <div
+            onClick={() => setExpandedImg(0)} role="button" tabIndex={0} aria-label="Expand photo 1"
+            onKeyDown={e => { if (e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); setExpandedImg(0); }}
+            style={{
+              flex: 1, minHeight: minEmptyHeight,
+              background: token.colorFillTertiary,
+              borderRadius: token.borderRadiusSM,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              overflow: 'hidden', cursor: 'pointer', marginBottom: 8,
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={uploadedPhotos[0].url} alt={uploadedPhotos[0].name} style={{ maxWidth: '100%', maxHeight: minEmptyHeight + 140, objectFit: 'contain', display: 'block' }} />
+          </div>
+          {uploadedPhotos.length > 1 && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
+              {uploadedPhotos.slice(1).map((ph, i) => (
+                <div key={ph.url} onClick={() => setExpandedImg(i + 1)} role="button" tabIndex={0} aria-label={`Expand photo ${i + 2}`}
+                  onKeyDown={e => { if (e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); setExpandedImg(i + 1); }}
+                  style={{ aspectRatio: '3 / 4', borderRadius: token.borderRadiusSM, overflow: 'hidden', cursor: 'pointer', border: `1px solid ${token.colorBorderSecondary}`, background: token.colorFillTertiary }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={ph.url} alt={ph.name} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
       {cutsheets.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }}>
