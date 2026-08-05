@@ -716,7 +716,7 @@ function OrdersPageContent() {
                     <OrderCard
                       key={row.id}
                       row={row}
-                      status={effectiveStatus(row)}
+                      stage={isDeclined(row) ? 'Declined' : isApproved(row) ? (open ? 'Approved' : 'Fulfilled') : 'Pending Decision'}
                       eventStatus={row.status}
                       awaitingResponse={open && partyAwaiting(thread, 'Customer Service')}
                       responseReceived={open && partyResponded(thread, 'Customer Service')}

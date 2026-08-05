@@ -6,9 +6,8 @@ import { Button, Card, Dropdown, Tag, Tooltip, theme } from 'antd';
 import { MoreOutlined } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { JobNoValue } from './JobNoValue';
-import { StatusTag, ThreadStateIcons } from './StatusTag';
+import { OrderStageTag, ThreadStateIcons, type OrderStage } from './StatusTag';
 import type { EventStatus } from '@/data/types';
-import type { OrderStatus } from '@/data/orders';
 
 interface OrderCardRow {
   id: string;
@@ -23,7 +22,7 @@ interface OrderCardRow {
 
 interface OrderCardProps {
   row: OrderCardRow;
-  status: OrderStatus;
+  stage: OrderStage;
   eventStatus: EventStatus;
   awaitingResponse?: boolean;
   responseReceived?: boolean;
@@ -33,7 +32,7 @@ interface OrderCardProps {
   onAction: (key: string) => void;
 }
 
-export function OrderCard({ row, status, eventStatus, awaitingResponse, responseReceived, eventAwaiting, eventResponded, menuItems, onAction }: OrderCardProps) {
+export function OrderCard({ row, stage, eventStatus, awaitingResponse, responseReceived, eventAwaiting, eventResponded, menuItems, onAction }: OrderCardProps) {
   const { token } = theme.useToken();
   const router = useRouter();
 
@@ -56,13 +55,10 @@ export function OrderCard({ row, status, eventStatus, awaitingResponse, response
           {row.eventId}
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-          {/* Ownership split (Rob, 2026-08-04): neutral order chip carries
-              CS-owned conversation state; the event badge below carries
-              FQ-owned state. */}
-          <Tag style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginInlineEnd: 0 }}>
-            {status}
-            <ThreadStateIcons awaiting={awaitingResponse} responded={responseReceived} />
-          </Tag>
+          {/* Pipeline-first (Rob, 2026-08-05): the order chip wears the
+              stage color and carries CS-owned conversation state; the event
+              chip below is neutral with FQ-owned state. */}
+          <OrderStageTag stage={stage} additionalInfoRequested={awaitingResponse} responseReceived={responseReceived} />
           {menuItems && menuItems.length > 0 && (
             <Dropdown
               menu={{ items: menuItems, onClick: ({ key }) => onAction(key) }}
@@ -83,7 +79,10 @@ export function OrderCard({ row, status, eventStatus, awaitingResponse, response
 
       <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <JobNoValue jobNo={row.jobNo} manualEntry={row.jobNoManualEntry} />
-        <StatusTag status={eventStatus} additionalInfoRequested={eventAwaiting} responseReceived={eventResponded} />
+        <Tag style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          {eventStatus}
+          <ThreadStateIcons awaiting={eventAwaiting} responded={eventResponded} />
+        </Tag>
       </div>
 
       <div style={{ fontSize: token.fontSizeSM, color: token.colorTextSecondary, lineHeight: 1.4, marginTop: 'auto' }}>
