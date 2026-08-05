@@ -221,7 +221,6 @@ function EventsPageContent() {
       filteredValue: appliedFilters.branch ?? null,
       filterSearch: true,
       ellipsis: { showTitle: true },
-      width: 138,
     },
     {
       title: 'Issue',
@@ -230,7 +229,6 @@ function EventsPageContent() {
       sorter: (a, b) => a.issue.localeCompare(b.issue),
       filters: colFilters('issue'),
       filteredValue: appliedFilters.issue ?? null,
-      width: 148,
       render: (issue: string, record) => (
         <div style={{ overflow: 'hidden' }}>
           <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -259,7 +257,6 @@ function EventsPageContent() {
       filters: colFilters('component'),
       filteredValue: appliedFilters.component ?? null,
       ellipsis: { showTitle: true },
-      width: 148,
     },
     {
       title: 'Door',
@@ -270,7 +267,6 @@ function EventsPageContent() {
       filteredValue: appliedFilters.door ?? null,
       filterSearch: true,
       ellipsis: { showTitle: true },
-      width: 148,
     },
     {
       title: 'Reported By',
@@ -281,7 +277,6 @@ function EventsPageContent() {
       filteredValue: appliedFilters.reportedBy ?? null,
       filterSearch: true,
       ellipsis: { showTitle: true },
-      width: 182,
     },
     {
       title: 'Plant',
@@ -289,7 +284,7 @@ function EventsPageContent() {
       key: 'plant',
       sorter: (a, b) => a.plant.localeCompare(b.plant),
       render: (plant: string) => plant.split(' ')[0],
-      width: 64,
+      ellipsis: { showTitle: true },
     },
     {
       title: 'Event Status',
@@ -445,8 +440,7 @@ function EventsPageContent() {
             <Table
               dataSource={filtered}
               columns={columns}
-              scroll={{ x: 'max-content' }}
-              rowKey="id"
+                            rowKey="id"
               size="small"
               onChange={(_p, tableFilters) => {
                 const next = { ...appliedFilters };

@@ -91,7 +91,6 @@ export default function FulfillmentPage() {
       key: 'branch',
       sorter: (a, b) => a.branch.localeCompare(b.branch),
       ellipsis: { showTitle: true },
-      width: 138,
     },
     {
       title: 'Issue',
@@ -99,7 +98,6 @@ export default function FulfillmentPage() {
       key: 'issue',
       sorter: (a, b) => a.issue.localeCompare(b.issue),
       ellipsis: { showTitle: true },
-      width: 148,
     },
     {
       title: 'Component',
@@ -107,7 +105,6 @@ export default function FulfillmentPage() {
       key: 'component',
       sorter: (a, b) => a.component.localeCompare(b.component),
       ellipsis: { showTitle: true },
-      width: 140,
     },
     {
       title: 'Reported By',
@@ -115,7 +112,6 @@ export default function FulfillmentPage() {
       key: 'reportedBy',
       sorter: (a, b) => a.reportedBy.localeCompare(b.reportedBy),
       ellipsis: { showTitle: true },
-      width: 182,
     },
     {
       title: 'Last Updated',
@@ -173,7 +169,7 @@ export default function FulfillmentPage() {
         <Table
           dataSource={queue}
           columns={columns}
-          scroll={{ x: 'max-content' }}
+          scroll={{ x: 720 }}
           rowKey="id"
           size="small"
           pagination={{

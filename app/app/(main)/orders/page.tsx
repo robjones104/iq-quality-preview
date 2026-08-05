@@ -363,7 +363,6 @@ function OrdersPageContent() {
       filteredValue: appliedFiltersLocal.branch ?? null,
       filterSearch: true,
       ellipsis: { showTitle: true },
-      width: 138,
     },
     {
       title: 'Issue',
@@ -373,7 +372,6 @@ function OrdersPageContent() {
       filters: evtColFilters('issue'),
       filteredValue: appliedFiltersLocal.issue ?? null,
       ellipsis: { showTitle: true },
-      width: 148,
     },
     {
       title: 'Component',
@@ -383,7 +381,6 @@ function OrdersPageContent() {
       filters: evtColFilters('component'),
       filteredValue: appliedFiltersLocal.component ?? null,
       ellipsis: { showTitle: true },
-      width: 140,
     },
     {
       title: 'Door',
@@ -394,7 +391,6 @@ function OrdersPageContent() {
       filteredValue: appliedFiltersLocal.door ?? null,
       filterSearch: true,
       ellipsis: { showTitle: true },
-      width: 148,
     },
     {
       title: 'Reported By',
@@ -405,7 +401,6 @@ function OrdersPageContent() {
       filteredValue: appliedFiltersLocal.reportedBy ?? null,
       filterSearch: true,
       ellipsis: { showTitle: true },
-      width: 182,
     },
     {
       title: 'Plant',
@@ -413,7 +408,7 @@ function OrdersPageContent() {
       key: 'plant',
       sorter: (a, b) => a.plant.localeCompare(b.plant),
       render: (plant: string) => plant.split(' ')[0],
-      width: 80,
+      ellipsis: { showTitle: true },
     },
     {
       title: 'Last Updated',
@@ -809,8 +804,7 @@ function OrdersPageContent() {
               <Table
                 dataSource={filtered}
                 columns={columns}
-                scroll={{ x: 'max-content' }}
-                rowKey="id"
+                                rowKey="id"
                 size="small"
                 onChange={(_p, tableFilters) => {
                   const next = { ...appliedFiltersLocal };
