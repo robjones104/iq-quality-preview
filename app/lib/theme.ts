@@ -103,6 +103,14 @@ export const DARK_SEED_OVERRIDES: ThemeConfig['token'] = {
 // Import from here — never hardcode these values in components.
 // ---------------------------------------------------------------------------
 export const BRAND = {
+  // The brand gold itself, for chart/bar fills on brand surfaces. Values are
+  // always printed as adjacent text (the 4px bars are redundant encoding), so
+  // the fill is exempt from the 3:1 non-text floor.
+  colorGold: '#FFD20B',
+  // Deep gold for attention-flag icons on light surfaces (ship-to pin,
+  // reporter avatars use the same family). ~2.9:1 on white, 6.6:1 on dark —
+  // meaning is always redundant with adjacent text.
+  colorGoldDeep: '#D48806',
   colorActionDark: '#141414',
   colorActionDarkHover: '#333333',
   colorAiButton: 'linear-gradient(257deg, #000 43%, #555 93%)',

@@ -166,7 +166,7 @@ export function IntakeFormClient() {
       role: 'Intake',
       employee: caps.displayName,
       status: 'Reported',
-      comment: `Event reported via portal intake (${branch} branch).`,
+      comment: `Event reported via portal intake (${branch} Branch).`,
     });
 
     // Pipeline rule (P1, 2026-07-24): a parts request at submission
@@ -260,7 +260,7 @@ export function IntakeFormClient() {
             <Text style={{ fontSize: token.fontSizeLG, fontWeight: 600, color: token.colorText }}>
               Report a Quality Event
             </Text>
-            <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>{branch} branch</Text>
+            <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>{branch} Branch</Text>
           </div>
         }
       />
@@ -548,7 +548,7 @@ export function IntakeFormClient() {
                   <Form.Item name="shipTo" label="Ship To" style={{ marginBottom: 0 }}>
                     <Radio.Group
                       options={[
-                        { value: 'branch', label: `${branch} branch` },
+                        { value: 'branch', label: `${branch} Branch` },
                         { value: 'address', label: 'Direct address' },
                       ]}
                     />
@@ -641,7 +641,7 @@ export function IntakeFormClient() {
                   <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
                     Ships to: {reviewValues.shipTo === 'address'
                       ? `${reviewValues.shipToStreet}, ${reviewValues.shipToCityStateZip}`
-                      : `${branch} branch`}
+                      : `${branch} Branch`}
                   </Text>
                   <Text style={{ fontSize: token.fontSizeSM }}>
                     Submitting creates an order for Customer Service review.

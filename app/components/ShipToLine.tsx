@@ -4,6 +4,7 @@ import type { CSSProperties } from 'react';
 import { Typography, theme } from 'antd';
 import { EnvironmentFilled, ShopFilled } from '@ant-design/icons';
 import type { QualityEvent } from '@/data/types';
+import { BRAND } from '@/lib/theme';
 
 const { Text } = Typography;
 
@@ -27,13 +28,13 @@ export function ShipToLine({
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, ...style }}>
       {direct
-        ? <EnvironmentFilled style={{ color: token.colorWarning, fontSize: token.fontSizeSM }} />
+        ? <EnvironmentFilled style={{ color: BRAND.colorGoldDeep, fontSize: token.fontSizeSM }} />
         : <ShopFilled style={{ color: token.colorTextTertiary, fontSize: token.fontSizeSM }} />}
       <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
         Ship to:{' '}
         {direct
           ? <Text style={{ fontSize: token.fontSizeSM }}>{address.street}, {address.cityStateZip}</Text>
-          : <Text style={{ fontSize: token.fontSizeSM }}>{branch} branch</Text>}
+          : <Text style={{ fontSize: token.fontSizeSM }}>{branch} Branch</Text>}
       </Text>
     </div>
   );

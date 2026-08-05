@@ -113,7 +113,7 @@ export function IntakeHomeClient() {
             <Text style={{ fontSize: token.fontSizeLG, fontWeight: 600, color: token.colorText }}>
               Quality Intake
             </Text>
-            <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>{branch} branch</Text>
+            <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>{branch} Branch</Text>
           </div>
         }
         right={

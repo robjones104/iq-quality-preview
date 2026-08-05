@@ -6,6 +6,7 @@ import { ArrowRightOutlined, EditOutlined, InfoCircleOutlined } from '@ant-desig
 import { useRouter } from 'next/navigation';
 import type { QualityEvent } from '@/data/types';
 import { ExpandToggle } from './CardControls';
+import { BRAND } from '@/lib/theme';
 
 const { Text } = Typography;
 function MetricInfoIcon({ tooltip, token }: { tooltip: string; token: ReturnType<typeof theme.useToken>['token'] }) {
@@ -153,7 +154,7 @@ export function EventsUpdatedByFqCard({ events }: { events: QualityEvent[] }) {
                               </span>
                             </div>
                             <div style={{ height: 4, borderRadius: 2, background: token.colorFillSecondary, overflow: 'hidden' }}>
-                              <div style={{ height: '100%', width: `${pct}%`, background: token.colorWarning, borderRadius: 2, transition: 'width 0.4s' }} />
+                              <div style={{ height: '100%', width: `${pct}%`, background: BRAND.colorGold, borderRadius: 2, transition: 'width 0.4s' }} />
                             </div>
                           </ClickableBarRow>
                         </Tooltip>
@@ -228,7 +229,7 @@ export function DataQualityChart({ events }: { events: QualityEvent[] }) {
                 <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600 }}>{count}</Text>
               </div>
               <div style={{ height: 4, borderRadius: 2, background: token.colorFillSecondary, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${Math.round((count / maxBranchCount) * 100)}%`, background: token.colorWarning, borderRadius: 2, transition: 'width 0.4s' }} />
+                <div style={{ height: '100%', width: `${Math.round((count / maxBranchCount) * 100)}%`, background: BRAND.colorGold, borderRadius: 2, transition: 'width 0.4s' }} />
               </div>
             </ClickableBarRow>
           ))}
