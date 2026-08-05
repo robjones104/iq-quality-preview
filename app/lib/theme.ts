@@ -219,7 +219,7 @@ export const DARK_COMPONENT_TOKENS: ThemeConfig['components'] = {
   },
   Table: {
     cellPaddingBlockSM: 16,
-    cellPaddingInlineSM: 12,
+    cellPaddingInlineSM: 8,
     // Active sort carets / applied-filter funnels pop in the brand teal
     // (Rob, 2026-08-03) instead of inheriting the gold primary. algorithm:true
     // re-derives the component's own hover/bg states from the teal seed.
@@ -262,7 +262,7 @@ export const SHARED_COMPONENT_TOKENS: ThemeConfig['components'] = {
   },
   Table: {
     cellPaddingBlockSM: 16,   // small table row height (default 8) — user requested
-    cellPaddingInlineSM: 12,  // small table cell sides (default 8)
+    cellPaddingInlineSM: 8,   // small table cell sides: data room over air (Rob 2026-08-05)
   },
 };
 

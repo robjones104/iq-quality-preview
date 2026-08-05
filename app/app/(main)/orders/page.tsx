@@ -449,11 +449,12 @@ function OrdersPageContent() {
     },
     {
       title: 'Order Status',
-      key: 'orderStatus',
+      // Key must match the filter-store slot the predicate reads.
+      key: 'stage',
       sorter: (a, b) => effectiveStatus(a).localeCompare(effectiveStatus(b)),
       filters: ['Pending Decision', 'Approved', 'Fulfilled', 'Declined'].map(v => ({ text: v, value: v })),
       filteredValue: appliedFiltersLocal.stage ?? null,
-      width: 120,
+      width: 178,
       render: (_, record) => {
         // Pipeline-first (Rob, 2026-08-05): on order surfaces the ORDER wears
         // the color, showing its stage directly (Open/Closed is derivable:
@@ -806,6 +807,7 @@ function OrdersPageContent() {
               <Table
                 dataSource={filtered}
                 columns={columns}
+                scroll={{ x: 'max-content' }}
                 rowKey="id"
                 size="small"
                 onChange={(_p, tableFilters) => {

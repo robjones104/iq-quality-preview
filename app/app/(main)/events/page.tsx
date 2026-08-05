@@ -445,6 +445,7 @@ function EventsPageContent() {
             <Table
               dataSource={filtered}
               columns={columns}
+              scroll={{ x: 'max-content' }}
               rowKey="id"
               size="small"
               onChange={(_p, tableFilters) => {

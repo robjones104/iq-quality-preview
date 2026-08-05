@@ -172,6 +172,7 @@ export default function FulfillmentPage() {
         <Table
           dataSource={queue}
           columns={columns}
+          scroll={{ x: 'max-content' }}
           rowKey="id"
           size="small"
           pagination={{
