@@ -20,25 +20,33 @@ function countBy<T>(arr: T[], key: (item: T) => string): Record<string, number> 
   }, {});
 }
 
+// Weekly buckets (Rob 2026-08-05), same Monday-start weeks as the Decision
+// Trend: a daily line at the default 90-day range is ~90 points of sawtooth.
 function eventsOverTime(
   events: QualityEvent[],
   dateRange: DateRange | null,
-): { date: string; count: number }[] {
-  const countMap = countBy(events, e => e.date);
-
-  if (!dateRange) {
-    return Object.entries(countMap)
-      .map(([date, count]) => ({ date, count }))
-      .sort((a, b) => a.date.localeCompare(b.date));
+): { date: string; weekEnd: string; count: number }[] {
+  const weekStartOf = (d: dayjs.Dayjs) => {
+    const dow = d.day();
+    return d.subtract(dow === 0 ? 6 : dow - 1, 'day');
+  };
+  const countMap: Record<string, number> = {};
+  for (const e of events) {
+    const ws = weekStartOf(dayjs(e.date)).format('YYYY-MM-DD');
+    countMap[ws] = (countMap[ws] ?? 0) + 1;
   }
-
-  const [start, end] = dateRange;
-  const result: { date: string; count: number }[] = [];
+  const keys = Object.keys(countMap).sort();
+  if (keys.length === 0) return [];
+  // Zero-fill every week across the range (or the observed span) so quiet
+  // weeks read as real zeroes, not gaps.
+  const start = weekStartOf(dateRange ? dateRange[0] : dayjs(keys[0]));
+  const end   = dateRange ? dateRange[1] : dayjs(keys[keys.length - 1]);
+  const result: { date: string; weekEnd: string; count: number }[] = [];
   let cur = start;
   while (!cur.isAfter(end)) {
     const d = cur.format('YYYY-MM-DD');
-    result.push({ date: d, count: countMap[d] ?? 0 });
-    cur = cur.add(1, 'day');
+    result.push({ date: d, weekEnd: cur.add(6, 'day').format('YYYY-MM-DD'), count: countMap[d] ?? 0 });
+    cur = cur.add(7, 'day');
   }
   return result;
 }
@@ -564,11 +572,11 @@ export function EventsOverTimeChart({
         x: { ...axisStyle, labelFormatter: (v: string) => dayjs(v).format('MMM D'), tickCount: 4 },
         y: { ...axisStyle, tickCount: 4 },
       }}
-      tooltip={{ title: (d: { date: string }) => dayjs(d.date).format('MMM D, YYYY') }}
+      tooltip={{ title: (d: { date: string }) => `Week of ${dayjs(d.date).format('MMM D, YYYY')}` }}
       onEvent={(_chart, event) => {
         if (event.type !== 'click' || !event.data) return;
-        const datum = event.data?.data as { date?: string } | undefined;
-        if (datum?.date) router.push(`/events?from=${datum.date}&to=${datum.date}`);
+        const datum = event.data?.data as { date?: string; weekEnd?: string } | undefined;
+        if (datum?.date) router.push(`/events?from=${datum.date}&to=${datum.weekEnd ?? datum.date}`);
       }}
     />
   );
