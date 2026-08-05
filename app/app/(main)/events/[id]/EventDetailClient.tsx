@@ -211,15 +211,107 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   const dragStartY                             = useRef(0);
   const photoInputRef                          = useRef<HTMLInputElement>(null);
 
-  const handlePhotoFilesSelected = (e: ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      message.success(files.length === 1 ? `${files[0].name} added.` : `${files.length} photos added.`);
-    }
-    e.target.value = '';
-  };
   const { token } = theme.useToken();
   const isDarkTheme = useThemeStore(st => st.darkMode);
+
+  // Photo cap + cutsheets (PM/dev ask, Rob 2026-08-05): photos are limited
+  // to 10 with a visible N/10 counter; PDFs (cutsheets) ride the same picker
+  // into their own list and do not count against the photo cap.
+  const MAX_PHOTOS = 10;
+  const [uploadedPhotos, setUploadedPhotos] = useState<{ name: string; url: string }[]>([]);
+  const [cutsheets, setCutsheets] = useState<{ name: string; blobUrl: string }[]>([]);
+  const handlePhotoFilesSelected = (e: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    const pdfs = files.filter(f => f.type === 'application/pdf');
+    const imgs = files.filter(f => f.type.startsWith('image/'));
+    const room = Math.max(0, MAX_PHOTOS - uploadedPhotos.length);
+    const accepted = imgs.slice(0, room);
+    if (accepted.length) {
+      setUploadedPhotos(prev => [...prev, ...accepted.map(f => ({ name: f.name, url: URL.createObjectURL(f) }))]);
+    }
+    if (imgs.length > accepted.length) {
+      message.warning(`Photo limit is ${MAX_PHOTOS}. ${imgs.length - accepted.length} photo${imgs.length - accepted.length === 1 ? ' was' : 's were'} not added.`);
+    }
+    if (pdfs.length) {
+      setCutsheets(prev => [...prev, ...pdfs.map(f => ({ name: f.name, blobUrl: URL.createObjectURL(f) }))]);
+    }
+    const added = accepted.length + pdfs.length;
+    if (added > 0) message.success(added === 1 ? `${(accepted[0] ?? pdfs[0]).name} added.` : `${added} files added.`);
+    e.target.value = '';
+  };
+
+  const atPhotoCap = uploadedPhotos.length >= MAX_PHOTOS;
+  const photoCounter = (
+    <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600, color: atPhotoCap ? token.colorWarningText : token.colorTextTertiary }}>
+      {uploadedPhotos.length}/{MAX_PHOTOS}{atPhotoCap ? ' · limit reached' : ''}
+    </Text>
+  );
+
+  const photosPanelBody = (minEmptyHeight: number) => (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        {photoCounter}
+        {canAugment && (
+          <Button
+            size="small"
+            type="text"
+            icon={<PlusOutlined style={{ fontSize: token.fontSizeSM }} />}
+            style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary }}
+            onClick={() => photoInputRef.current?.click()}
+          >
+            {atPhotoCap ? 'Add Cutsheet PDF' : 'Add Photos / PDFs'}
+          </Button>
+        )}
+      </div>
+      {uploadedPhotos.length === 0 ? (
+        // One affordance, not four (G3): a single quiet zone that adds when
+        // the role can, or just states the fact when it cannot.
+        <div
+          style={{
+            minHeight: minEmptyHeight,
+            background: token.colorFillTertiary,
+            border: `1px dashed ${token.colorBorderSecondary}`,
+            borderRadius: token.borderRadiusSM,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6,
+            cursor: canAugment ? 'pointer' : 'default',
+          }}
+          {...(canAugment ? {
+            onClick: () => photoInputRef.current?.click(),
+            role: 'button' as const, tabIndex: 0,
+            'aria-label': 'Add photos or cutsheet PDFs',
+            onKeyDown: (e: React.KeyboardEvent) => { if (e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); photoInputRef.current?.click(); },
+          } : {})}
+        >
+          <PictureFilled style={{ fontSize: token.fontSizeHeading3, color: token.colorTextQuaternary }} />
+          <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No photos attached</Text>
+          {canAugment && <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Click to add photos or PDF cutsheets (up to {MAX_PHOTOS} photos)</Text>}
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+          {uploadedPhotos.map((ph, i) => (
+            <div key={ph.url} onClick={() => setExpandedImg(i)} role="button" tabIndex={0} aria-label={`Expand photo ${i + 1}`}
+              onKeyDown={e => { if (e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); setExpandedImg(i); }}
+              style={{ aspectRatio: '1', borderRadius: token.borderRadiusSM, overflow: 'hidden', cursor: 'pointer', border: `1px solid ${token.colorBorderSecondary}` }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={ph.url} alt={ph.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            </div>
+          ))}
+        </div>
+      )}
+      {cutsheets.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }}>
+          {cutsheets.map(f => (
+            <div key={f.blobUrl} onClick={() => setPreviewFile(f)} role="button" tabIndex={0} aria-label={`Preview cutsheet ${f.name}`}
+              onKeyDown={e => { if (e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); setPreviewFile(f); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: token.colorFillTertiary, borderRadius: token.borderRadiusSM, cursor: 'pointer' }}>
+              <FilePdfOutlined style={{ fontSize: token.fontSize, color: token.colorErrorText }} />
+              <Text style={{ fontSize: token.fontSizeSM }} ellipsis={{ tooltip: f.name }}>{f.name}</Text>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
   const router = useRouter();
   const screens = Grid.useBreakpoint();
   const isMobile = !screens.md;
@@ -524,45 +616,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
     ) },
   ];
 
-  const photosContent = (
-    <>
-      <div style={{
-        minHeight: 360,
-        background: token.colorFillTertiary,
-        border: `1px dashed ${token.colorBorderSecondary}`,
-        borderRadius: token.borderRadiusSM,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 6,
-        cursor: 'pointer',
-        marginBottom: 8,
-      }} onClick={() => setExpandedImg(0)} role="button" tabIndex={0} aria-label="Expand photo"
-        onKeyDown={e => { if (e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); setExpandedImg(0); }}>
-        <PictureFilled style={{ fontSize: token.fontSizeHeading3, color: token.colorTextQuaternary }} />
-        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No photos attached</Text>
-        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Click to expand</Text>
-      </div>
-      <div style={{ display: 'flex', gap: 6 }}>
-        {[1, 2].map(i => (
-          <div key={i} onClick={() => setExpandedImg(i)} role="button" tabIndex={0} aria-label={`Expand photo ${i}`}
-            onKeyDown={e => { if (e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); setExpandedImg(i); }} style={{
-            flex: 1, aspectRatio: '1',
-            background: token.colorFillTertiary,
-            border: `1px solid ${token.colorBorderSecondary}`,
-            borderRadius: token.borderRadiusSM,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-          }}>
-            <PictureFilled style={{ fontSize: token.fontSize, color: token.colorTextQuaternary }} />
-          </div>
-        ))}
-      </div>
-    </>
-  );
+  const photosContent = <>{photosPanelBody(360)}</>;
 
   const analysisContent = (
     <>
@@ -713,7 +767,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
       <input
         ref={photoInputRef}
         type="file"
-        accept="image/*"
+        accept="image/*,application/pdf"
         multiple
         style={{ display: 'none' }}
         onChange={handlePhotoFilesSelected}
@@ -1320,53 +1374,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
 
                     {/* Right: photos — desktop only (mobile uses Photos tab) */}
                     {!isMobile && <Col xs={24} md={9} style={{ display: 'flex', flexDirection: 'column' }}>
-                      <div style={{
-                        flex: 1,
-                        minHeight: 140,
-                        background: token.colorFillTertiary,
-                        border: `1px dashed ${token.colorBorderSecondary}`,
-                        borderRadius: token.borderRadiusSM,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: 6,
-                        cursor: 'pointer',
-                        marginBottom: 8,
-                      }} onClick={() => setExpandedImg(0)} role="button" tabIndex={0} aria-label="Expand photo"
-                        onKeyDown={e => { if (e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); setExpandedImg(0); }}>
-                        <PictureFilled style={{ fontSize: token.fontSizeHeading3, color: token.colorTextQuaternary }} />
-                        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No photos attached</Text>
-                        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Click to expand</Text>
-                      </div>
-                      <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
-                        {[1, 2, 3].map(i => (
-                          <div key={i} onClick={() => setExpandedImg(i)} role="button" tabIndex={0} aria-label={`Expand photo ${i}`}
-                            onKeyDown={e => { if (e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); setExpandedImg(i); }} style={{
-                            flex: 1, aspectRatio: '1',
-                            background: token.colorFillTertiary,
-                            border: `1px solid ${token.colorBorderSecondary}`,
-                            borderRadius: token.borderRadiusSM,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            cursor: 'pointer',
-                          }}>
-                            <PictureFilled style={{ fontSize: token.fontSize, color: token.colorTextQuaternary }} />
-                          </div>
-                        ))}
-                      </div>
-                      {canAugment && (
-                        <Button
-                          size="small"
-                          type="text"
-                          icon={<PlusOutlined style={{ fontSize: token.fontSizeSM }} />}
-                          style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary }}
-                          onClick={() => photoInputRef.current?.click()}
-                        >
-                          Upload Photo
-                        </Button>
-                      )}
+                      {photosPanelBody(140)}
                     </Col>}
 
                   </Row>
@@ -2077,6 +2085,14 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
         title="Photo"
         centered
       >
+        {expandedImg !== null && uploadedPhotos[expandedImg] ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={uploadedPhotos[expandedImg].url}
+            alt={uploadedPhotos[expandedImg].name}
+            style={{ width: '100%', maxHeight: '78vh', objectFit: 'contain', display: 'block', borderRadius: token.borderRadiusSM }}
+          />
+        ) : (
         <div style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
           height: '78vh', gap: 12,
@@ -2086,6 +2102,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
           <PictureFilled style={{ fontSize: 48, color: token.colorTextQuaternary }} />
           <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No photo attached</Text>
         </div>
+        )}
       </Modal>
 
     </div>

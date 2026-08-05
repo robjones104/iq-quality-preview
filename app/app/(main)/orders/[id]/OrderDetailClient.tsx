@@ -517,19 +517,18 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
 
   const labelScanContent = (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10, minHeight: 0 }}>
+      {/* Quiet empty state (G3): nothing to expand when nothing exists, so
+          no click affordance and no dashed invite. */}
       <div style={{
         flex: 1,
         background: token.colorFillTertiary,
-        border: `1px dashed ${token.colorBorderSecondary}`,
         borderRadius: token.borderRadiusSM,
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
-        gap: 6, minHeight: 160, cursor: 'pointer',
-      }} onClick={() => setExpandedScan(0)} role="button" tabIndex={0} aria-label="Expand label scan"
-        onKeyDown={e => { if (e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); setExpandedScan(0); }}>
+        gap: 6, minHeight: 160,
+      }}>
         <BarcodeOutlined style={{ fontSize: token.fontSizeHeading2, color: token.colorTextQuaternary }} />
-        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No label scans attached</Text>
-        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Click to expand</Text>
+        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No label scans yet</Text>
       </div>
       <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary, lineHeight: 1.5 }}>
         Label scans are auto-captured when a tech submits the event. Verify part numbers and Config IDs against the label before approving.
