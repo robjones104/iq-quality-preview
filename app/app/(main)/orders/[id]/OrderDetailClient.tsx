@@ -7,7 +7,7 @@ import { mergeEvent } from '@/lib/effectiveEvents';
 import { useOrderStore } from '@/store/orderStore';
 import { useCapabilities, useRoleStore } from '@/store/roleStore';
 import {
-  Button, Card, Col, Divider, Dropdown, Form, Grid, Input, InputNumber, Modal,
+  Button, Card, Col, Divider, Dropdown, Form, Grid, Image, Input, InputNumber, Modal,
   Popover, Radio, Row, Segmented, Select, Slider, Switch, Table, Tag, Typography, theme,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
@@ -19,6 +19,7 @@ import { CopyableValue } from '@/components/CopyableValue';
 import { JobNoValue } from '@/components/JobNoValue';
 import { TechReplyWarning } from '@/components/TechReplyWarning';
 import { OrderStageTag } from '@/components/StatusTag';
+import { issuePhotoUri, labelScanUri, seedPhotoCount } from '@/lib/demoMedia';
 import { ShipToLine } from '@/components/ShipToLine';
 import { aaLabelColor, AA_INACTIVE_LABEL, stageFill, OWNERSHIP_TEXT } from '@/lib/theme';
 import { PageHeader } from '@/components/PageHeader';
@@ -144,8 +145,10 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
   const [returnOpen, setReturnOpen]                     = useState(false);
   const [returnComment, setReturnComment]               = useState('');
 
-  const [expandedScan,       setExpandedScan]       = useState<number | null>(null);
-  const [expandedPhoto,      setExpandedPhoto]      = useState<number | null>(null);
+  // The tech's seeded evidence, identical to what the event screen shows.
+  const eventPhotos = useMemo(
+    () => Array.from({ length: seedPhotoCount(event.id) }, (_, i) => issuePhotoUri(event.id, event.issue, i)),
+    [event.id, event.issue]);
   const [scanTab,            setScanTab]            = useState<'eventDetails' | 'messages'>('messages');
   const [approveSuccess,     setApproveSuccess]     = useState(false);
   const [declineSuccess,     setDeclineSuccess]     = useState(false);
@@ -517,19 +520,35 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
 
   const labelScanContent = (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10, minHeight: 0 }}>
-      {/* Quiet empty state (G3): nothing to expand when nothing exists, so
-          no click affordance and no dashed invite. */}
-      <div style={{
-        flex: 1,
-        background: token.colorFillTertiary,
-        borderRadius: token.borderRadiusSM,
-        display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center',
-        gap: 6, minHeight: 160,
-      }}>
-        <BarcodeOutlined style={{ fontSize: token.fontSizeHeading2, color: token.colorTextQuaternary }} />
-        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No label scans yet</Text>
-      </div>
+      {event.jobNoManualEntry ? (
+        // Quiet empty state (G3): manual-entry SOs have no scan to show.
+        <div style={{
+          flex: 1,
+          background: token.colorFillTertiary,
+          borderRadius: token.borderRadiusSM,
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center',
+          gap: 6, minHeight: 160,
+        }}>
+          <BarcodeOutlined style={{ fontSize: token.fontSizeHeading2, color: token.colorTextQuaternary }} />
+          <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No label scan</Text>
+          <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>SO # was entered manually at submission</Text>
+        </div>
+      ) : (
+        <div style={{
+          flex: 1,
+          background: token.colorFillTertiary,
+          borderRadius: token.borderRadiusSM,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          minHeight: 160, padding: 10, overflow: 'hidden',
+        }}>
+          <Image
+            src={labelScanUri(order.jobNo, parts[0]?.configId ?? `${order.jobNo}.1`, parts[0]?.partNumber ?? '')}
+            alt={`Label scan for ${order.jobNo}`}
+            style={{ maxWidth: '100%', maxHeight: 280, objectFit: 'contain' }}
+          />
+        </div>
+      )}
       <Text style={{ fontSize: token.fontSizeSM, color: token.colorTextTertiary, lineHeight: 1.5 }}>
         Label scans are auto-captured when a tech submits the event. Verify part numbers and Config IDs against the label before approving.
       </Text>
@@ -573,36 +592,31 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
         <Text style={{ fontSize: token.fontSizeSM, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: token.colorTextTertiary, display: 'block', marginBottom: 6 }}>
           Photos
         </Text>
-        <div style={{
-          flex: 1,
-          minHeight: 140,
-          background: token.colorFillTertiary,
-          border: `1px dashed ${token.colorBorderSecondary}`,
-          borderRadius: token.borderRadiusSM,
-          display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center',
-          gap: 6, cursor: 'pointer', marginBottom: 8,
-        }} onClick={() => setExpandedPhoto(0)} role="button" tabIndex={0} aria-label="Expand photo"
-          onKeyDown={e => { if (e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); setExpandedPhoto(0); }}>
-          <PictureFilled style={{ fontSize: token.fontSizeHeading3, color: token.colorTextQuaternary }} />
-          <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No photos attached</Text>
-          <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Click to expand</Text>
-        </div>
-        <div style={{ display: 'flex', gap: 6 }}>
-          {[1, 2, 3].map(i => (
-            <div key={i} onClick={() => setExpandedPhoto(i)} role="button" tabIndex={0} aria-label={`Expand photo ${i}`}
-              onKeyDown={e => { if (e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); setExpandedPhoto(i); }} style={{
-              flex: 1, aspectRatio: '1',
-              background: token.colorFillTertiary,
-              border: `1px solid ${token.colorBorderSecondary}`,
-              borderRadius: token.borderRadiusSM,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer',
-            }}>
-              <PictureFilled style={{ fontSize: token.fontSize, color: token.colorTextQuaternary }} />
-            </div>
-          ))}
-        </div>
+        {eventPhotos.length === 0 ? (
+          <div style={{
+            flex: 1,
+            minHeight: 140,
+            background: token.colorFillTertiary,
+            borderRadius: token.borderRadiusSM,
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center', gap: 6,
+          }}>
+            <PictureFilled style={{ fontSize: token.fontSizeHeading3, color: token.colorTextQuaternary }} />
+            <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No photos attached</Text>
+          </div>
+        ) : (
+          <div style={{
+            flex: 1, minHeight: 140,
+            background: token.colorFillTertiary,
+            borderRadius: token.borderRadiusSM,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            overflow: 'hidden', padding: 8,
+          }}>
+            <Image.PreviewGroup items={eventPhotos}>
+              <Image src={eventPhotos[0]} alt="Event photo 1" height={200} style={{ maxWidth: '100%', objectFit: 'contain' }} />
+            </Image.PreviewGroup>
+          </div>
+        )}
       </div>
 
     </div>
@@ -1399,46 +1413,6 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
             />
           </>
         )}
-      </Modal>
-
-      {/* LABEL SCAN EXPAND MODAL */}
-      <Modal
-        open={expandedScan !== null}
-        onCancel={() => setExpandedScan(null)}
-        footer={null}
-        width={560}
-        title="Label Scan"
-        centered
-      >
-        <div style={{
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          height: '78vh', gap: 12,
-          background: token.colorFillTertiary,
-          borderRadius: token.borderRadiusSM,
-        }}>
-          <BarcodeOutlined style={{ fontSize: 48, color: token.colorTextQuaternary }} />
-          <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No scan attached</Text>
-        </div>
-      </Modal>
-
-      {/* PHOTO EXPAND MODAL */}
-      <Modal
-        open={expandedPhoto !== null}
-        onCancel={() => setExpandedPhoto(null)}
-        footer={null}
-        width={560}
-        title="Photo"
-        centered
-      >
-        <div style={{
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          height: '78vh', gap: 12,
-          background: token.colorFillTertiary,
-          borderRadius: token.borderRadiusSM,
-        }}>
-          <PictureFilled style={{ fontSize: 48, color: token.colorTextQuaternary }} />
-          <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>No photo attached</Text>
-        </div>
       </Modal>
 
       {/* ADD / EDIT PART MODAL */}

@@ -34,6 +34,7 @@ import { useInfoRequestThread, InfoRequestThreadPanel } from '@/components/InfoR
 import type { QualityEvent, EventStatus, ActivityLog } from '@/data/types';
 import { nowDate, nowStampIso, nowStampUs } from '@/lib/appTime';
 import { useThemeStore } from '@/store/themeStore';
+import { issuePhotoUri, seedPhotoCount } from '@/lib/demoMedia';
 const { Text, Paragraph } = Typography;
 
 const ROOT_CAUSE_OPTIONS = [
@@ -218,7 +219,12 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
   // to 10 with a visible N/10 counter; PDFs (cutsheets) ride the same picker
   // into their own list and do not count against the photo cap.
   const MAX_PHOTOS = 10;
-  const [uploadedPhotos, setUploadedPhotos] = useState<{ name: string; url: string; by: string }[]>([]);
+  const [uploadedPhotos, setUploadedPhotos] = useState<{ name: string; url: string; by: string }[]>(() =>
+    Array.from({ length: seedPhotoCount(event.id) }, (_, i) => ({
+      name: `IMG_${4200 + i}.jpg`,
+      url: issuePhotoUri(event.id, event.issue, i),
+      by: event.reportedBy,
+    })));
   const [selectedPhoto, setSelectedPhoto] = useState(0);
   const [cutsheets, setCutsheets] = useState<{ name: string; blobUrl: string }[]>([]);
   const handlePhotoFilesSelected = (e: ChangeEvent<HTMLInputElement>) => {
