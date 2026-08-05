@@ -7,7 +7,7 @@ import type { AdditionalInfoRequest } from '@/data/types';
 // The reporter side of a thread: the field tech (mobile app) or the branch's
 // Intake user (portal). Either one's reply satisfies an awaiting thread.
 export function isReporterSide(sentBy: AdditionalInfoRequest['sentBy']): boolean {
-  return sentBy === 'Tech' || sentBy === 'Intake';
+  return sentBy === 'Tech' || sentBy === 'Branch';
 }
 
 // The two conversation states of an info-request thread, both keyed off the

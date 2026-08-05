@@ -14,7 +14,7 @@ const { Text } = Typography;
 // name comes from the party's demo persona (office roles) or the event's
 // reporter (Tech). Avatars keep side-coded colors so the two sides of the
 // conversation stay scannable without role labels: office = gray steps,
-// reporter side (Tech, Intake) = gold family.
+// reporter side (Tech, Branch) = gold family.
 // All four fills carry white initials at AA (4.5:1+) in both themes:
 // #434343 10.4:1, #595959 7.0:1, #ad6800 4.4:1, #7A5200 6.9:1. The dark
 // theme's global colorTextLightSolid is near-black (gold-button labels), so
@@ -23,7 +23,7 @@ const SENDER_META: Record<NonNullable<AdditionalInfoRequest['sentBy']>, { avatar
   'Field Quality': { avatarBg: '#434343' },
   'Customer Service': { avatarBg: '#595959' },
   Tech: { avatarBg: '#ad6800' },
-  Intake: { avatarBg: '#7A5200' },
+  Branch: { avatarBg: '#7A5200' },
 };
 
 // Deterministic initials circle: antd Avatar centers its string child with an
@@ -121,7 +121,7 @@ export function InfoRequestThreadPanel({
   const { notification } = App.useApp();
 
   // Tech renders as the event's reporter; every other party renders as its
-  // demo persona (Intake may answer on a tech-reported event, so reportedBy
+  // demo persona (Branch may answer on a tech-reported event, so reportedBy
   // would be wrong there; office parties store no person on the message).
   const senderName = (sentBy: AdditionalInfoRequest['sentBy']) =>
     sentBy === 'Tech' ? reportedBy : capabilitiesFor(sentBy ?? 'Field Quality').displayName;

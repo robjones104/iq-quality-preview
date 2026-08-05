@@ -77,7 +77,7 @@ export function EventSummaryDrawer({
           sentAt: nowStampIso(),
           kind: 'reply',
           relatesTo: latestRoot.id,
-          sentBy: 'Intake',
+          sentBy: 'Branch',
         },
       ],
     });

@@ -163,7 +163,7 @@ export function IntakeFormClient() {
       id: `al_${Date.now()}`,
       eventId: id,
       date: nowStampIso(),
-      role: 'Intake',
+      role: 'Branch',
       employee: caps.displayName,
       status: 'Reported',
       comment: `Event reported via portal intake (${branch} Branch).`,
@@ -197,7 +197,7 @@ export function IntakeFormClient() {
         id: `al_${Date.now() + 1}`,
         eventId: id,
         date: nowStampIso(),
-        role: 'Intake',
+        role: 'Branch',
         employee: caps.displayName,
         status: 'Reported',
         comment: 'Parts request submitted. Order created for Customer Service review.',
@@ -236,7 +236,7 @@ export function IntakeFormClient() {
                 : 'Field Quality has been notified and will review the event.'
             }
             extra={[
-              <Button key="home" type="primary" onClick={() => router.push('/intake')}>
+              <Button key="home" type="primary" onClick={() => router.push('/dashboard')}>
                 Back to Intake
               </Button>,
               <Button key="another" onClick={resetAll}>
@@ -256,7 +256,7 @@ export function IntakeFormClient() {
       <PageHeader
         left={
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => router.push('/intake')} />
+            <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => router.push('/dashboard')} />
             <Text style={{ fontSize: token.fontSizeLG, fontWeight: 600, color: token.colorText }}>
               Report a Quality Event
             </Text>
@@ -579,7 +579,7 @@ export function IntakeFormClient() {
           </Card>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, paddingBottom: 24 }}>
-            <Button onClick={() => router.push('/intake')}>Cancel</Button>
+            <Button onClick={() => router.push('/dashboard')}>Cancel</Button>
             <Button type="primary" onClick={openReview}>Review & Submit</Button>
           </div>
         </Form>

@@ -54,7 +54,7 @@ export function SidebarNav() {
   // Nav items visible to the current role, in order. Intake's Home is its own
   // world (/intake); the role has no other operational surfaces.
   const visibleNav: { href: string; label: string }[] = [
-    ...(caps.intake ? [{ href: '/intake', label: 'Home' }] : []),
+    ...(caps.intake && !caps.dashboard ? [{ href: '/intake', label: 'Home' }] : []),
     // Home follows the landing only when it IS a dashboard (CS's orders
     // view); queue-landing roles keep Home = dashboard so the queue nav item
     // highlights alone on its page.

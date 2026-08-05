@@ -19,9 +19,8 @@ export const ROLES = [
   'Field Quality',
   'Customer Service',
   'Fulfillment',
-  'Intake',
   'Global (View-Only)',
-  'Branch (View-Only)',
+  'Branch',
 ] as const;
 
 export type Role = (typeof ROLES)[number];
@@ -86,13 +85,6 @@ const CAPS: Record<Role, RoleCapabilities> = {
     landing: '/fulfillment',
     displayName: 'Ptolemy R. Dunholm', email: 'ptolemy.dunholm@allegion.com',
   },
-  'Intake': {
-    dashboard: false, events: false, orders: false, escalations: false, fulfillmentQueue: false, categories: false, intake: true,
-    editEvents: false, decideOrders: false, closeOrders: false, manageLists: false,
-    branchScoped: true, assignedBranch: ASSIGNED_BRANCH,
-    landing: '/intake',
-    displayName: 'Beatrix L. Hollowell', email: 'beatrix.hollowell@allegion.com',
-  },
   'Global (View-Only)': {
     dashboard: true, events: true, orders: true, escalations: true, fulfillmentQueue: false, categories: false, intake: false,
     editEvents: false, decideOrders: false, closeOrders: false, manageLists: false,
@@ -100,8 +92,11 @@ const CAPS: Record<Role, RoleCapabilities> = {
     landing: '/dashboard',
     displayName: 'Marchmont R. Fenwick', email: 'marchmont.fenwick@allegion.com',
   },
-  'Branch (View-Only)': {
-    dashboard: true, events: true, orders: true, escalations: false, fulfillmentQueue: false, categories: false, intake: false,
+  // Branch absorbed the Intake role (Rob 2026-08-05): branch managers and
+  // install coordinators view their branch's data, report quality events, and
+  // answer the office's questions.
+  'Branch': {
+    dashboard: true, events: true, orders: true, escalations: false, fulfillmentQueue: false, categories: false, intake: true,
     editEvents: false, decideOrders: false, closeOrders: false, manageLists: false,
     branchScoped: true, assignedBranch: ASSIGNED_BRANCH,
     landing: '/dashboard',
@@ -121,7 +116,6 @@ export const ROLE_BLURB: Record<Role, string> = {
   'Field Quality': 'Validates, categorizes, and routes events',
   'Customer Service': 'Approves, declines, and closes orders',
   'Fulfillment': 'Sources parts and closes assigned orders',
-  'Intake': `Reports quality events, ${ASSIGNED_BRANCH} branch`,
   'Global (View-Only)': 'Read-only oversight, all branches',
-  'Branch (View-Only)': `Read-only, ${ASSIGNED_BRANCH} branch only`,
+  'Branch': `Reports and tracks quality events, ${ASSIGNED_BRANCH} branch`,
 };

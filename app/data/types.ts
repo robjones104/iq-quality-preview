@@ -38,7 +38,7 @@ export interface AdditionalInfoRequest {
   // Office side: Field Quality / Customer Service (absent = Field Quality).
   // Reporter side: Tech (mobile app) or Intake (branch office via the portal
   // intake surface, INTAKE-SPEC.md) — both satisfy an awaiting thread.
-  sentBy?: 'Field Quality' | 'Customer Service' | 'Tech' | 'Intake';
+  sentBy?: 'Field Quality' | 'Customer Service' | 'Tech' | 'Branch';
 }
 
 export interface QualityEvent {

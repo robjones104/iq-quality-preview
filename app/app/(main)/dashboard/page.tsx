@@ -3,7 +3,7 @@
 import React, { Fragment, Suspense, useCallback, useEffect, useRef, useMemo, useState } from 'react';
 import { AutoComplete, Button, Card, Col, Flex, Grid, Input, Row, Segmented, Statistic, Tag, Space, Tooltip, Typography, theme } from 'antd';
 import {
-  CloseOutlined, SearchOutlined, InfoCircleOutlined,
+  CloseOutlined, SearchOutlined, InfoCircleOutlined, PlusOutlined,
 } from '@ant-design/icons';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -24,6 +24,7 @@ import { AiSummary } from '@/components/AiSummary';
 import { EventsOverTimeChart, EventsByIssueChart, EventsDonutCard } from '@/components/FieldIntake';
 import { DataQualityChart, EventsUpdatedByFqCard } from '@/components/TriageReview';
 import { ResponseReceivedCard, ResponseReceivedPreview } from '@/components/EventMessages';
+import { BranchResponseQueue } from '@/components/BranchResponseQueue';
 import { DecisionTrendChart, DeclinedOrdersPreview, DeclinedCsvButton } from '@/components/OrderFulfillment';
 import { OrderResponseReceivedCard, OrderResponseReceivedPreview } from '@/components/OrderWork';
 import type { AdditionalInfoRequest, QualityEvent } from '@/data/types';
@@ -597,11 +598,18 @@ function DashboardPageContent() {
           </AutoComplete>
         }
         right={
-          <FilterPanel
-            categories={activeCategories}
-            applied={activeApplied}
-            onApply={setActiveApplied}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <FilterPanel
+              categories={activeCategories}
+              applied={activeApplied}
+              onApply={setActiveApplied}
+            />
+            {caps.intake && (
+              <Button type="primary" icon={<PlusOutlined />} onClick={() => router.push('/intake/new')}>
+                Report a Quality Event
+              </Button>
+            )}
+          </div>
         }
       />
 
@@ -757,7 +765,11 @@ function DashboardPageContent() {
                   human queue is answers waiting for review. */}
               <Row gutter={[token.marginSM, token.marginSM]} style={{ alignItems: 'stretch' }}>
                 <Col xs={24} style={{ display: 'flex', flexDirection: 'column' }}>
-                  <ResponseReceivedCard events={filteredEvents} viewAllHref={buildKpiHref('/events?flag=responded', dateRange, {})} />
+                  {caps.intake
+                    // Branch absorbed Intake (Rob 2026-08-05): their queue is
+                    // the office's open questions awaiting the branch's reply.
+                    ? <BranchResponseQueue />
+                    : <ResponseReceivedCard events={filteredEvents} viewAllHref={buildKpiHref('/events?flag=responded', dateRange, {})} />}
                 </Col>
               </Row>
 

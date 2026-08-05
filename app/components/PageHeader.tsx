@@ -86,7 +86,7 @@ export function PageHeader({ left, middle, center, right, pageTitle }: Props) {
   // Page links live in a real <nav> list (Menu's role="menu" is wrong
   // semantics for navigation); the Menu below keeps only action items.
   const navLinks = [
-    ...(caps.intake           ? [{ key: '/intake',             icon: <HomeFilled />,      href: '/intake',             label: 'Home' }] : []),
+    ...(caps.intake && !caps.dashboard ? [{ key: '/intake', icon: <HomeFilled />, href: '/intake', label: 'Home' }] : []),
     ...(caps.dashboard        ? [{ key: '/dashboard',          icon: <HomeFilled />,      href: caps.landing.startsWith('/dashboard') ? caps.landing : '/dashboard', label: 'Home' }] : []),
     ...(caps.events           ? [{ key: '/events',             icon: <CalendarFilled />,  href: navHref('/events'),    label: 'Events' }] : []),
     ...(caps.orders           ? [{ key: '/orders',             icon: <ShoppingFilled />,  href: navHref('/orders'),    label: 'Orders' }] : []),
