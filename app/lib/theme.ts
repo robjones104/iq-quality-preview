@@ -152,6 +152,16 @@ export const DARK_COMPONENT_TOKENS: ThemeConfig['components'] = {
   Button: {
     fontWeight: 600,
   },
+  // Teal = live interaction (Rob, 2026-08-04: "gold is the brand, teal is
+  // your cursor"). Focus rings and checked/selected states on every control
+  // speak teal in both themes; gold stays on buttons, tints, nav, attention.
+  Input:       { colorPrimary: '#319FC8', algorithm: true },
+  InputNumber: { colorPrimary: '#319FC8', algorithm: true },
+  Select:      { colorPrimary: '#319FC8', algorithm: true },
+  Checkbox:    { colorPrimary: '#319FC8', algorithm: true },
+  Radio:       { colorPrimary: '#319FC8', algorithm: true },
+  Switch:      { colorPrimary: '#319FC8', algorithm: true },
+  Pagination:  { colorPrimary: '#319FC8', algorithm: true },
   Tooltip: {
     colorBgSpotlight: '#EBEBEB',
   },
@@ -201,6 +211,16 @@ export const LIGHT_COMPONENT_TOKENS: ThemeConfig['components'] = {
     colorTextLightSolid: '#141414',
     algorithm: true,
   },
+  // Teal = live interaction (Rob, 2026-08-04): focus rings and checked states
+  // on every control. Light uses the AA-exact link teal so derived hover
+  // borders stay above the 3:1 non-text bar; buttons/nav/tints keep gold.
+  Input:       { colorPrimary: '#277FA0', algorithm: true },
+  InputNumber: { colorPrimary: '#277FA0', algorithm: true },
+  Select:      { colorPrimary: '#277FA0', algorithm: true },
+  Checkbox:    { colorPrimary: '#277FA0', algorithm: true },
+  Radio:       { colorPrimary: '#277FA0', algorithm: true },
+  Switch:      { colorPrimary: '#277FA0', algorithm: true },
+  Pagination:  { colorPrimary: '#277FA0', algorithm: true },
   // Primary buttons carry the brand gold in light mode too (Rob, 2026-08-03:
   // "brand the light theme better" — light chrome was all navy). Scoped to
   // Button only: gold as a GLOBAL colorPrimary would derive illegible gold
