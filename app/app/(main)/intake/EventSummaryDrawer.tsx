@@ -156,7 +156,7 @@ export function EventSummaryDrawer({
       )}
 
       <Divider titlePlacement="start" plain style={{ marginTop: 20, marginBottom: 12 }}>
-        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Additional Information Requests</Text>
+        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Additional Requests</Text>
       </Divider>
       {/* The panel stretches to its container (height: 100%); cap it so the
           reply box sits right under the messages instead of below a void. */}

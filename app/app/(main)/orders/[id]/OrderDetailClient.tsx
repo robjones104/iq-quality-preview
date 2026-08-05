@@ -1026,7 +1026,7 @@ export function OrderDetailClient({ order, event: eventProp }: Props) {
           {!isMobile && <Card
             size="small"
             tabList={[
-              { key: 'messages',     label: <span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Additional Information Requests</span> },
+              { key: 'messages',     label: <span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Additional Requests</span> },
               { key: 'eventDetails', label: <span style={{ fontSize: token.fontSizeSM, fontWeight: 500 }}>Event Details</span> },
             ]}
             activeTabKey={scanTab}
