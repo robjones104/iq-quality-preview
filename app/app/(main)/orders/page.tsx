@@ -219,10 +219,10 @@ function OrdersPageContent() {
 
   const handleExportOrders = () => {
     const toExport = selectedOrderKeys.length > 0 ? filtered.filter(o => selectedOrderKeys.includes(o.id)) : filtered;
-    const headers = ['Order ID', 'Job No.', 'Stage', 'Issue', 'Component', 'Door Type', 'Reported By', 'Branch', 'Plant', 'Last Updated'];
+    const headers = ['Order ID', 'Job No.', 'Branch', 'Issue', 'Component', 'Door', 'Reported By', 'Plant', 'Last Updated', 'Order Status'];
     const csvStage = (r: OrderRow): string =>
       isDeclined(r) ? 'Declined' : isApproved(r) ? (effectiveStatus(r) === 'Open' ? 'Approved' : 'Fulfilled') : 'Pending Decision';
-    const rows = toExport.map(o => [o.id, o.jobNo, csvStage(o), o.issue, o.component, o.door, o.reportedBy, o.branch, o.plant, o.lastUpdated]);
+    const rows = toExport.map(o => [o.id, o.jobNo, o.branch, o.issue, o.component, o.door, o.reportedBy, o.plant, o.lastUpdated, csvStage(o)]);
     const lines = [headers, ...rows].map(r => r.map(cell => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','));
     const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -343,6 +343,14 @@ function OrdersPageContent() {
       width: 130,
     },
     {
+      title: 'Job No.',
+      dataIndex: 'jobNo',
+      key: 'jobNo',
+      sorter: (a, b) => a.jobNo.localeCompare(b.jobNo),
+      width: 148,
+      render: (jobNo: string, record) => <JobNoValue jobNo={jobNo} manualEntry={record.jobNoManualEntry} />,
+    },
+    {
       title: 'Branch',
       dataIndex: 'branch',
       key: 'branch',
@@ -352,14 +360,6 @@ function OrdersPageContent() {
       filterSearch: true,
       ellipsis: { showTitle: true },
       width: 138,
-    },
-    {
-      title: 'Job No.',
-      dataIndex: 'jobNo',
-      key: 'jobNo',
-      sorter: (a, b) => a.jobNo.localeCompare(b.jobNo),
-      width: 148,
-      render: (jobNo: string, record) => <JobNoValue jobNo={jobNo} manualEntry={record.jobNoManualEntry} />,
     },
     {
       title: 'Issue',
@@ -382,7 +382,7 @@ function OrdersPageContent() {
       width: 140,
     },
     {
-      title: 'Door Type',
+      title: 'Door',
       dataIndex: 'door',
       key: 'door',
       sorter: (a, b) => a.door.localeCompare(b.door),
