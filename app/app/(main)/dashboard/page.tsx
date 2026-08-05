@@ -65,7 +65,7 @@ function matchesOrderFilters(
   const matchActivity   = !applied.activity?.length   || applied.activity.some(a => {
     if (o.orderStatus !== 'Open') return false;
     const thread = threadOf?.(o.eventId);
-    return a === 'Request Pending'
+    return a === 'Additional Requests'
       ? partyAwaiting(thread, 'Customer Service')
       : partyResponded(thread, 'Customer Service');
   });

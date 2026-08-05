@@ -173,6 +173,14 @@ function EventsPageContent() {
       const isOpen = e.status === 'Reported' || e.status === 'Under Investigation';
       if (containerView === 'open' ? !isOpen : isOpen) return false;
     }
+    if (appliedFilters.activity?.length) {
+      const active = e.status === 'Reported' || e.status === 'Under Investigation';
+      const hit = appliedFilters.activity.some(a =>
+        active && (a === 'Additional Requests'
+          ? partyAwaiting(e.additionalInfoRequests, 'Field Quality')
+          : partyResponded(e.additionalInfoRequests, 'Field Quality')));
+      if (!hit) return false;
+    }
     if (dateRange) {
       const d = dayjs(e.date);
       if (d.isBefore(dateRange[0], 'day') || d.isAfter(dateRange[1], 'day')) return false;

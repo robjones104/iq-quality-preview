@@ -217,11 +217,12 @@ export const ORDER_FILTER_CATEGORIES: FilterCategory[] = [
   // derivable), plus the two independent working facts.
   { key: 'stage',      label: 'Order Status', options: ['Pending Decision', 'Approved', 'Fulfilled', 'Declined'] },
   { key: 'assignment', label: 'Assignment', options: ['With Customer Service', 'With Fulfillment'] },
-  { key: 'activity',   label: 'Activity',   options: ['Request Pending', 'Response Received'] },
+  { key: 'activity',   label: 'Activity',   options: ['Additional Requests', 'Needs Your Response'] },
 ];
 
 export const EVENT_FILTER_CATEGORIES: FilterCategory[] = [
   { key: 'status',      label: 'Event Status', options: STATUS_OPTIONS },
+  { key: 'activity',    label: 'Activity',     options: ['Additional Requests', 'Needs Your Response'] },
   { key: 'issue',       label: 'Issue',         options: ISSUE_OPTIONS },
   { key: 'door',        label: 'Door',          options: DOOR_OPTIONS },
   { key: 'component',   label: 'Component',     options: COMPONENT_OPTIONS },

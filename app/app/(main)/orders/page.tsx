@@ -314,7 +314,7 @@ function OrdersPageContent() {
     const matchActivity   = !appliedFiltersLocal.activity?.length   || appliedFiltersLocal.activity.some(a => {
       if (effectiveStatus(o) !== 'Open') return false;
       const thread = eventMap.get(o.eventId)?.additionalInfoRequests;
-      return a === 'Request Pending'
+      return a === 'Additional Requests'
         ? partyAwaiting(thread, 'Customer Service')
         : partyResponded(thread, 'Customer Service');
     });

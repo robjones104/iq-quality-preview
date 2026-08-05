@@ -135,6 +135,9 @@ export default function FulfillmentPage() {
       key: 'orderStatus',
       fixed: 'right',
       width: 150,
+      sorter: (a, b) => effectiveStatus(a).localeCompare(effectiveStatus(b)),
+      filters: [{ text: 'Approved', value: 'Open' }, { text: 'Fulfilled', value: 'Closed' }],
+      onFilter: (v, record) => effectiveStatus(record) === v,
       // Everything in this queue is an assigned approved order until closed.
       render: (_, record) => (
         <OrderStageTag
