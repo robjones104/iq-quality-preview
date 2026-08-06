@@ -278,7 +278,7 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
             flex: 1,
             minHeight: minEmptyHeight,
             background: token.colorFillTertiary,
-            border: `1px dashed ${token.colorBorderSecondary}`,
+            border: `2px dashed ${token.colorBorderSecondary}`,
             borderRadius: token.borderRadiusSM,
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6,
             cursor: canAugment ? 'pointer' : 'default',

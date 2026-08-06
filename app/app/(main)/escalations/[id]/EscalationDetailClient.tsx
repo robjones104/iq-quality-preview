@@ -365,12 +365,24 @@ export function EscalationDetailClient({ escalation: escalationProp, escalationI
 
   const detailsTab = (
     <div style={{ padding: '12px 0' }}>
-      {/* Title lives in the card during creation; once created it moves to the
-          page-heading bar above the cards. */}
-      {isNew && (() => {
+      {/* Type and Title are form fields whenever the form is editable (Rob
+          2026-08-05): selection is not hidden in the right-hand info card. */}
+      {(isNew || editing) && (() => {
         const titleMeta = escalationTitleMeta(type);
         return (
           <>
+            <div style={{ marginBottom: 16 }}>
+              <SectionLabel token={token}>Escalation Type</SectionLabel>
+              <Select<EscalationType>
+                value={type}
+                onChange={setType}
+                size="small"
+                style={{ width: '100%' }}
+                placeholder="Select escalation type"
+                aria-label="Escalation Type"
+                options={managedTypes.map(t => ({ value: t.name, label: t.name }))}
+              />
+            </div>
             <div style={{ marginBottom: 16 }}>
               <SectionLabel token={token}>{titleMeta.label}</SectionLabel>
               <Input
@@ -621,17 +633,7 @@ export function EscalationDetailClient({ escalation: escalationProp, escalationI
       styles={{ body: { padding: '12px 16px' } }}
     >
       <DisplayField label="Type" token={token}>
-        {editing ? (
-          <Select<EscalationType>
-            value={type}
-            onChange={setType}
-            size="small"
-            style={{ width: '100%' }}
-            options={managedTypes.map(t => ({ value: t.name, label: t.name }))}
-          />
-        ) : (
-          <Text style={{ fontSize: token.fontSizeSM }}>{type}</Text>
-        )}
+        <Text style={{ fontSize: token.fontSizeSM }}>{type}</Text>
       </DisplayField>
 
       <DisplayField label="Status" token={token}>
@@ -777,19 +779,9 @@ export function EscalationDetailClient({ escalation: escalationProp, escalationI
             sits inside the details card above Reported Issue. */}
         {!isNew && (
           <div style={{ marginBottom: 12 }}>
-            {editing ? (
-              <Input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                size="small"
-                style={{ fontSize: token.fontSizeLG, fontWeight: 600 }}
-                placeholder="Escalation title..."
-              />
-            ) : (
-              <Text style={{ fontSize: token.fontSizeLG, fontWeight: 600, color: token.colorText }}>
-                {title}
-              </Text>
-            )}
+            <Text style={{ fontSize: token.fontSizeLG, fontWeight: 600, color: token.colorText }}>
+              {title}
+            </Text>
           </div>
         )}
 

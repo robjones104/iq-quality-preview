@@ -216,7 +216,7 @@ return (
                 borderRadius: token.borderRadius,
                 padding: expanded ? '6px 10px' : 0,
                 cursor: 'pointer',
-                border: `1px dashed ${token.colorBorderSecondary}`,
+                border: `2px dashed ${token.colorBorderSecondary}`,
               }}
             >
               <UserSwitchOutlined style={{ fontSize: token.fontSizeXL, flexShrink: 0, color: token.colorPrimary }} />

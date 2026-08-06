@@ -110,8 +110,10 @@ main {
    2026-08-05). */
 .ant-upload-wrapper .ant-upload-drag {
   margin-top: 6px;
-  /* Chrome drops single edges of 1px dashed borders on 1x displays when the
-     element width is fractional (radius + dash painting bug); 2px paints
-     reliably everywhere. */
-  border-width: 2px;
+  /* The dragger's box lands on fractional pixel positions (measured
+     y=184.40625): a 1px border there rasterizes at ~50% coverage on 1x
+     displays and reads as a missing edge. 2px stays visible at any
+     coverage. antd's hashed-class selector outranks a plain rule, hence
+     the important. */
+  border-width: 2px !important;
 }
