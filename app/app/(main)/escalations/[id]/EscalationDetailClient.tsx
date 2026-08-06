@@ -758,7 +758,6 @@ export function EscalationDetailClient({ escalation: escalationProp, escalationI
           <CopyableValue value={id} />
           {status && (
             <Tag
-              color={status === 'Closed' ? 'green' : 'blue'}
               style={{ fontSize: token.fontSizeSM, marginLeft: 4, marginRight: 0 }}
             >
               {status}
