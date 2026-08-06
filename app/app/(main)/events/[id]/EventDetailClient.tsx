@@ -10,6 +10,7 @@ import { orders as allOrders } from '@/data/orders';
 import type { Order } from '@/data/orders';
 import {
   Button, Card, Col, Divider, Drawer, Dropdown, Form, Grid, Input, InputNumber, message, Modal, Radio, Row, Segmented, Select, Space, Switch, Table, Tooltip, Typography, Upload, theme, Image,
+Empty,
 } from 'antd';
 import {
   ArrowLeftOutlined, ArrowRightOutlined, CheckCircleFilled, CheckOutlined, CloseCircleFilled, CloseOutlined, DeleteOutlined, EditFilled, ExclamationCircleFilled,
@@ -1475,6 +1476,22 @@ export default function EventDetailClient({ event, orderId }: { event: QualityEv
                     })()}
                   </Modal>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {!canAugment && attachments.length === 0 && (
+                      <Empty
+                        image={Empty.PRESENTED_IMAGE_SIMPLE}
+                        style={{ margin: '24px 0' }}
+                        description={
+                          <span>
+                            <span style={{ display: 'block' }}>No attachments on this event.</span>
+                            <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+                              {roleCanEdit
+                                ? 'Attachments can no longer be added to a closed event.'
+                                : 'Your role can view attachments but not add them.'}
+                            </Text>
+                          </span>
+                        }
+                      />
+                    )}
                     {canAugment && (
                       <Upload.Dragger
                         multiple

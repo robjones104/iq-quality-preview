@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useEventStore } from '@/store/eventStore';
 import { mergeEvent } from '@/lib/effectiveEvents';
 import { useRouter } from 'next/navigation';
-import {
+import { 
   Button,
   Card,
     Divider,
@@ -17,6 +17,7 @@ import {
   Upload,
   notification,
   theme,
+  Empty,
 } from 'antd';
 import {
   PlusOutlined,
@@ -341,9 +342,22 @@ export function EscalationDetailClient({ escalation: escalationProp, escalationI
             ))}
           </div>
         ) : !editing && (
-          <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
-            No attachments.
-          </Text>
+          <Empty
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+            style={{ margin: '24px 0' }}
+            description={
+              <span>
+                <span style={{ display: 'block' }}>No attachments on this escalation.</span>
+                <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+                  {status === 'Closed'
+                    ? 'Attachments can no longer be added to a closed escalation.'
+                    : caps.editEvents
+                      ? 'Use Edit to add files.'
+                      : 'Your role can view attachments but not add them.'}
+                </Text>
+              </span>
+            }
+          />
         )}
       </div>
     </div>
@@ -575,7 +589,7 @@ export function EscalationDetailClient({ escalation: escalationProp, escalationI
   const leftCard = (
     <Card
       style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}
-      styles={{ body: { padding: '0 16px', overflow: 'auto' } }}
+      styles={{ body: { padding: '12px 16px', overflow: 'auto' } }}
       tabList={[
         { key: 'details', tab: 'Details' },
         { key: 'linked-events', tab: `Linked Events (${linkedEventIds.length})` },
@@ -621,7 +635,7 @@ export function EscalationDetailClient({ escalation: escalationProp, escalationI
       </DisplayField>
 
       <DisplayField label="Status" token={token}>
-        <Tag color={status === 'Closed' ? 'green' : 'blue'} style={{ fontSize: token.fontSizeSM }}>
+        <Tag style={{ fontSize: token.fontSizeSM }}>
           {status}
         </Tag>
       </DisplayField>
