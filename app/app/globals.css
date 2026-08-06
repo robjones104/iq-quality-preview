@@ -110,4 +110,8 @@ main {
    2026-08-05). */
 .ant-upload-wrapper .ant-upload-drag {
   margin-top: 6px;
+  /* Chrome drops single edges of 1px dashed borders on 1x displays when the
+     element width is fractional (radius + dash painting bug); 2px paints
+     reliably everywhere. */
+  border-width: 2px;
 }
