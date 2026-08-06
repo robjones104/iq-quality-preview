@@ -104,7 +104,10 @@ main {
 }
 
 /* Upload draggers sit flush against overflow containers on the detail
-   screens, clipping the top dashed border and hover ring. */
+   screens; at 1x pixel density a 1px dashed border on a fractional layout
+   boundary can round away entirely. 6px of real clearance survives any
+   display's rounding (verified issue on non-Retina monitors, Rob
+   2026-08-05). */
 .ant-upload-wrapper .ant-upload-drag {
-  margin-top: 2px;
+  margin-top: 6px;
 }
